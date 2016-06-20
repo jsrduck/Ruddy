@@ -54,6 +54,8 @@ namespace Ast
 
 			virtual bool IsClassMemberBinding() { return false; }
 
+			virtual bool IsLoopBinding() { return false; }
+
 			virtual std::shared_ptr<TypeInfo> GetTypeInfo() = 0;
 
 			std::string& GetName() { return _name; }
@@ -76,12 +78,15 @@ namespace Ast
 		void BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration);
 		void BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
 		void BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable);
+		void BindLoop();
 
 		std::shared_ptr<SymbolBinding> Lookup(const std::string& symbolName);
 
 		std::shared_ptr<SymbolBinding> GetCurrentFunction();
 
 		std::shared_ptr<SymbolBinding> GetCurrentClass();
+
+		std::shared_ptr<SymbolBinding> GetCurrentLoop();
 
 		/* Declare new scope. Caller must call exit after leaving scope. */
 		void Enter();
@@ -165,11 +170,21 @@ namespace Ast
 			std::unordered_map<std::string, std::shared_ptr<MemberBinding>> _members;
 		};
 
+		class LoopBinding : public SymbolBinding
+		{
+		public:
+			LoopBinding();
+
+			bool IsLoopBinding() override { return true; }
+			std::shared_ptr<TypeInfo> GetTypeInfo() override { throw UnexpectedException(); }
+		};
+
 		std::unordered_map<std::string, std::shared_ptr<SymbolBinding>> _map;
 		std::stack<std::shared_ptr<SymbolBinding>> _aux_stack;
 		std::stack<std::shared_ptr<NamespaceBinding>> _currentNamespace;
 		std::stack<std::shared_ptr<ClassBinding>> _currentClass;
 		std::stack<std::shared_ptr<FunctionBinding>> _currentFunction;
+		std::stack<std::shared_ptr<LoopBinding>> _currentLoop;
 		std::vector<std::shared_ptr<SymbolBinding>> _currentAddressableNamespaces; // Anything addressable, ie, classes and namespaces
 	};
 }

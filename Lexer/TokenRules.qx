@@ -56,7 +56,7 @@ mode PRIMITIVE_TYPES :
 	"char"                 => TKN_TYPE_CHAR;
 	"byte"                 => TKN_TYPE_BYTE;
 	"bool"                 => TKN_TYPE_BOOL;
-	"string"               => TKN_TYPE_STRING;
+	"String"               => TKN_TYPE_STRING;
 }
 
 mode OPERATORS :
@@ -127,6 +127,7 @@ mode PROGRAM :
 	"private"              => TKN_PRIVATE;
 	"protected"            => TKN_PROTECTED;
 	"static"               => TKN_STATIC;
+	"print"                => TKN_PRINT;
 	{IDENTIFIER}           => TKN_IDENTIFIER(Lexeme);
 	{STRING_DELIMITER}     => GOTO(STRING_READER);
 }

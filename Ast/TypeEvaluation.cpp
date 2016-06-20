@@ -65,6 +65,11 @@ namespace Ast {
 		return functionTypeInfo->OutputArgsType();
 	}
 
+	std::shared_ptr<TypeInfo> DebugPrintStatement::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
+	{
+		return nullptr;
+	}
+
 	void LineStatements::TypeCheck(std::shared_ptr<SymbolTable> symbolTable)
 	{
 		_statement->TypeCheck(symbolTable);
@@ -92,7 +97,9 @@ namespace Ast {
 
 	void WhileStatement::TypeCheck(std::shared_ptr<SymbolTable> symbolTable)
 	{
+		// TODO: More static analysis. Infinite loops? Unreachable code?
 		symbolTable->Enter();
+		symbolTable->BindLoop();
 		auto conditionType = _condition->Evaluate(symbolTable);
 		if (!BoolTypeInfo::Get()->IsImplicitlyAssignableFrom(conditionType, symbolTable))
 		{
@@ -100,6 +107,14 @@ namespace Ast {
 		}
 		_statement->TypeCheck(symbolTable);
 		symbolTable->Exit();
+	}
+
+	void BreakStatement::TypeCheck(std::shared_ptr<SymbolTable> symbolTable)
+	{
+		if (symbolTable->GetCurrentLoop() == nullptr)
+		{
+			throw BreakInWrongPlaceException();
+		}
 	}
 
 	std::shared_ptr<TypeInfo> AssignFromReference::Resolve(std::shared_ptr<SymbolTable> symbolTable)

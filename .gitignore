@@ -214,3 +214,10 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+Grammar/Grammar.tab.c
+Lexer/GeneratedLexer
+Lexer/GeneratedLexer-token_ids
+Lexer/GeneratedLexer.cpp
+Lexer/GeneratedLexer-token
+Grammar/Grammar.tab.h
+Lexer/GeneratedLexer-configuration

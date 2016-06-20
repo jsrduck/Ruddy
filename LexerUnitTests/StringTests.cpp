@@ -68,7 +68,7 @@ namespace LexerUnitTests
 		TEST_METHOD(StringDeclaration)
 		{
 			vector<quex::Token> tokens;
-			Analyze("string s = \"Hello\\0\";", tokens);
+			Analyze("String s = \"Hello\\0\";", tokens);
 			AssertAreEqualTokenTypes({ TKN_TYPE_STRING, TKN_IDENTIFIER, TKN_OPERATOR_ASSIGN_TO, TKN_CONSTANT_STRING, TKN_SEMICOLON }, tokens);
 		}
 

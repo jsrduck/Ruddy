@@ -174,4 +174,17 @@ namespace Ast
 		std::shared_ptr<Reference> _id;
 		std::shared_ptr<Expression> _expression;
 	};
+
+	class DebugPrintStatement : public Expression
+	{
+	public:
+		DebugPrintStatement(Expression* expression) :
+			_expression(expression)
+		{
+		}
+
+		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		std::shared_ptr<Expression> _expression;
+	};
 }

@@ -116,6 +116,19 @@ namespace Ast
 		std::shared_ptr<LineStatement> _statement;
 	};
 
+	class BreakStatement : public LineStatement
+	{
+	public:
+		BreakStatement() { }
+
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual std::string ToString() override
+		{
+			return "BreakStatement";
+		}
+	};
+
 	class AssignFromSingle
 	{
 	public:

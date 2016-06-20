@@ -89,6 +89,13 @@ namespace Ast
 		_aux_stack.push(binding);
 	}
 
+	void SymbolTable::BindLoop()
+	{
+		auto binding = std::make_shared<LoopBinding>();
+		_aux_stack.push(binding);
+		_currentLoop.push(binding);
+	}
+
 	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::Lookup(const std::string& symbolName)
 	{
 		// If this is a reference (ie, separated by period(s)), recursively lookup each prefix
@@ -176,12 +183,23 @@ namespace Ast
 
 	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::GetCurrentFunction()
 	{
+		if (_currentFunction.size() == 0)
+			return nullptr;
 		return _currentFunction.top();
 	}
 
 	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::GetCurrentClass()
 	{
+		if (_currentClass.size() == 0)
+			return nullptr;
 		return _currentClass.top();
+	}
+
+	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::GetCurrentLoop()
+	{
+		if (_currentLoop.size() == 0)
+			return nullptr;
+		return _currentLoop.top();
 	}
 
 	void SymbolTable::Enter()
@@ -194,9 +212,10 @@ namespace Ast
 		std::shared_ptr<SymbolBinding> binding;
 		do
 		{
+			if (_aux_stack.size() == 0)
+				throw UnexpectedException();
 			binding = _aux_stack.top();
 			_aux_stack.pop();
-			std::shared_ptr<TypeInfo> shadowed;
 			if (binding->IsVariableBinding())
 			{
 				_map.erase(binding->GetFullyQualifiedName());
@@ -214,6 +233,10 @@ namespace Ast
 			else if (binding->IsFunctionBinding())
 			{
 				_currentFunction.pop();
+			}
+			else if (binding->IsLoopBinding())
+			{
+				_currentLoop.pop();
 			}
 		} while (!binding->IsScopeMarker());
 	}
@@ -275,5 +298,9 @@ namespace Ast
 	std::shared_ptr<TypeInfo> SymbolTable::MemberBinding::GetTypeInfo()
 	{
 		return _typeInfo;
+	}
+
+	SymbolTable::LoopBinding::LoopBinding() : SymbolBinding("", "", Visibility::PUBLIC)
+	{
 	}
 }

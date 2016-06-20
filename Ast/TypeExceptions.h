@@ -157,4 +157,13 @@ namespace Ast {
 	private:
 		std::string _symbolName;
 	};
+
+	class BreakInWrongPlaceException : public std::exception
+	{
+	public:
+		const char* what() const override
+		{
+			return "break must be declared inside loop scope";
+		}
+	};
 }

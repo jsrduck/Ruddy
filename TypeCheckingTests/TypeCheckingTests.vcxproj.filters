@@ -32,5 +32,11 @@
     <ClCompile Include="ClassTypesTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="StringTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LoopTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

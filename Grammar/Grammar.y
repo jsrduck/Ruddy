@@ -101,6 +101,7 @@ using namespace Ast;
 %type <ln_stmts_node> line_statements;
 %type <ln_stmt_node> if_statement;
 %type <ln_stmt_node> while_statement;
+%type <ln_stmt_node> break_statement;
 %type <assign_from_node> assign_from;
 %type <assign_single_node> assign_from_single;
 %type <ln_stmt_node> assignment;
@@ -114,6 +115,7 @@ using namespace Ast;
 %type <expr> logical_expression;
 %type <expr> new_expression;
 %type <expr> function_call;
+%type <expr> print_statement;
 %type <prim_node> number_literal;
 %type <prim_node> bool_literal;
 %type <prim_node> char_literal;
@@ -144,6 +146,9 @@ using namespace Ast;
 %token TKN_CONSTANT_BOOL_FALSE
 %token TKN_CONSTANT_STRING
 %token TKN_CONSTANT_CHAR
+
+/* This should eventually be removed. This is just for debugging at this piont*/
+%token TKN_PRINT
 
 /* Operators */
 %token TKN_ARITHMETIC_OPERATOR_INCREMENT;
@@ -459,6 +464,12 @@ while_statement :
 		$$ = new WhileStatement($3, $5);
 	  };
 
+break_statement :
+	  TKN_BREAK TKN_SEMICOLON
+	  {
+		$$ = new BreakStatement();
+	  }
+
 assign_from:
 	  assign_from_single TKN_COMMA assign_from
 	  {
@@ -513,6 +524,7 @@ line_statement:
 	  assignment
 	| if_statement
 	| while_statement
+	| break_statement
 	| scoped_statement_list
 	| valid_expression_as_statement
 	| return_statement;
@@ -582,6 +594,10 @@ valid_expression_as_statement:
 	  {
 		$$ = new ExpressionAsStatement($1);
 	  }
+	| print_statement TKN_SEMICOLON
+	  {
+		$$ = new ExpressionAsStatement($1);
+	  }
 	| function_call TKN_SEMICOLON
 	  {
 		$$ = new ExpressionAsStatement($1);
@@ -632,6 +648,12 @@ new_expression:
 	  {
 		$$ = new NewExpression($2, $4);
 	  };
+
+print_statement:
+	  TKN_PRINT TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
+	  {
+		$$ = new DebugPrintStatement($3);
+	  }
 
 function_call:
 	  reference TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
@@ -714,4 +736,5 @@ expression:
 	| literal
 	| reference 
 	| new_expression
-	| function_call;
+	| function_call
+	| print_statement;

@@ -31,190 +31,31 @@ namespace Ast
 	};
 
 	// TODO: String should be defined as a class IN Ruddy code, but the compiler needs to be smart enough 
-	// to allow assigning string constants to strings. Same with arrays.
+	// to allow assigning string constants to strings. Same with arrays. For now, we're treating them as 
+	// primitives to make debugging code generation easier
 
 	DECLARE_PRIMITIVE_TYPE_INFO(StringTypeInfo)
 
 	DECLARE_PRIMITIVE_TYPE_INFO(Int32TypeInfo)
 
-	//class Int32Constant : public PrimitiveExpression
-	//{
-	//public:
-	//	Int32Constant(int32_t value) : _value(value) {}
-	//	int32_t Value() { return _value; }
-	//private:
-	//	int32_t _value;
-	//	DECLARE_TYPE_INFO()
-	//};
-
 	DECLARE_PRIMITIVE_TYPE_INFO(Int64TypeInfo)
-
-	//class Int64Constant : public PrimitiveExpression
-	//{
-	//public:
-	//	Int64Constant(int64_t value) : _value(value) {}
-	//	int64_t Value() { return _value; }
-	//private:
-	//	int64_t _value;
-	//	DECLARE_TYPE_INFO()
-	//};
-
 
 	DECLARE_PRIMITIVE_TYPE_INFO(UInt32TypeInfo)
 
-	//class UInt32Constant : public PrimitiveExpression
-	//{
-	//public:
-	//	UInt32Constant(uint32_t value) : _value(value) {}
-	//	uint32_t Value() { return _value; }
-	//private:
-	//	uint32_t _value;
-	//	DECLARE_TYPE_INFO()
-	//};
-
 	DECLARE_PRIMITIVE_TYPE_INFO(UInt64TypeInfo)
-
-	//class UInt64Constant : public PrimitiveExpression
-	//{
-	//public:
-	//	UInt64Constant(uint64_t value) : _value(value) {}
-	//	uint64_t Value() { return _value; }
-	//private:
-	//	uint64_t _value;
-	//	DECLARE_TYPE_INFO()
-	//};
 
 	DECLARE_PRIMITIVE_TYPE_INFO(Float32TypeInfo)
 
-	//class Float32Constant : public PrimitiveExpression
-	//{
-	//public:
-	//	Float32Constant(float value) : _value(value) {}
-	//	float Value() { return _value; }
-	//private:
-	//	float _value;
-	//	DECLARE_TYPE_INFO()
-	//};
-
 	DECLARE_PRIMITIVE_TYPE_INFO(Float64TypeInfo)
-
-	//class Float64Constant : public PrimitiveExpression
-	//{
-	//public:
-	//	Float64Constant(double value) : _value(value) {}
-	//	double Value() { return _value; }
-	//private:
-	//	double _value;
-	//	DECLARE_TYPE_INFO()
-	//};
 
 	DECLARE_PRIMITIVE_TYPE_INFO(CharByteTypeInfo)
 
-	//class CharByteConstant : public PrimitiveExpression
-	//{
-	//public:
-	//	CharByteConstant(char value) : _value(value) {}
-	//	char Value() { return _value; }
-	//private:
-	//	char _value;
-	//	DECLARE_TYPE_INFO()
-	//};
-
 	DECLARE_PRIMITIVE_TYPE_INFO(CharTypeInfo)
-
-	//class CharConstant : public PrimitiveExpression
-	//{
-	//public:
-	//	CharConstant(uint16_t value) : _value(value) {}
-	//	uint16_t Value() { return _value; }
-	//private:
-	//	uint16_t _value;
-	//	DECLARE_TYPE_INFO()
-	//};
 
 	DECLARE_PRIMITIVE_TYPE_INFO(BoolTypeInfo)
 
-	//class BoolConstant : public PrimitiveExpression
-	//{
-	//public:
-	//	BoolConstant(bool value) : _value(value) {}
-	//	bool Value() { return _value; }
-	//private:
-	//	bool _value;
-	//	DECLARE_TYPE_INFO()
-	//};
-
 	DECLARE_PRIMITIVE_TYPE_INFO(ByteTypeInfo)
 
-	//class ByteConstant : public PrimitiveExpression
-	//{
-	//public:
-	//	ByteConstant(uint8_t value) : _value(value) {}
-	//	uint8_t Value() { return _value; }
-	//private:
-	//	uint8_t _value;
-	//	DECLARE_TYPE_INFO()
-	//};
-
-	//class UnresolvedPrimitive : public PrimitiveExpression, public std::enable_shared_from_this<UnresolvedPrimitive>
-	//{
-	//public:
-	//	enum class PrimitiveType
-	//	{
-	//		integer,
-	//		floating
-	//	};
-
-	//	UnresolvedPrimitive(const std::string& input, PrimitiveType type, bool negate = false)
-	//	{
-	//		_typeInfo = std::make_shared<CTypeInfo>(input, type, negate);
-	//	}
-
-	//	class CTypeInfo : public TypeInfo
-	//	{
-	//	public:
-	//		CTypeInfo(const std::string& input, PrimitiveType type, bool negate = false) :
-	//			_input(input), _type(type), _negate(negate)
-	//		{
-	//		}
-	//		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override { return false; }
-	//		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override 
-	//		{ 
-	//			throw UnexpectedException(); 
-	//		}
-	//		virtual const std::string& Name() override { return _name; }
-
-	//		// Operator logic
-
-	//		virtual bool SupportsOperator(Operation* operation) override
-	//		{
-	//			return true;
-	//		}
-
-	//		std::shared_ptr<Primitive> GetAsPrimitive(const type_info& primitiveType);
-
-	//	private:
-	//		const std::string _name = "Primitive";
-	//		const std::string _input;
-	//		const PrimitiveType _type;
-	//		const bool _negate;
-	//	};
-
-	//	virtual std::shared_ptr<TypeInfo> Type() override
-	//	{
-	//		return _typeInfo;
-	//	}
-
-	//	virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable)
-	//	{
-	//		return Type();
-	//	}
-
-	//	std::shared_ptr<Primitive> GetAsPrimitive(const type_info& primitiveType) { return _typeInfo->GetAsPrimitive(primitiveType); }
-
-	//private:
-	//	std::shared_ptr<CTypeInfo> _typeInfo;
-	//};
 	// An expression that recognizes a static constant, ie the zero in int i = 0;
 	class ConstantExpression : public Expression
 	{
@@ -592,6 +433,7 @@ namespace Ast
 
 	class StringConstantType : public TypeInfo
 	{
+	public:
 		bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return false;
@@ -634,6 +476,5 @@ namespace Ast
 	private:
 		std::string _input;
 		static std::shared_ptr<StringConstantType> _typeInfo;
-		/*DECLARE_TYPE_INFO()*/
 	};
 }
