@@ -1,0 +1,151 @@
+#pragma once
+
+
+namespace Ast {
+
+#define DECLARE_PRIMITIVE_TYPE_INFO(CLASS_NAME) \
+	class CLASS_NAME : public PrimitiveTypeInfo \
+	{ \
+	public: \
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override { return true; } \
+		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override; \
+		virtual const std::string& Name() override; \
+		virtual bool SupportsOperator(Operation* operation) override; \
+		static std::shared_ptr<TypeInfo> Get() { return _staticInstance; }; \
+	private: \
+		static const std::string _name; \
+		static int _supportedOperations; \
+		static std::shared_ptr<CLASS_NAME> _staticInstance; \
+	};
+
+#define IMPL_PRIMITIVE_ALL_OPERATORS(CLASS_NAME) \
+	int CLASS_NAME::_supportedOperations = 0xFFFFFFFF;
+
+#define IMPL_PRIMITIVE_NON_BITWISE_OPERATORS(CLASS_NAME) \
+	int CLASS_NAME::_supportedOperations = 0xFFFFFFFF & ~BitwiseAndOperation::Id & ~BitwiseOrOperation::Id \
+		& ~BitwiseXorOperation::Id & ~BitwiseShiftLeftOperation::Id & ~BitwiseShiftRightOperation::Id & ~ComplementOperation::Id;
+
+#define IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME, TYPE_NAME) \
+	const std::string CLASS_NAME::_name = std::string(TYPE_NAME); \
+	const std::string& CLASS_NAME::Name() { return _name; } \
+	std::shared_ptr<CLASS_NAME> CLASS_NAME::_staticInstance = std::make_shared<CLASS_NAME>(); \
+	bool CLASS_NAME::SupportsOperator(Operation* operation) \
+	{ \
+		return (operation->OperatorId() & _supportedOperations) != 0; \
+	} \
+
+#define IMPL_PRIMITIVE_TYPE_INFO(CLASS_NAME,TYPE_NAME) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO1(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO2(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO3(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO4(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO5(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO6(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO7(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6,ASSIGNABLE_FROM_CLASS_NAME7) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME7>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO8(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6,ASSIGNABLE_FROM_CLASS_NAME7,ASSIGNABLE_FROM_CLASS_NAME8) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME7>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME8>(other) != nullptr; \
+	} 
+
+#define IMPL_PRIMITIVE_TYPE_INFO9(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6,ASSIGNABLE_FROM_CLASS_NAME7,ASSIGNABLE_FROM_CLASS_NAME8,ASSIGNABLE_FROM_CLASS_NAME9) \
+	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
+	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
+	{ \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME7>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME8>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME9>(other) != nullptr; \
+	} 
+}

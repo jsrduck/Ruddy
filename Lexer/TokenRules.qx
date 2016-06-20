@@ -1,0 +1,163 @@
+start = PROGRAM;
+
+define {
+	WHITESPACE             [:space:]+
+	IDENTIFIER             [_a-zA-Z][_a-zA-Z0-9]*
+	INTEGER_CONSTANT       [0-9]+
+	
+	exponent_part          [eE][\-+]?[0-9]+
+	fractional_constant    ([0-9]*"."[0-9]+)|([0-9]+".")
+	FLOAT_CONSTANT         (({fractional_constant}{exponent_part}?)|([0-9]+{exponent_part}))
+	HEX_CONSTANT           "0"[xX][0-9a-fA-F]+
+
+	
+// Escape characters
+	STRING_DELIMITER                "\""
+	BACKSLASHED_STRING_DELIMITER    "\\\""
+	BACKSLASHED_BACKSLASH           "\\\\"
+	BACKSLASHED_NULL                "\\0"
+	BACKSLASHED_NEWLINE             "\\n"
+	BACKSLASHED_CARRIAGE_RETURN     "\\r"
+	BACKSLASHED_TAB                 "\\t"
+	BACKSLASHED_UNKNOWN_CHARACTER   "\\".
+	BACKSLASHED_CHAR_DELIMITER      "\\'"
+
+// CHARS
+	CHAR_LITERAL           '[^'\\]?'
+	CHAR_ESCAPE            '{STRING_DELIMITER}'|'{BACKSLASHED_BACKSLASH}'|'{BACKSLASHED_NULL}'|'{BACKSLASHED_NEWLINE}'|'{BACKSLASHED_CARRIAGE_RETURN}'|'{BACKSLASHED_TAB}'|'{BACKSLASHED_CHAR_DELIMITER}'
+	CHAR_UNICODE           '"\\u"([:xdigit:]{4})'
+	CHAR_HEX               '"\\x"([:xdigit:]{1,4})'
+	CHAR_CONSTANT          {CHAR_LITERAL}|{CHAR_ESCAPE}|{CHAR_UNICODE}|{CHAR_HEX}
+}
+
+mode END_OF_FILE :
+<inheritable: only>  
+{
+	<<EOF>> {
+		self_send(TKN_TERMINATION);
+		RETURN;
+	}
+	<<FAIL>> {
+		self_send1(TKN_FAILURE, Lexeme);
+		RETURN;
+	}
+}
+
+mode PRIMITIVE_TYPES :
+<inheritable: only>
+{
+	"int"                  => TKN_TYPE_INT;
+	"uint"                 => TKN_TYPE_UINT;
+	"int64"                => TKN_TYPE_INT64;
+	"uint64"               => TKN_TYPE_UINT64;
+	"float"                => TKN_TYPE_FLOAT;
+	"float64"              => TKN_TYPE_FLOAT64;
+	"charbyte"             => TKN_TYPE_CHARBYTE;
+	"char"                 => TKN_TYPE_CHAR;
+	"byte"                 => TKN_TYPE_BYTE;
+	"bool"                 => TKN_TYPE_BOOL;
+	"string"               => TKN_TYPE_STRING;
+}
+
+mode OPERATORS :
+<inheritable: only>
+{
+	"++"                   => TKN_ARITHMETIC_OPERATOR_INCREMENT;
+	"--"                   => TKN_ARITHMETIC_OPERATOR_DECREMENT;
+	"+"                    => TKN_ARITHMETIC_OPERATOR_PLUS;
+	"-"                    => TKN_ARITHMETIC_OPERATOR_MINUS;
+	"*"                    => TKN_ARITHMETIC_OPERATOR_TIMES;
+	"/"                    => TKN_ARITHMETIC_OPERATOR_DIVIDE;
+	"<<"                   => TKN_BITWISE_SHIFT_LEFT_OPERATOR;
+	">>"                   => TKN_BITWISE_SHIFT_RIGHT_OPERATOR;
+	"%"                    => TKN_ARITHMETIC_OPERATOR_REMAINDER;
+	">="                   => TKN_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL_TO;
+	"<="                   => TKN_COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL_TO;
+	">"                    => TKN_COMPARISON_OPERATOR_GREATER_THAN;
+	"<"                    => TKN_COMPARISON_OPERATOR_LESS_THAN;
+	"=="                   => TKN_COMPARISON_OPERATOR_EQUAL_TO;
+	"!="                   => TKN_COMPARISON_OPERATOR_NOT_EQUAL_TO;
+	"&&"                   => TKN_LOGICAL_OPERATOR_AND;
+	"||"                   => TKN_LOGICAL_OPERATOR_OR;
+	"!"                    => TKN_LOGICAL_OPERATOR_NEGATE;
+	"&"                    => TKN_BITWISE_OPERATOR_AND;
+	"|"                    => TKN_BITWISE_OPERATOR_OR;
+	"^"                    => TKN_BITWISE_OPERATOR_XOR;
+	"~"                    => TKN_BITWISE_OPERATOR_COMPLEMENT;
+	"="                    => TKN_OPERATOR_ASSIGN_TO;
+}
+
+mode PROGRAM :
+     PRIMITIVE_TYPES,
+     OPERATORS,
+     END_OF_FILE
+<entry: STRING_READER>
+<exit:  STRING_READER>
+<skip:      [ \r\n\t] >
+<skip_range: "/*" "*/">
+<skip_range: "//" "\n">
+{
+	<<EOF>>                => TKN_TERMINATION;
+	
+	{FLOAT_CONSTANT}       => TKN_CONSTANT_FLOAT(Lexeme);
+	{INTEGER_CONSTANT}     => TKN_CONSTANT_INT(Lexeme);
+	{HEX_CONSTANT}         => TKN_CONSTANT_INT(Lexeme);
+	{CHAR_CONSTANT}        => TKN_CONSTANT_CHAR(Lexeme);
+	"true"                 => TKN_CONSTANT_BOOL_TRUE;
+	"false"                => TKN_CONSTANT_BOOL_FALSE;
+	";"                    => TKN_SEMICOLON;
+	"{"                    => TKN_BRACKET_OPEN;
+	"}"                    => TKN_BRACKET_CLOSE;
+	"("                    => TKN_PAREN_OPEN;
+	")"                    => TKN_PAREN_CLOSE;
+	"if"                   => TKN_IF;
+	"else"                 => TKN_ELSE;
+	"let"                  => TKN_LET;
+	"while"                => TKN_WHILE;
+	"do"                   => TKN_DO;
+	"break"                => TKN_BREAK;
+	"namespace"            => TKN_NAMESPACE;
+	"new"                  => TKN_NEW;
+	"class"                => TKN_CLASS;
+	"fun"                  => TKN_FUNCTION;
+	"return"               => TKN_RETURN;
+	","                    => TKN_COMMA;
+	"."                    => TKN_PERIOD;
+	"public"               => TKN_PUBLIC;
+	"private"              => TKN_PRIVATE;
+	"protected"            => TKN_PROTECTED;
+	"static"               => TKN_STATIC;
+	{IDENTIFIER}           => TKN_IDENTIFIER(Lexeme);
+	{STRING_DELIMITER}     => GOTO(STRING_READER);
+}
+
+mode STRING_READER :
+	 END_OF_FILE
+<entry: PROGRAM>
+<exit:  PROGRAM>
+{
+	on_entry { self_accumulator_clear(); }
+	on_exit  { 
+		self_accumulator_flush(TKN_CONSTANT_STRING); 
+	}
+
+	{BACKSLASHED_STRING_DELIMITER}  { self_accumulator_add_character('\"'); }
+	{BACKSLASHED_BACKSLASH}         { self_accumulator_add_character('\\'); }
+	{BACKSLASHED_NULL}              { self_accumulator_add_character('\0'); }
+	{BACKSLASHED_NEWLINE}           { self_accumulator_add_character('\n'); }
+	{BACKSLASHED_CARRIAGE_RETURN}   { self_accumulator_add_character('\r'); }
+	{BACKSLASHED_TAB}               { self_accumulator_add_character('\t'); }
+	{BACKSLASHED_UNKNOWN_CHARACTER} { 
+		self_send1(TKN_UNEXPECTED_CTRL_CHAR, Lexeme);
+		RETURN; 
+	}
+
+	{STRING_DELIMITER}             => GOTO(PROGRAM);
+	/* Default pattern must come last! */
+	.                                { self_accumulator_add(Lexeme, LexemeEnd); }
+
+	<<FAIL>> {
+		self_send1(TKN_FAILURE, Lexeme);
+		RETURN;
+	}
+}
