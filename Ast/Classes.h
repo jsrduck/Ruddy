@@ -50,6 +50,8 @@ namespace Ast
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		Visibility _visibility;
 		std::shared_ptr<Modifier> _mods;
 		std::shared_ptr<TypeInfo> _typeInfo; 
@@ -88,6 +90,8 @@ namespace Ast
 		}
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		Visibility _visibility; 
 		std::shared_ptr<Modifier> _mods;
@@ -128,6 +132,8 @@ namespace Ast
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		std::shared_ptr<ClassStatement> _statement;
 		std::shared_ptr<ClassStatementList> _next;
 	};
@@ -142,6 +148,8 @@ namespace Ast
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		Visibility _visibility;
 		const std::string _name;
 		std::shared_ptr<ClassStatementList> _list;
@@ -150,41 +158,38 @@ namespace Ast
 	class NewExpression : public Expression
 	{
 	public:
-		NewExpression(Reference* id, Expression* expression) :
-			_id(id), _expression(expression)
+		NewExpression(const std::string& className, Expression* expression) :
+			_className(className), _expression(expression)
 		{
 		}
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		std::shared_ptr<Reference> _id;
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
+
+		const std::string _className;
 		std::shared_ptr<Expression> _expression;
 	};
 
 	class FunctionCall : public Expression
 	{
 	public:
-		FunctionCall(Reference* id, Expression* expression) :
-			_id(id), _expression(expression)
+		FunctionCall(const std::string& name, Expression* expression) :
+			_name(name), _expression(expression)
 		{
 		}
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		std::shared_ptr<Reference> _id;
-		std::shared_ptr<Expression> _expression;
-	};
-
-	class DebugPrintStatement : public Expression
-	{
-	public:
-		DebugPrintStatement(Expression* expression) :
-			_expression(expression)
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
 		{
+			throw UnexpectedException();
 		}
 
-		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
-
+		const std::string _name;
 		std::shared_ptr<Expression> _expression;
 	};
 }

@@ -4,6 +4,10 @@
 #include "Node.h"
 #include "TypeExceptions.h"
 
+namespace llvm {
+	class AllocaInst;
+}
+
 namespace Ast
 {
 	class Operation;
@@ -20,6 +24,7 @@ namespace Ast
 		virtual bool SupportsOperator(Operation* operation) = 0;
 		virtual bool IsAutoType() { return false; }
 		virtual bool NeedsResolution() { return false; }
+		//virtual llvm::AllocaInst* CreateAllocationInstance() = 0;
 
 	/*	virtual void CodegenAdd(AddOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
 		virtual void CodegenSubtract(SubtractOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }

@@ -646,7 +646,8 @@ logical_expression:
 new_expression:
 	  TKN_NEW reference TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new NewExpression($2, $4);
+		$$ = new NewExpression($2->Id(), $4);
+		delete $2;
 	  };
 
 print_statement:
@@ -658,7 +659,8 @@ print_statement:
 function_call:
 	  reference TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new FunctionCall($1, $3);
+		$$ = new FunctionCall($1->Id(), $3);
+		delete $1;
 	  };
 
 literal:

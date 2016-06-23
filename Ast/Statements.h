@@ -27,6 +27,7 @@ namespace Ast
 	public:
 		virtual ~Statement() { }
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) = 0;
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
 	};
 
 	class GlobalStatement : public Statement, public std::enable_shared_from_this<GlobalStatement>
@@ -44,6 +45,8 @@ namespace Ast
 		
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		virtual std::string ToString() override { return "GlobalStatements"; }
 		std::shared_ptr<GlobalStatement> _stmt;
 		std::shared_ptr<GlobalStatements> _next;
@@ -56,6 +59,8 @@ namespace Ast
 		{}
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "NamespaceDeclaration"; }
 		const std::string _name;
@@ -78,6 +83,8 @@ namespace Ast
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		virtual std::string ToString() override { return "LineStatements"; }
 		std::shared_ptr<LineStatement> _statement;
 		std::shared_ptr<LineStatements> _next;
@@ -92,6 +99,8 @@ namespace Ast
 		}
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "IfStatement"; }
 
@@ -110,6 +119,8 @@ namespace Ast
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		virtual std::string ToString() override { return "WhileStatement"; }
 
 		std::shared_ptr<Expression> _condition;
@@ -122,6 +133,8 @@ namespace Ast
 		BreakStatement() { }
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override
 		{
@@ -230,13 +243,17 @@ namespace Ast
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		virtual std::string ToString() override
 		{
 			return "Assignment";
 		}
 
 		std::shared_ptr<AssignFrom> _lhs;
+		std::shared_ptr<TypeInfo> _lhsTypeInfo;
 		std::shared_ptr<Expression> _rhs;
+		std::shared_ptr<TypeInfo> _rhsTypeInfo;
 	};
 
 	class ScopedStatements : public LineStatement
@@ -247,6 +264,8 @@ namespace Ast
 		}
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "ScopedStatement"; }
 
@@ -262,6 +281,8 @@ namespace Ast
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
 
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 		virtual std::string ToString() override { return "ExpressionAsStatement"; }
 
 		std::shared_ptr<Expression> _expr;
@@ -275,6 +296,8 @@ namespace Ast
 		}
 
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::shared_ptr<Expression> _idList;
 	};

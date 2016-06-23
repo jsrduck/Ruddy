@@ -42,6 +42,11 @@ namespace Ast
 	public:
 		virtual bool IsAssignment() { return true; }
 		virtual std::string OperatorString() override { return "="; }
+
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	/* Arithmetic Binary Operations */
@@ -60,6 +65,10 @@ namespace Ast
 		static const int Id = 0x1;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "+"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class SubtractOperation : public ArithmeticBinaryOperation
@@ -69,6 +78,10 @@ namespace Ast
 		static const int Id = 0x2;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "-"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class MultiplyOperation : public ArithmeticBinaryOperation
@@ -78,6 +91,10 @@ namespace Ast
 		static const int Id = 0x4;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "*"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class DivideOperation : public ArithmeticBinaryOperation
@@ -87,6 +104,10 @@ namespace Ast
 		static const int Id = 0x8;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "/"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class RemainderOperation : public ArithmeticBinaryOperation
@@ -96,6 +117,10 @@ namespace Ast
 		static const int Id = 0x10;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "%"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	/* Logical Binary Comparison Operations */
@@ -121,6 +146,10 @@ namespace Ast
 		static const int Id = 0x20;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return ">="; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class LessThanOrEqualOperation : public LogicalBinaryComparisonOperation
@@ -130,6 +159,10 @@ namespace Ast
 		static const int Id = 0x40;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "<="; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class GreaterThanOperation : public LogicalBinaryComparisonOperation
@@ -139,6 +172,10 @@ namespace Ast
 		static const int Id = 0x80;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return ">"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class LessThanOperation : public LogicalBinaryComparisonOperation
@@ -148,6 +185,10 @@ namespace Ast
 		static const int Id = 0x100;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "<"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class EqualToOperation : public LogicalBinaryComparisonOperation
@@ -157,6 +198,10 @@ namespace Ast
 		static const int Id = 0x200;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "=="; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class NotEqualToOperation : public LogicalBinaryComparisonOperation
@@ -166,6 +211,10 @@ namespace Ast
 		static const int Id = 0x400;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "!="; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	/* Logical Binary Boolean Operations */
@@ -183,6 +232,10 @@ namespace Ast
 		static const int Id = 0x800;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "&&"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class LogicalOrOperation : public LogicalBinaryBooleanOperation
@@ -192,6 +245,10 @@ namespace Ast
 		static const int Id = 0x1000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "&&"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	/* Logical Binary Bitwise Operations */
@@ -209,6 +266,10 @@ namespace Ast
 		static const int Id = 0x2000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "&"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class BitwiseOrOperation : public LogicalBinaryBitwiseOperation
@@ -218,6 +279,10 @@ namespace Ast
 		static const int Id = 0x4000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "|"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class BitwiseXorOperation : public LogicalBinaryBitwiseOperation
@@ -227,6 +292,10 @@ namespace Ast
 		static const int Id = 0x8000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "^"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class BitwiseShiftLeftOperation : public LogicalBinaryBitwiseOperation
@@ -237,6 +306,10 @@ namespace Ast
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "<<"; }
 		virtual bool IsShift() override { return true; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class BitwiseShiftRightOperation : public LogicalBinaryBitwiseOperation
@@ -247,6 +320,10 @@ namespace Ast
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "|"; }
 		virtual bool IsShift() override { return true; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class UnaryOperation : public Operation
@@ -290,6 +367,10 @@ namespace Ast
 		static const int Id = 0x40000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "++"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class PostDecrementOperation : public ArithmeticPostUnaryOperation
@@ -299,6 +380,10 @@ namespace Ast
 		static const int Id = 0x80000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "--"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class ArithmeticPreUnaryOperation : public PrefixOperation
@@ -315,6 +400,10 @@ namespace Ast
 		static const int Id = 0x400000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "++"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class PreDecrementOperation : public ArithmeticPreUnaryOperation
@@ -324,6 +413,10 @@ namespace Ast
 		static const int Id = 0x800000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "--"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class LogicalPreUnaryOperation : public PrefixOperation
@@ -341,6 +434,10 @@ namespace Ast
 		static const int Id = 0x100000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "!"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class BitwisePreUnaryOperation : public LogicalPreUnaryOperation
@@ -357,5 +454,9 @@ namespace Ast
 		static const int Id = 0x200000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "~"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
 	};
 }

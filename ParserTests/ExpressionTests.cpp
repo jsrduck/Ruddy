@@ -44,7 +44,7 @@ public:
 		Assert::IsTrue(cDeclaration->_lhs->Resolve(nullptr)->IsAutoType());
 		auto newExpression = dynamic_cast<NewExpression*>(cDeclaration->_rhs.get());
 		Assert::IsNotNull(newExpression);
-		Assert::AreEqual("D", newExpression->_id->Id().c_str());
+		Assert::AreEqual("D", newExpression->_className.c_str());
 	}
 
 	TEST_METHOD(WhileStatementTest)

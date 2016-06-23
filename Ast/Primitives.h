@@ -129,6 +129,11 @@ namespace Ast
 			return _typeInfo;
 		}
 
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
+
 		uint8_t IntegerConstant::AsByte()
 		{
 			return GetAs<uint8_t>();
@@ -273,6 +278,11 @@ namespace Ast
 			return _typeInfo;
 		}
 
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
+
 		float AsFloat32()
 		{
 			if (!_fitsInFloat)
@@ -334,6 +344,11 @@ namespace Ast
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return _typeInfo;
+		}
+
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
 		}
 
 	private:
@@ -426,6 +441,12 @@ namespace Ast
 		{
 			return _typeInfo;
 		}
+
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
+
 	private:
 		uint16_t _value;
 		static std::shared_ptr<CharConstantType> _typeInfo;
@@ -473,6 +494,9 @@ namespace Ast
 		{
 			return _typeInfo;
 		}
+
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
 	private:
 		std::string _input;
 		static std::shared_ptr<StringConstantType> _typeInfo;

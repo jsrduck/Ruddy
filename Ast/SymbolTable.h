@@ -6,6 +6,11 @@
 #include <unordered_map>
 #include <stack>
 
+namespace llvm 
+{
+	class AllocaInst;
+}
+
 namespace Ast
 {
 	enum Visibility
@@ -57,6 +62,11 @@ namespace Ast
 			virtual bool IsLoopBinding() { return false; }
 
 			virtual std::shared_ptr<TypeInfo> GetTypeInfo() = 0;
+
+			virtual llvm::AllocaInst* GetAllocationInstance()
+			{
+				throw UnexpectedException();
+			}
 
 			std::string& GetName() { return _name; }
 
@@ -118,8 +128,10 @@ namespace Ast
 
 			bool IsVariableBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override { return _variableType; }
+			llvm::AllocaInst* GetAllocationInstance() override { return _allocation; }
 
 			std::shared_ptr<TypeInfo> _variableType;
+			llvm::AllocaInst* _allocation;
 		};
 
 		class NamespaceBinding : public SymbolBinding

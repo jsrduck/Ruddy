@@ -1,5 +1,5 @@
 // stdafx.cpp : source file that includes just the standard includes
-// Ast.pch will be the pre-compiled header
+// WindowsImpl.pch will be the pre-compiled header
 // stdafx.obj will contain the pre-compiled type information
 
 #include "stdafx.h"

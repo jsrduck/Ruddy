@@ -1,0 +1,7 @@
+class Program 
+{ 
+	static fun main() 
+	{ 
+		print("Hello World"); 
+	} 
+}

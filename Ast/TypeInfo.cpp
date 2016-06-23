@@ -131,6 +131,7 @@ namespace Ast
 				}
 			}
 		}
+		throw UnexpectedException();
 	}
 
 	ClassTypeInfo::ClassTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration) : _name(classDeclaration->_name)

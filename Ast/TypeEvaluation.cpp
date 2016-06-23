@@ -11,18 +11,18 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> Reference::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
 	{
-		auto symbol = symbolTable->Lookup(_id);
-		if (symbol == nullptr)
+		_symbol = symbolTable->Lookup(_id);
+		if (_symbol == nullptr)
 		{
 			// This id isn't defined in the symbol table yet
 			throw SymbolNotDefinedException(_id);
 		}
-		if (!symbol->IsVariableBinding())
+		if (!_symbol->IsVariableBinding())
 		{
 			// This symbol exists, but it's not a variable so it can't be used as an expression
 			throw SymbolWrongTypeException(_id);
 		}
-		return symbol->GetTypeInfo();
+		return _symbol->GetTypeInfo();
 	}
 
 	std::shared_ptr<TypeInfo> ExpressionList::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
@@ -32,32 +32,32 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> NewExpression::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
 	{
-		auto symbol = symbolTable->Lookup(_id->Id());
+		auto symbol = symbolTable->Lookup(_className);
 		if (symbol == nullptr)
 		{
 			// This id isn't defined in the symbol table yet
-			throw SymbolNotDefinedException(_id->Id());
+			throw SymbolNotDefinedException(_className);
 		}
 		if (!symbol->IsClassBinding())
 		{
 			// This symbol exists, but it's not the name of a class
-			throw SymbolWrongTypeException(_id->Id());
+			throw SymbolWrongTypeException(symbol->GetFullyQualifiedName());
 		}
 		return symbol->GetTypeInfo();
 	}
 
 	std::shared_ptr<TypeInfo> FunctionCall::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
 	{
-		auto symbol = symbolTable->Lookup(_id->Id());
+		auto symbol = symbolTable->Lookup(_name);
 		if (symbol == nullptr)
 		{
 			// This id isn't defined in the symbol table yet
-			throw SymbolNotDefinedException(_id->Id());
+			throw SymbolNotDefinedException(_name);
 		}
 		if (!symbol->IsFunctionBinding())
 		{
 			// This symbol exists, but it's not the name of a function
-			throw SymbolWrongTypeException(_id->Id());
+			throw SymbolWrongTypeException(symbol->GetFullyQualifiedName());
 		}
 		auto functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(symbol->GetTypeInfo());
 		if (functionTypeInfo == nullptr)
@@ -67,6 +67,7 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> DebugPrintStatement::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
 	{
+		_expressionTypeInfo = _expression->Evaluate(symbolTable);
 		return nullptr;
 	}
 
@@ -158,14 +159,14 @@ namespace Ast {
 
 	void Assignment::TypeCheck(std::shared_ptr<SymbolTable> symbolTable)
 	{
-		auto typeInfo = _lhs->Resolve(symbolTable);
+		_lhsTypeInfo = _lhs->Resolve(symbolTable);
 
-		auto rhsType = _rhs->Evaluate(symbolTable);
-		if (!typeInfo->IsImplicitlyAssignableFrom(rhsType, symbolTable))
+		_rhsTypeInfo = _rhs->Evaluate(symbolTable);
+		if (!_lhsTypeInfo->IsImplicitlyAssignableFrom(_rhsTypeInfo, symbolTable))
 		{
-			throw TypeMismatchException(typeInfo, rhsType);
+			throw TypeMismatchException(_lhsTypeInfo, _rhsTypeInfo);
 		}
-		_lhs->Bind(symbolTable, rhsType);
+		_lhs->Bind(symbolTable, _rhsTypeInfo);
 	}
 
 	void ReturnStatement::TypeCheck(std::shared_ptr<SymbolTable> symbolTable)
