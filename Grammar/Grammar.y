@@ -290,47 +290,47 @@ type :
 primitive_type:
 	  TKN_TYPE_INT
 	  {
-		$$ = new Int32TypeInfo();
+		$$ = new TypeInfoWrapper(Int32TypeInfo::Get());
 	  }
 	| TKN_TYPE_UINT
 	  {
-		$$ = new UInt32TypeInfo();
+		$$ = new TypeInfoWrapper(UInt32TypeInfo::Get());
 	  }
 	| TKN_TYPE_INT64
 	  {
-		$$ = new Int64TypeInfo();
+		$$ = new TypeInfoWrapper(Int64TypeInfo::Get());
 	  }
 	| TKN_TYPE_UINT64
 	  {
-		$$ = new UInt64TypeInfo();
+		$$ = new TypeInfoWrapper(UInt64TypeInfo::Get());
 	  }
 	| TKN_TYPE_FLOAT
 	  {
-		$$ = new Float32TypeInfo();
+		$$ = new TypeInfoWrapper(Float32TypeInfo::Get());
 	  }
 	| TKN_TYPE_FLOAT64
 	  {
-		$$ = new Float64TypeInfo();
+		$$ = new TypeInfoWrapper(Float64TypeInfo::Get());
 	  }
 	| TKN_TYPE_CHARBYTE
 	  {
-		$$ = new CharByteTypeInfo();
+		$$ = new TypeInfoWrapper(CharByteTypeInfo::Get());
 	  }
 	| TKN_TYPE_CHAR
 	  {
-		$$ = new CharTypeInfo();
+		$$ = new TypeInfoWrapper(CharTypeInfo::Get());
 	  }
 	| TKN_TYPE_BYTE
 	  {
-		$$ = new ByteTypeInfo();
+		$$ = new TypeInfoWrapper(ByteTypeInfo::Get());
 	  }
 	| TKN_TYPE_BOOL
 	  {
-		$$ = new BoolTypeInfo();
+		$$ = new TypeInfoWrapper(BoolTypeInfo::Get());
 	  }
 	| TKN_TYPE_STRING
 	  {
-		$$ = new StringTypeInfo();
+		$$ = new TypeInfoWrapper(StringTypeInfo::Get());
 	  };
 
 modifier:

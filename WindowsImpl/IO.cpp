@@ -9,7 +9,7 @@ namespace OS
 		int _Result;
 		va_list _ArgList;
 		__crt_va_start(_ArgList, _Format);
-		_Result = ::printf_s(_Format, _ArgList);
+		_Result = ::_vfprintf_s_l(stdout, _Format, NULL, _ArgList);
 		__crt_va_end(_ArgList);
 		return _Result;
 	}

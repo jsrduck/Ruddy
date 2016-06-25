@@ -26,8 +26,9 @@ namespace Ast
 	{
 	public:
 		virtual ~Statement() { }
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) = 0;
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
+		// Without the llvm types, TypeCheck simply does a type check without generating any code. With the llvm parameters, it will also output generated code as it walks
+		// the abstract syntax tree.
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) = 0;
 	};
 
 	class GlobalStatement : public Statement, public std::enable_shared_from_this<GlobalStatement>
@@ -43,9 +44,7 @@ namespace Ast
 			_stmt(stmt), _next(list)
 		{}
 		
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "GlobalStatements"; }
 		std::shared_ptr<GlobalStatement> _stmt;
@@ -58,9 +57,7 @@ namespace Ast
 		NamespaceDeclaration(const std::string& name, GlobalStatements* stmts) : _name(name), _stmts(stmts)
 		{}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "NamespaceDeclaration"; }
 		const std::string _name;
@@ -81,9 +78,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "LineStatements"; }
 		std::shared_ptr<LineStatement> _statement;
@@ -98,9 +93,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "IfStatement"; }
 
@@ -117,9 +110,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "WhileStatement"; }
 
@@ -132,9 +123,7 @@ namespace Ast
 	public:
 		BreakStatement() { }
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override
 		{
@@ -147,6 +136,7 @@ namespace Ast
 	public:
 		virtual std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable) = 0;
 		virtual void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) = 0;
+		virtual llvm::AllocaInst* GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
 	};
 
 	class AssignFrom : public Node
@@ -158,14 +148,14 @@ namespace Ast
 
 		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable)
 		{
-			auto firstType = _thisOne->Resolve(symbolTable);
+			_thisType = _thisOne->Resolve(symbolTable);
 			if (_next == nullptr)
-				return firstType;
-			auto next = _next->Resolve(symbolTable);
-			auto nextAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(next);
+				return _thisType;
+			_nextType = _next->Resolve(symbolTable);
+			auto nextAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(_nextType);
 			if (nextAsComposite == nullptr)
-				nextAsComposite = std::make_shared<CompositeTypeInfo>(next);
-			return std::make_shared<CompositeTypeInfo>(firstType, nextAsComposite);
+				nextAsComposite = std::make_shared<CompositeTypeInfo>(_nextType);
+			return std::make_shared<CompositeTypeInfo>(_thisType, nextAsComposite);
 		}
 
 		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs)
@@ -195,9 +185,13 @@ namespace Ast
 			}
 		}
 
+		void CodeGen(std::shared_ptr<Expression> rhs, std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module);
+
 	protected:
 		std::shared_ptr<AssignFromSingle> _thisOne;
+		std::shared_ptr<TypeInfo> _thisType;
 		std::shared_ptr<AssignFrom> _next;
+		std::shared_ptr<TypeInfo> _nextType;
 	};
 
 	class AssignFromReference : public AssignFromSingle
@@ -214,6 +208,8 @@ namespace Ast
 			// Not necessary, it's already been bound to a type
 		}
 
+		virtual llvm::AllocaInst* GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+
 		const std::string _ref;
 	};
 
@@ -229,6 +225,8 @@ namespace Ast
 
 		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) override;
 
+		virtual llvm::AllocaInst* GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+
 		std::shared_ptr<TypeInfo> _typeInfo;
 		const std::string _name;
 	};
@@ -241,9 +239,7 @@ namespace Ast
 		{ 
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override
 		{
@@ -263,9 +259,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "ScopedStatement"; }
 
@@ -279,9 +273,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "ExpressionAsStatement"; }
 
@@ -295,10 +287,9 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		std::shared_ptr<Expression> _idList;
+		std::shared_ptr<TypeInfo> _returnType;
 	};
 }

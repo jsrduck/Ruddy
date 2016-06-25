@@ -28,6 +28,18 @@ namespace Ast
 
 	class PrimitiveTypeInfo : public TypeInfo
 	{
+		virtual bool IsPrimitiveType() override
+		{
+			return true;
+		}
+	};
+
+	class IntegerConstant;
+	class IntegerTypeInfo : public PrimitiveTypeInfo
+	{
+	public:
+		virtual llvm::Value* CreateValue(llvm::LLVMContext* context, uint64_t constant) = 0;
+		virtual bool Signed() = 0;
 	};
 
 	// TODO: String should be defined as a class IN Ruddy code, but the compiler needs to be smart enough 
@@ -36,13 +48,13 @@ namespace Ast
 
 	DECLARE_PRIMITIVE_TYPE_INFO(StringTypeInfo)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(Int32TypeInfo)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(Int32TypeInfo, true)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(Int64TypeInfo)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(Int64TypeInfo, true)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(UInt32TypeInfo)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(UInt32TypeInfo, false)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(UInt64TypeInfo)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(UInt64TypeInfo, false)
 
 	DECLARE_PRIMITIVE_TYPE_INFO(Float32TypeInfo)
 
@@ -56,13 +68,24 @@ namespace Ast
 
 	DECLARE_PRIMITIVE_TYPE_INFO(ByteTypeInfo)
 
+
 	// An expression that recognizes a static constant, ie the zero in int i = 0;
 	class ConstantExpression : public Expression
 	{
 	};
 
-	class IntegerConstantType : public TypeInfo
+	class ConstantType : public TypeInfo
 	{
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// You can't have a variable with a constant type, it should be resolved to an actual type by then
+			throw UnexpectedException();
+		}
+	};
+
+	class IntegerConstantType : public ConstantType
+	{
+	public:
 		bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return false;
@@ -84,6 +107,8 @@ namespace Ast
 			return Int64TypeInfo::Get()->SupportsOperator(operation);
 		}
 
+		static std::shared_ptr<TypeInfo> Get();
+
 	private:
 		std::string _name = "IntegerConstant";
 	};
@@ -104,7 +129,7 @@ namespace Ast
 					_usingInt64 = true;
 					_usingHex = false;
 				}
-				else if (input.substr(0, 2).compare("0x") || input.substr(0, 2).compare("0X"))
+				else if (input.substr(0, 2).compare("0x") == 0 || input.substr(0, 2).compare("0X") == 0)
 				{
 					_usingHex = true;
 					_usingInt64 = false;
@@ -126,38 +151,98 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			return _typeInfo;
+			// Need to pick the best fit
+			if (FitsInt32())
+				return Int32TypeInfo::Get();
+			else if (FitsInt64())
+				return Int64TypeInfo::Get();
+			else
+				return UInt64TypeInfo::Get();
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
-		uint8_t IntegerConstant::AsByte()
+		uint8_t AsByte()
 		{
 			return GetAs<uint8_t>();
 		}
 
-		int32_t IntegerConstant::AsInt32()
+		int32_t AsInt32()
 		{
 			return GetAs<int32_t>();
 		}
 
-		int64_t IntegerConstant::AsInt64()
+		bool FitsInt32()
+		{
+			try
+			{
+				auto result = AsInt32();
+				return true;
+			}
+			catch (OverflowException&)
+			{
+				return false;
+			}
+		}
+
+		int64_t AsInt64()
 		{
 			return GetAs<int64_t>();
 		}
 
-		uint32_t IntegerConstant::AsUInt32()
+		bool FitsInt64()
+		{
+			try
+			{
+				auto result = AsInt64();
+				return true;
+			}
+			catch (OverflowException&)
+			{
+				return false;
+			}
+		}
+
+		uint32_t AsUInt32()
 		{
 			return GetAs<uint32_t>();
 		}
 
-		uint64_t IntegerConstant::AsUInt64()
+		uint64_t AsUInt64()
 		{
 			return GetAs<uint64_t>();
 		}
+
+		bool FitsUInt64()
+		{
+			try
+			{
+				auto result = AsUInt64();
+				return true;
+			}
+			catch (OverflowException&)
+			{
+				return false;
+			}
+		}
+
+		uint64_t GetRaw()
+		{
+			if (_usingHex)
+			{
+				return static_cast<uint64_t>(_asHex);
+			}
+			else if (_usingInt64)
+			{
+				return static_cast<uint64_t>(_asInt64);
+			}
+			else
+			{
+				return _asUint64;
+			}
+		}
+
+		static std::shared_ptr<IntegerConstantType> _typeInfo;
 
 	private:
 		template<class INTEGERTYPE> INTEGERTYPE GetAs()
@@ -172,7 +257,7 @@ namespace Ast
 			}
 			else if (_usingInt64)
 			{
-				if (_asInt64 >= msl::utilities::SafeInt<INTEGERTYPE>(std::numeric_limits<INTEGERTYPE>::min()) 
+				if (_asInt64 >= msl::utilities::SafeInt<INTEGERTYPE>(std::numeric_limits<INTEGERTYPE>::min())
 					&& _asInt64 <= msl::utilities::SafeInt<INTEGERTYPE>(std::numeric_limits<INTEGERTYPE>::max()))
 				{
 					return _asInt64;
@@ -201,11 +286,11 @@ namespace Ast
 		uint64_t _asHex;
 		bool _usingInt64;
 		bool _usingHex;
-		static std::shared_ptr<IntegerConstantType> _typeInfo;
 	};
 
-	class FloatingConstantType : public TypeInfo
+	class FloatingConstantType : public ConstantType
 	{
+	public:
 		bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return false;
@@ -228,6 +313,8 @@ namespace Ast
 			return Float64TypeInfo::Get()->SupportsOperator(operation);
 		}
 
+		static std::shared_ptr<TypeInfo> Get();
+
 	private:
 		std::string _name = "FloatingConstant";
 	};
@@ -247,7 +334,7 @@ namespace Ast
 					{
 						_asFloat = std::stof("-" + input);
 						_fitsInFloat = true;
-					} 
+					}
 					catch (std::out_of_range&)
 					{
 						_fitsInFloat = false;
@@ -278,10 +365,7 @@ namespace Ast
 			return _typeInfo;
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		float AsFloat32()
 		{
@@ -295,15 +379,17 @@ namespace Ast
 			return _asDouble;
 		}
 
+		static std::shared_ptr<FloatingConstantType> _typeInfo;
+
 	private:
 		double _asDouble;
 		float _asFloat;
 		bool _fitsInFloat;
-		static std::shared_ptr<FloatingConstantType> _typeInfo;
 	};
 
-	class BoolConstantType : public TypeInfo
+	class BoolConstantType : public ConstantType
 	{
+	public:
 		bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return false;
@@ -324,6 +410,8 @@ namespace Ast
 		{
 			return BoolTypeInfo::Get()->SupportsOperator(operation);
 		}
+
+		static std::shared_ptr<TypeInfo> Get();
 
 	private:
 		std::string _name = "BoolConstant";
@@ -346,18 +434,16 @@ namespace Ast
 			return _typeInfo;
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
+		static std::shared_ptr<BoolConstantType> _typeInfo;
 	private:
 		bool _value;
-		static std::shared_ptr<BoolConstantType> _typeInfo;
 	};
 
-	class CharConstantType : public TypeInfo
+	class CharConstantType : public ConstantType
 	{
+	public:
 		bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return false;
@@ -379,6 +465,8 @@ namespace Ast
 			return CharTypeInfo::Get()->SupportsOperator(operation);
 		}
 
+		static std::shared_ptr<TypeInfo> Get();
+
 	private:
 		std::string _name = "CharConstant";
 	};
@@ -388,7 +476,7 @@ namespace Ast
 	public:
 		CharConstant(const std::string& input)
 		{
-			if (input[0] != '\'' || input[input.size()-1] != '\'')
+			if (input[0] != '\'' || input[input.size() - 1] != '\'')
 				throw UnexpectedException();
 
 			if (input[1] == '\\')
@@ -418,12 +506,12 @@ namespace Ast
 					case 'x':
 					{
 						// hex
-						auto result = std::stoul(input.substr(3, input.size()-4), 0, 16);
+						auto result = std::stoul(input.substr(3, input.size() - 4), 0, 16);
 						if (result > 0xFFFF)
 							throw UnknownControlCharacterException(input);
 						_value = static_cast<uint16_t>(result);
 					}
-						break;
+					break;
 					default:
 						// Should have already been caught by lexer
 						throw UnknownControlCharacterException(input);
@@ -435,24 +523,27 @@ namespace Ast
 			}
 		}
 
-		uint16_t Value() { return _value; }
+		uint16_t Value()
+		{
+			return _value;
+		}
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return _typeInfo;
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override
 		{
 			throw UnexpectedException();
 		}
 
+		static std::shared_ptr<CharConstantType> _typeInfo;
 	private:
 		uint16_t _value;
-		static std::shared_ptr<CharConstantType> _typeInfo;
 	};
 
-	class StringConstantType : public TypeInfo
+	class StringConstantType : public ConstantType
 	{
 	public:
 		bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
@@ -476,6 +567,8 @@ namespace Ast
 			return StringTypeInfo::Get()->SupportsOperator(operation);
 		}
 
+		static std::shared_ptr<TypeInfo> Get();
+
 	private:
 		std::string _name = "StringConstant";
 	};
@@ -495,10 +588,10 @@ namespace Ast
 			return _typeInfo;
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
+		static std::shared_ptr<StringConstantType> _typeInfo;
 	private:
 		std::string _input;
-		static std::shared_ptr<StringConstantType> _typeInfo;
 	};
 }

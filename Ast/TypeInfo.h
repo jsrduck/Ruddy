@@ -5,7 +5,23 @@
 #include "TypeExceptions.h"
 
 namespace llvm {
+	class ConstantFolder;
+
+	template <bool preserveNames = true>
+	class IRBuilderDefaultInserter;
+
+	template<bool preserveNames = true, typename T = ConstantFolder,
+		typename Inserter = IRBuilderDefaultInserter<preserveNames> >
+	class IRBuilder;
+
+	class Value;
+
+	class LLVMContext;
+
+	class Module;
+
 	class AllocaInst;
+	class BasicBlock;
 }
 
 namespace Ast
@@ -24,6 +40,18 @@ namespace Ast
 		virtual bool SupportsOperator(Operation* operation) = 0;
 		virtual bool IsAutoType() { return false; }
 		virtual bool NeedsResolution() { return false; }
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
+		virtual bool IsPrimitiveType() { return false; }
+
+		virtual TypeInfo* GetRawPtr()
+		{
+			return this;
+		}
+
+		virtual bool Equals(std::shared_ptr<TypeInfo> other)
+		{
+			return other->GetRawPtr() == GetRawPtr();
+		}
 		//virtual llvm::AllocaInst* CreateAllocationInstance() = 0;
 
 	/*	virtual void CodegenAdd(AddOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
@@ -47,6 +75,60 @@ namespace Ast
 	*/
 	};
 
+	// This class only exists because the bison grammar complicates the pointer management a bit. We need a type
+	// we can create via new but still point to the static known type, of which our comparison operations depend
+	// on there being only one of.
+	class TypeInfoWrapper : public TypeInfo
+	{
+	public:
+		TypeInfoWrapper(std::shared_ptr<TypeInfo> inner) : _inner(inner)
+		{
+		}
+
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			return _inner->IsLegalTypeForAssignment(symbolTable);
+		}
+
+		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			return _inner->IsImplicitlyAssignableFrom(other, symbolTable);
+		}
+
+		virtual const std::string& Name() override
+		{
+			return _inner->Name();
+		}
+
+		virtual bool SupportsOperator(Operation* operation) override
+		{
+			return _inner->SupportsOperator(operation);
+		}
+
+		virtual TypeInfo* GetRawPtr() override
+		{
+			return _inner->GetRawPtr();
+		}
+
+		virtual bool Equals(std::shared_ptr<TypeInfo> other) override
+		{
+			return _inner->Equals(other);
+		}
+
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			return _inner->CreateAllocation(name, builder, context);
+		}
+		
+		virtual bool IsPrimitiveType()
+		{
+			return _inner->IsPrimitiveType();
+		}
+
+	private:
+		std::shared_ptr<TypeInfo> _inner;
+	};
+
 	class NotSupportedByAutoTypeException : public std::exception
 	{
 	};
@@ -67,6 +149,12 @@ namespace Ast
 		virtual const std::string& Name() override
 		{
 			return _name;
+		}
+
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
 		}
 
 		// Operator logic
@@ -127,6 +215,12 @@ namespace Ast
 			return false;
 		}
 
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
 		std::shared_ptr<TypeInfo> _thisType;
 		std::shared_ptr<CompositeTypeInfo> _next;
 		std::string _name;
@@ -146,6 +240,12 @@ namespace Ast
 
 		// Operator logic
 		virtual bool SupportsOperator(Operation* operation) { return false; } // For now, we don't support operators on functions.
+
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
 
 		std::shared_ptr<TypeInfo> InputArgsType() { return _inputArgs; }
 		std::shared_ptr<TypeInfo> OutputArgsType() { return _outputArgs; }
@@ -176,6 +276,12 @@ namespace Ast
 
 		virtual bool SupportsOperator(Operation* operation) override;
 
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
 	private:
 		std::string _name;
 	};
@@ -202,6 +308,12 @@ namespace Ast
 		virtual bool NeedsResolution() override
 		{
 			return true;
+		}
+
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
 		}
 
 	private:

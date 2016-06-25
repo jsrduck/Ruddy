@@ -6,24 +6,6 @@
 #include "TypeInfo.h"
 #include "SymbolTable.h"
 
-namespace llvm 
-{
-class ConstantFolder;
-
-template <bool preserveNames = true>
-class IRBuilderDefaultInserter;
-
-template<bool preserveNames = true, typename T = ConstantFolder,
-	typename Inserter = IRBuilderDefaultInserter<preserveNames> >
-class IRBuilder;
-
-class Value;
-
-class LLVMContext;
-
-class Module;
-}
-
 namespace Ast
 {
 	class Expression : public Node
@@ -31,7 +13,7 @@ namespace Ast
 	public:
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) = 0;
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) = 0;
 	};
 
 	class Reference : public Expression
@@ -47,7 +29,7 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		std::string Id()
 		{
@@ -70,7 +52,7 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		std::shared_ptr<Expression> _left;
 		std::shared_ptr<Expression> _right;
@@ -86,7 +68,7 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		std::shared_ptr<Expression> _expression;
 		std::shared_ptr<TypeInfo> _expressionTypeInfo;

@@ -3,5 +3,47 @@ class Program
 	static fun main() 
 	{ 
 		print("Hello World"); 
+		print("\nShould say 1:");
+		int i = 1;
+		print(i);
+		print("\nShould say 2:");
+		print(1+1);
+		print("\nShould say 10:");
+		let j = 2;
+		print(5*2);
+		print("\nShould say 20:");
+		print(100/5);
+		print("\nShould say 2:");
+		print(8%3);
+		print("\nShould say 3.8:");
+		print(1.5+2.3);
+		print("\nShould say 2:");
+		if (false)
+		{
+			print(1);
+		}
+		else
+		{
+			print(2);
+		}
+		print("\nShould say 1:");
+		if (true)
+		{
+			print(1);
+		}
+		else
+		{
+			print(2);
+		}
+		let k = 3;
+		while (k > 0)
+		{
+			print("\nPrint this 3 times");
+			k--;
+		}
+		if (!(2>k))
+		{
+			print("\nThis shouldn't be printed at all.");
+		}
 	} 
 }

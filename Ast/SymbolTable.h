@@ -6,11 +6,6 @@
 #include <unordered_map>
 #include <stack>
 
-namespace llvm 
-{
-	class AllocaInst;
-}
-
 namespace Ast
 {
 	enum Visibility
@@ -61,9 +56,19 @@ namespace Ast
 
 			virtual bool IsLoopBinding() { return false; }
 
+			virtual llvm::BasicBlock* GetEndOfScopeBlock(llvm::LLVMContext* context)
+			{
+				throw UnexpectedException();
+			}
+
 			virtual std::shared_ptr<TypeInfo> GetTypeInfo() = 0;
 
 			virtual llvm::AllocaInst* GetAllocationInstance()
+			{
+				throw UnexpectedException();
+			}
+
+			virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 			{
 				throw UnexpectedException();
 			}
@@ -121,7 +126,7 @@ namespace Ast
 		class VariableBinding : public SymbolBinding
 		{
 		public:
-			VariableBinding(const std::string& name, std::shared_ptr<TypeInfo> variableType) 
+			VariableBinding(const std::string& name, std::shared_ptr<TypeInfo> variableType)
 				: SymbolBinding(name, name, Visibility::PUBLIC), _variableType(variableType)
 			{
 			}
@@ -129,6 +134,7 @@ namespace Ast
 			bool IsVariableBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override { return _variableType; }
 			llvm::AllocaInst* GetAllocationInstance() override { return _allocation; }
+			virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
 			std::shared_ptr<TypeInfo> _variableType;
 			llvm::AllocaInst* _allocation;
@@ -189,6 +195,10 @@ namespace Ast
 
 			bool IsLoopBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override { throw UnexpectedException(); }
+			virtual llvm::BasicBlock* GetEndOfScopeBlock(llvm::LLVMContext* context) override;
+
+		private:
+			llvm::BasicBlock* _endOfScope;
 		};
 
 		std::unordered_map<std::string, std::shared_ptr<SymbolBinding>> _map;

@@ -151,7 +151,7 @@ namespace Ast
 		auto otherAsClassType = std::dynamic_pointer_cast<ClassTypeInfo>(other);
 		if (otherAsClassType != nullptr)
 		{
-			return other.get() == this;
+			return Equals(otherAsClassType);
 		}
 
 		auto otherAsCompositeType = std::dynamic_pointer_cast<CompositeTypeInfo>(other);

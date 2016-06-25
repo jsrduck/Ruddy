@@ -3,6 +3,9 @@
 #include "Classes.h"
 #include "Statements.h"
 
+#include <llvm\IR\Module.h>
+#include <llvm\IR\IRBuilder.h>
+
 namespace Ast
 {
 	SymbolTable::SymbolTable()
@@ -300,7 +303,21 @@ namespace Ast
 		return _typeInfo;
 	}
 
-	SymbolTable::LoopBinding::LoopBinding() : SymbolBinding("", "", Visibility::PUBLIC)
+	SymbolTable::LoopBinding::LoopBinding() : SymbolBinding("", "", Visibility::PUBLIC), _endOfScope(nullptr)
 	{
+	}
+
+	llvm::BasicBlock* SymbolTable::LoopBinding::GetEndOfScopeBlock(llvm::LLVMContext* context)
+	{
+		if (_endOfScope == nullptr)
+			_endOfScope = llvm::BasicBlock::Create(*context);
+		return _endOfScope;
+	}
+
+
+	llvm::AllocaInst* SymbolTable::VariableBinding::CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+	{
+		_allocation = _variableType->CreateAllocation(name, builder, context);
+		return _allocation;
 	}
 }

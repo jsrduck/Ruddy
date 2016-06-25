@@ -48,9 +48,7 @@ namespace Ast
 			_defaultValue(defaultValue)
 		{}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		Visibility _visibility;
 		std::shared_ptr<Modifier> _mods;
@@ -89,9 +87,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		Visibility _visibility; 
 		std::shared_ptr<Modifier> _mods;
@@ -109,7 +105,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 	};
 
 	class DestructorDeclaration : public FunctionDeclaration
@@ -119,7 +115,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 	};
 
 	class ClassStatementList : public Statement
@@ -130,9 +126,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		std::shared_ptr<ClassStatement> _statement;
 		std::shared_ptr<ClassStatementList> _next;
@@ -146,9 +140,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
-
-		virtual void CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		Visibility _visibility;
 		const std::string _name;
@@ -165,7 +157,7 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
 		{
 			throw UnexpectedException();
 		}
@@ -184,7 +176,7 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
 		{
 			throw UnexpectedException();
 		}

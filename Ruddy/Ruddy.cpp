@@ -54,33 +54,41 @@ int _tmain(int argc, _TCHAR* argv[])
 		return -1;
 	}
 
-	std::ifstream inputFile;
-	inputFile.open(argv[1], std::ios::in);
-	auto tree = std::unique_ptr<Ast::GlobalStatements>(Parser::Parse(&inputFile));
+	try
+	{
+		std::ifstream inputFile;
+		inputFile.open(argv[1], std::ios::in);
+		auto tree = std::unique_ptr<Ast::GlobalStatements>(Parser::Parse(&inputFile));
 
-	// Type check
-	auto symbolTable = std::make_shared<Ast::SymbolTable>();
-	tree->TypeCheck(symbolTable);
+		// Type check
+		auto symbolTable = std::make_shared<Ast::SymbolTable>();
 
-	// Code generation
-	llvm::IRBuilder<> builder(llvm::getGlobalContext());
-	auto module = new llvm::Module("Module", llvm::getGlobalContext());
-	// Generate extern statements for os code. In the future, this will be
-	// replaced by import statements so we're not generating everything
-	AddExternOsFunctions(module);
-	// Generate code from the input
-	tree->CodeGen(symbolTable, &builder, &llvm::getGlobalContext(), module);
+		// Code generation
+		llvm::IRBuilder<> builder(llvm::getGlobalContext());
+		auto module = new llvm::Module("Module", llvm::getGlobalContext());
+		// Generate extern statements for os code. In the future, this will be
+		// replaced by import statements so we're not generating everything
+		AddExternOsFunctions(module);
+		// Generate code from the input
+		tree->TypeCheck(symbolTable, &builder, &llvm::getGlobalContext(), module);
+
+		// Now save it to a file
+		std::wstring fileName = argv[1];
+		auto outputFileName = fileName.substr(0, fileName.find_last_of('.'));
+		outputFileName.append(L".ll");
+		std::string outputFileNameAsString = std::string(outputFileName.begin(), outputFileName.end());
+
+		std::error_code errInfo;
+		auto stream = std::make_unique<llvm::raw_fd_ostream>(outputFileNameAsString, errInfo, llvm::sys::fs::OpenFlags::F_RW);
+		module->print(*stream.get(), nullptr);
+		stream->close();
+	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what();
+		return -1;
+	}
 	
-	// Now save it to a file
-	std::wstring fileName = argv[1];
-	auto outputFileName = fileName.substr(0, fileName.find_last_of('.'));
-	outputFileName.append(L".ll");
-	std::string outputFileNameAsString = std::string(outputFileName.begin(), outputFileName.end());
-
-	std::error_code errInfo;
-	auto stream = std::make_unique<llvm::raw_fd_ostream>(outputFileNameAsString, errInfo, llvm::sys::fs::OpenFlags::F_RW);
-	module->print(*stream.get(), nullptr);
-	stream->close();
 	return 0;
 }
 
