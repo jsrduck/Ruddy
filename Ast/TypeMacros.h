@@ -51,115 +51,115 @@ namespace Ast {
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO1(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO2(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO3(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME3::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO4(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME3::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME4::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr; \
 	}
 
 #define IMPL_PRIMITIVE_TYPE_INFO5(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME3::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME4::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME5::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO6(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME3::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME4::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME5::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME6::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO7(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6,ASSIGNABLE_FROM_CLASS_NAME7) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME3::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME4::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME5::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME6::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME7::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME7>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO8(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6,ASSIGNABLE_FROM_CLASS_NAME7,ASSIGNABLE_FROM_CLASS_NAME8) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME3::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME4::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME5::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME6::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME7::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME8::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME7>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME8>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_TYPE_INFO9(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2,ASSIGNABLE_FROM_CLASS_NAME3,ASSIGNABLE_FROM_CLASS_NAME4,ASSIGNABLE_FROM_CLASS_NAME5,ASSIGNABLE_FROM_CLASS_NAME6,ASSIGNABLE_FROM_CLASS_NAME7,ASSIGNABLE_FROM_CLASS_NAME8,ASSIGNABLE_FROM_CLASS_NAME9) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
 	bool CLASS_NAME::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) \
 	{ \
-		return other->Equals(CLASS_NAME::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME1::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME2::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME3::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME4::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME5::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME6::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME7::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME8::Get()) || \
-			other->Equals(ASSIGNABLE_FROM_CLASS_NAME9::Get()); \
+		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME2>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME3>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME4>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME5>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME6>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME7>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME8>(other) != nullptr || \
+			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME9>(other) != nullptr; \
 	} 
 
 #define IMPL_PRIMITIVE_INTEGER_TYPE(CLASS_NAME,BITS,SIGNED) \

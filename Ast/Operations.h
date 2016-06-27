@@ -17,7 +17,6 @@ namespace Ast
 		virtual bool IsBoolean() { return false; }
 		virtual bool IsBitwise() { return false; }
 		virtual bool IsShift() { return false; }
-		virtual bool IsAssignment() { return false; }
 	};
 
 	/* Binary Operations */
@@ -40,18 +39,6 @@ namespace Ast
 		std::shared_ptr<Expression> _rhs;
 		std::shared_ptr<TypeInfo> _rhsTypeInfo;
 		std::shared_ptr<TypeInfo> _resultOfOperation;
-	};
-
-	class AssignmentOperation : public BinaryOperation
-	{
-	public:
-		virtual bool IsAssignment() { return true; }
-		virtual std::string OperatorString() override { return "="; }
-
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
 	};
 
 	/* Arithmetic Binary Operations */
@@ -204,10 +191,7 @@ namespace Ast
 		static const int Id = 0x800;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "&&"; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 
 	class LogicalOrOperation : public LogicalBinaryBooleanOperation
@@ -216,11 +200,8 @@ namespace Ast
 		LogicalOrOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBooleanOperation(lhs, rhs) {}
 		static const int Id = 0x1000;
 		virtual const int OperatorId() override { return Id; }
-		virtual std::string OperatorString() override { return "&&"; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual std::string OperatorString() override { return "||"; }
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 
 	/* Logical Binary Bitwise Operations */
@@ -238,10 +219,7 @@ namespace Ast
 		static const int Id = 0x2000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "&"; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 
 	class BitwiseOrOperation : public LogicalBinaryBitwiseOperation
@@ -251,10 +229,7 @@ namespace Ast
 		static const int Id = 0x4000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "|"; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 
 	class BitwiseXorOperation : public LogicalBinaryBitwiseOperation
@@ -264,10 +239,7 @@ namespace Ast
 		static const int Id = 0x8000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "^"; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 
 	class BitwiseShiftLeftOperation : public LogicalBinaryBitwiseOperation
@@ -278,10 +250,7 @@ namespace Ast
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "<<"; }
 		virtual bool IsShift() override { return true; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 
 	class BitwiseShiftRightOperation : public LogicalBinaryBitwiseOperation
@@ -292,10 +261,7 @@ namespace Ast
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "|"; }
 		virtual bool IsShift() override { return true; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 
 	class UnaryOperation : public Operation
@@ -306,11 +272,13 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			return _expr->Evaluate(symbolTable);
+			_typeInfo = _expr->Evaluate(symbolTable);
+			return _typeInfo;
 		}
 
 	protected:
 		std::shared_ptr<Expression> _expr;
+		std::shared_ptr<TypeInfo> _typeInfo;
 	};
 
 	class PrefixOperation : public UnaryOperation
@@ -411,9 +379,6 @@ namespace Ast
 		static const int Id = 0x200000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "~"; }
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 }

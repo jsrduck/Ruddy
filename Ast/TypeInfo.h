@@ -42,91 +42,6 @@ namespace Ast
 		virtual bool NeedsResolution() { return false; }
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
 		virtual bool IsPrimitiveType() { return false; }
-
-		virtual TypeInfo* GetRawPtr()
-		{
-			return this;
-		}
-
-		virtual bool Equals(std::shared_ptr<TypeInfo> other)
-		{
-			return other->GetRawPtr() == GetRawPtr();
-		}
-		//virtual llvm::AllocaInst* CreateAllocationInstance() = 0;
-
-	/*	virtual void CodegenAdd(AddOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenSubtract(SubtractOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenMultiply(MultiplyOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenDivide(DivideOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenRemainder(RemainderOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenGTOE(GreaterThanOrEqualOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenLTOE(LessThanOrEqualOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenGT(GreaterThanOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenLT(LessThanOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenET(EqualToOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenNET(NotEqualToOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenLogicalAnd(LogicalAndOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenLogicalOr(LogicalOrOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenBitwiseAnd(BitwiseAndOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenBitwiseOr(BitwiseOrOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenBitwiseXor(BitwiseXorOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenSHL(BitwiseShiftLeftOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-		virtual void CodegenSHR(BitwiseShiftRightOperation* operation, Object* lhs, Object* rhs) { throw OperationNotDefinedException(operation->OperatorString()); }
-	*/
-	};
-
-	// This class only exists because the bison grammar complicates the pointer management a bit. We need a type
-	// we can create via new but still point to the static known type, of which our comparison operations depend
-	// on there being only one of.
-	class TypeInfoWrapper : public TypeInfo
-	{
-	public:
-		TypeInfoWrapper(std::shared_ptr<TypeInfo> inner) : _inner(inner)
-		{
-		}
-
-		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return _inner->IsLegalTypeForAssignment(symbolTable);
-		}
-
-		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return _inner->IsImplicitlyAssignableFrom(other, symbolTable);
-		}
-
-		virtual const std::string& Name() override
-		{
-			return _inner->Name();
-		}
-
-		virtual bool SupportsOperator(Operation* operation) override
-		{
-			return _inner->SupportsOperator(operation);
-		}
-
-		virtual TypeInfo* GetRawPtr() override
-		{
-			return _inner->GetRawPtr();
-		}
-
-		virtual bool Equals(std::shared_ptr<TypeInfo> other) override
-		{
-			return _inner->Equals(other);
-		}
-
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
-		{
-			return _inner->CreateAllocation(name, builder, context);
-		}
-		
-		virtual bool IsPrimitiveType()
-		{
-			return _inner->IsPrimitiveType();
-		}
-
-	private:
-		std::shared_ptr<TypeInfo> _inner;
 	};
 
 	class NotSupportedByAutoTypeException : public std::exception
@@ -290,7 +205,9 @@ namespace Ast
 	class UnresolvedClassTypeInfo : public TypeInfo
 	{
 	public:
-		UnresolvedClassTypeInfo(Reference* name);
+		UnresolvedClassTypeInfo(const std::string& name) : _name(name)
+		{
+		}
 
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
 
@@ -320,4 +237,30 @@ namespace Ast
 		std::string _name;
 	};
 
+	// Used in the grammar, as a step towards resolving towards an actual type.
+	// This is mostly necessary because the grammar demands we pass around raw pointers
+	// and our primitive types are managed by shared pointers
+	class TypeSpecifier
+	{
+	public:
+		TypeSpecifier() : _resolvedType(new AutoTypeInfo())
+		{
+		}
+
+		TypeSpecifier(const std::string& name) : _resolvedType(new UnresolvedClassTypeInfo(name))
+		{
+		}
+
+		TypeSpecifier(std::shared_ptr<TypeInfo> knownType) : _resolvedType(knownType)
+		{
+		}
+
+		std::shared_ptr<TypeInfo> GetTypeInfo()
+		{
+			return _resolvedType;
+		}
+
+	private:
+		std::shared_ptr<TypeInfo> _resolvedType;
+	};
 }

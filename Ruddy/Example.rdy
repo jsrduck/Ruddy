@@ -45,5 +45,27 @@ class Program
 		{
 			print("\nThis shouldn't be printed at all.");
 		}
+		k = 3;
+		if (k == 3 && i > 0)
+		{
+			print("\nGood, this should be printed");
+		}
+		if (k == 3 && i < 0)
+		{
+			print("\nBad, this should not be printed");
+		}
+		if (k == 3 || i < 0)
+		{
+			print("\nThis should be printed though");
+		}
+		int m = 0;
+		int n = m++;
+		print("\nShould say 0:");
+		print(n);
+		print("\nShould say 1:");
+		print(m);
+		n = 2147483647;
+		m = n+1;
+		print(m);
 	} 
 }

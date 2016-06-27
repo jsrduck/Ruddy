@@ -58,7 +58,7 @@ using namespace Ast;
 	Ast::GlobalStatement* gstmt_node;
 	Ast::NamespaceDeclaration* nmsp_node;
 	Ast::Reference* ref_node;
-	Ast::TypeInfo* type_node;
+	Ast::TypeSpecifier* type_node;
 	Ast::ConstantExpression* prim_node;
 	Ast::ClassMemberDeclaration* clss_mem_node;
 	Ast::Argument* arg_node;
@@ -279,58 +279,59 @@ reference :
 type :
 	  TKN_LET
 	  {
-		$$ = new AutoTypeInfo();
+		$$ = new TypeSpecifier();
 	  }
 	| reference
 	  {
-		$$ = new UnresolvedClassTypeInfo($1);
+		$$ = new TypeSpecifier($1->Id());
+		delete $1;
 	  }
 	| primitive_type;
 
 primitive_type:
 	  TKN_TYPE_INT
 	  {
-		$$ = new TypeInfoWrapper(Int32TypeInfo::Get());
+		$$ = new TypeSpecifier(Int32TypeInfo::Get());
 	  }
 	| TKN_TYPE_UINT
 	  {
-		$$ = new TypeInfoWrapper(UInt32TypeInfo::Get());
+		$$ = new TypeSpecifier(UInt32TypeInfo::Get());
 	  }
 	| TKN_TYPE_INT64
 	  {
-		$$ = new TypeInfoWrapper(Int64TypeInfo::Get());
+		$$ = new TypeSpecifier(Int64TypeInfo::Get());
 	  }
 	| TKN_TYPE_UINT64
 	  {
-		$$ = new TypeInfoWrapper(UInt64TypeInfo::Get());
+		$$ = new TypeSpecifier(UInt64TypeInfo::Get());
 	  }
 	| TKN_TYPE_FLOAT
 	  {
-		$$ = new TypeInfoWrapper(Float32TypeInfo::Get());
+		$$ = new TypeSpecifier(Float32TypeInfo::Get());
 	  }
 	| TKN_TYPE_FLOAT64
 	  {
-		$$ = new TypeInfoWrapper(Float64TypeInfo::Get());
+		$$ = new TypeSpecifier(Float64TypeInfo::Get());
 	  }
 	| TKN_TYPE_CHARBYTE
 	  {
-		$$ = new TypeInfoWrapper(CharByteTypeInfo::Get());
+		$$ = new TypeSpecifier(CharByteTypeInfo::Get());
 	  }
 	| TKN_TYPE_CHAR
 	  {
-		$$ = new TypeInfoWrapper(CharTypeInfo::Get());
+		$$ = new TypeSpecifier(CharTypeInfo::Get());
 	  }
 	| TKN_TYPE_BYTE
 	  {
-		$$ = new TypeInfoWrapper(ByteTypeInfo::Get());
+		$$ = new TypeSpecifier(ByteTypeInfo::Get());
 	  }
 	| TKN_TYPE_BOOL
 	  {
-		$$ = new TypeInfoWrapper(BoolTypeInfo::Get());
+		$$ = new TypeSpecifier(BoolTypeInfo::Get());
 	  }
 	| TKN_TYPE_STRING
 	  {
-		$$ = new TypeInfoWrapper(StringTypeInfo::Get());
+		$$ = new TypeSpecifier(StringTypeInfo::Get());
 	  };
 
 modifier:
@@ -363,21 +364,24 @@ modifier_list:
 class_member:
 	  visibility modifier_list type single_identifier TKN_SEMICOLON
 	  {
-		$$ = new ClassMemberDeclaration($1->Get(), $2, $3, $4->Id());
+		$$ = new ClassMemberDeclaration($1->Get(), $2, $3->GetTypeInfo(), $4->Id());
 		delete $4;
+		delete $3;
 		delete $1;
 	  }
 	| visibility modifier_list type single_identifier TKN_OPERATOR_ASSIGN_TO literal TKN_SEMICOLON
 	  {
-		$$ = new ClassMemberDeclaration($1->Get(), $2, $3, $4->Id(), $6);
+		$$ = new ClassMemberDeclaration($1->Get(), $2, $3->GetTypeInfo(), $4->Id(), $6);
 		delete $4;
+		delete $3;
 		delete $1;
 	  };
 
 argument:
 	  type single_identifier
 	  {
-		$$ = new Argument($1, $2->Id());
+		$$ = new Argument($1->GetTypeInfo(), $2->Id());
+		delete $1;
 		delete $2;
 	  };
 
@@ -483,7 +487,8 @@ assign_from:
 assign_from_single:
 	  type single_identifier
 	  {
-		$$ = new DeclareVariable($1, $2->Id());
+		$$ = new DeclareVariable($1->GetTypeInfo(), $2->Id());
+		delete $1;
 		delete $2;
 	  }
 	| reference

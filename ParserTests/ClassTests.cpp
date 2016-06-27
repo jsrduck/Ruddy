@@ -86,7 +86,7 @@ namespace ParserTests
 			Assert::IsNotNull(ctor);
 			Assert::IsNotNull(ctor->_inputArgs.get());
 			Assert::IsNotNull(ctor->_inputArgs->_argument.get());
-			Assert::IsTrue(ctor->_inputArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(ctor->_inputArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("a", ctor->_inputArgs->_argument->_name.c_str());
 		}
 
@@ -99,10 +99,10 @@ namespace ParserTests
 			Assert::IsNotNull(ctor);
 			Assert::IsNotNull(ctor->_inputArgs.get());
 			Assert::IsNotNull(ctor->_inputArgs->_argument.get());
-			Assert::IsTrue(ctor->_inputArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(ctor->_inputArgs->_argument->_typeInfo.get()));
 			Assert::IsNotNull(ctor->_inputArgs->_next.get());
 			Assert::IsNotNull(ctor->_inputArgs->_next->_argument.get());
-			Assert::IsTrue(ctor->_inputArgs->_next->_argument->_typeInfo->Equals(CharTypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<CharTypeInfo*>(ctor->_inputArgs->_next->_argument->_typeInfo.get()));
 			Assert::AreEqual("B", ctor->_inputArgs->_next->_argument->_name.c_str());
 		}
 
@@ -115,14 +115,14 @@ namespace ParserTests
 			Assert::IsNotNull(memberVarI);
 			Assert::IsNull(memberVarI->_defaultValue.get());
 			Assert::AreEqual("i", memberVarI->_name.c_str());
-			Assert::IsTrue(memberVarI->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(memberVarI->_typeInfo.get()));
 			Assert::AreEqual((int) Visibility::PUBLIC, (int) memberVarI->_visibility);
 
 			auto memberVarJ = dynamic_cast<ClassMemberDeclaration*>(clssA->_list->_next->_statement.get());
 			Assert::IsNotNull(memberVarJ);
 			Assert::IsNull(memberVarJ->_defaultValue.get());
 			Assert::AreEqual("j", memberVarJ->_name.c_str());
-			Assert::IsTrue(memberVarJ->_typeInfo->Equals(CharTypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<CharTypeInfo*>(memberVarJ->_typeInfo.get()));
 			Assert::AreEqual((int) Visibility::PUBLIC, (int) memberVarJ->_visibility);
 		}
 
@@ -136,7 +136,7 @@ namespace ParserTests
 			Assert::IsTrue(dynamic_pointer_cast<IntegerConstant>(memberVarI->_defaultValue) != nullptr);
 			Assert::AreEqual(0, dynamic_pointer_cast<IntegerConstant>(memberVarI->_defaultValue)->AsInt32());
 			Assert::AreEqual("i", memberVarI->_name.c_str());
-			Assert::IsTrue(memberVarI->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(memberVarI->_typeInfo.get()));
 			Assert::AreEqual((int) Visibility::PUBLIC, (int) memberVarI->_visibility);
 
 			auto memberVarJ = dynamic_cast<ClassMemberDeclaration*>(clssA->_list->_next->_statement.get());
@@ -144,7 +144,7 @@ namespace ParserTests
 			Assert::IsNotNull(dynamic_cast<BoolConstant*>(memberVarJ->_defaultValue.get()));
 			Assert::AreEqual(true, dynamic_cast<BoolConstant*>(memberVarJ->_defaultValue.get())->Value());
 			Assert::AreEqual("j", memberVarJ->_name.c_str());
-			Assert::IsTrue(memberVarJ->_typeInfo->Equals(BoolTypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<BoolTypeInfo*>(memberVarJ->_typeInfo.get()));
 			Assert::AreEqual((int) Visibility::PUBLIC, (int) memberVarJ->_visibility);
 		}
 
@@ -178,7 +178,7 @@ namespace ParserTests
 			Assert::IsNotNull(memberVarI);
 			Assert::IsNull(memberVarI->_defaultValue.get());
 			Assert::AreEqual("i", memberVarI->_name.c_str());
-			Assert::IsTrue(memberVarI->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(memberVarI->_typeInfo.get()));
 			Assert::AreEqual((int) Visibility::PRIVATE, (int) memberVarI->_visibility);
 
 			auto memberVarJ = dynamic_cast<ClassMemberDeclaration*>(clssA->_list->_next->_next->_statement.get());
@@ -186,7 +186,7 @@ namespace ParserTests
 			Assert::IsNotNull(dynamic_cast<BoolConstant*>(memberVarJ->_defaultValue.get()));
 			Assert::AreEqual(false, dynamic_cast<BoolConstant*>(memberVarJ->_defaultValue.get())->Value());
 			Assert::AreEqual("j", memberVarJ->_name.c_str());
-			Assert::IsTrue(memberVarJ->_typeInfo->Equals(BoolTypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<BoolTypeInfo*>(memberVarJ->_typeInfo.get()));
 			Assert::AreEqual((int) Visibility::PROTECTED, (int) memberVarJ->_visibility);
 		}
 
@@ -222,7 +222,7 @@ namespace ParserTests
 			auto bDeclaration = dynamic_cast<FunctionDeclaration*>(clssA->_list->_statement.get());
 			Assert::IsNotNull(bDeclaration);
 			Assert::AreEqual("a", bDeclaration->_inputArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_argument->_typeInfo.get()));
 		}
 
 		TEST_METHOD(ClassWithVoidFunctionWithArgsAndBody)
@@ -233,9 +233,9 @@ namespace ParserTests
 			auto bDeclaration = dynamic_cast<FunctionDeclaration*>(clssA->_list->_statement.get());
 			Assert::IsNotNull(bDeclaration);
 			Assert::AreEqual("a", bDeclaration->_inputArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("b", bDeclaration->_inputArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_next->_argument->_typeInfo->Equals(ByteTypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<ByteTypeInfo*>(bDeclaration->_inputArgs->_next->_argument->_typeInfo.get()));
 
 			auto stmts = dynamic_cast<LineStatements*>(bDeclaration->_body.get());
 			Assert::IsNotNull(dynamic_cast<ExpressionAsStatement*>(stmts->_statement.get()));
@@ -250,7 +250,7 @@ namespace ParserTests
 			auto bDeclaration = dynamic_cast<FunctionDeclaration*>(clssA->_list->_statement.get());
 			Assert::IsNotNull(bDeclaration);
 			Assert::AreEqual("a", bDeclaration->_returnArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_argument->_typeInfo.get()));
 
 			auto stmts = dynamic_cast<LineStatements*>(bDeclaration->_body.get());
 			Assert::IsNotNull(dynamic_cast<ReturnStatement*>(stmts->_statement.get()));
@@ -264,9 +264,9 @@ namespace ParserTests
 			auto bDeclaration = dynamic_cast<FunctionDeclaration*>(clssA->_list->_statement.get());
 			Assert::IsNotNull(bDeclaration);
 			Assert::AreEqual("a", bDeclaration->_returnArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("b", bDeclaration->_returnArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_next->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_next->_argument->_typeInfo.get()));
 
 			auto stmts = dynamic_cast<LineStatements*>(bDeclaration->_body.get());
 			Assert::IsNotNull(dynamic_cast<ReturnStatement*>(stmts->_statement.get()));
@@ -281,14 +281,14 @@ namespace ParserTests
 			Assert::IsNotNull(bDeclaration);
 
 			Assert::AreEqual("c", bDeclaration->_inputArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("d", bDeclaration->_inputArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_next->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_next->_argument->_typeInfo.get()));
 
 			Assert::AreEqual("a", bDeclaration->_returnArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("b", bDeclaration->_returnArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_next->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_next->_argument->_typeInfo.get()));
 
 			auto stmts = dynamic_cast<LineStatements*>(bDeclaration->_body.get());
 			Assert::IsNotNull(dynamic_cast<ReturnStatement*>(stmts->_statement.get()));
@@ -303,14 +303,14 @@ namespace ParserTests
 			Assert::IsNotNull(bDeclaration);
 
 			Assert::AreEqual("c", bDeclaration->_inputArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("d", bDeclaration->_inputArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_next->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_next->_argument->_typeInfo.get()));
 
 			Assert::AreEqual("a", bDeclaration->_returnArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("b", bDeclaration->_returnArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_next->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_next->_argument->_typeInfo.get()));
 
 			auto stmts = dynamic_cast<LineStatements*>(bDeclaration->_body.get());
 			Assert::IsNotNull(dynamic_cast<ReturnStatement*>(stmts->_statement.get()));
@@ -325,16 +325,16 @@ namespace ParserTests
 			Assert::IsNotNull(bDeclaration);
 
 			Assert::AreEqual("d", bDeclaration->_inputArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("e", bDeclaration->_inputArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_inputArgs->_next->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_inputArgs->_next->_argument->_typeInfo.get()));
 
 			Assert::AreEqual("a", bDeclaration->_returnArgs->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_argument->_typeInfo.get()));
 			Assert::AreEqual("b", bDeclaration->_returnArgs->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_next->_argument->_typeInfo->Equals(Int32TypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<Int32TypeInfo*>(bDeclaration->_returnArgs->_next->_argument->_typeInfo.get()));
 			Assert::AreEqual("c", bDeclaration->_returnArgs->_next->_next->_argument->_name.c_str());
-			Assert::IsTrue(bDeclaration->_returnArgs->_next->_next->_argument->_typeInfo->Equals(ByteTypeInfo::Get()));
+			Assert::IsNotNull(dynamic_cast<ByteTypeInfo*>(bDeclaration->_returnArgs->_next->_next->_argument->_typeInfo.get()));
 
 			auto stmts = dynamic_cast<LineStatements*>(bDeclaration->_body.get());
 			Assert::IsNotNull(dynamic_cast<ReturnStatement*>(stmts->_statement.get()));

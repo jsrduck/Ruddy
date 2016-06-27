@@ -281,8 +281,8 @@ namespace Ast
 			}
 		}
 
-		msl::utilities::SafeInt<int64_t> _asInt64;
-		msl::utilities::SafeInt<uint64_t> _asUint64;
+		int64_t _asInt64;
+		uint64_t _asUint64;
 		uint64_t _asHex;
 		bool _usingInt64;
 		bool _usingHex;

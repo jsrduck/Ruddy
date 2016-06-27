@@ -21,39 +21,366 @@ namespace CodeGenTests
 	public:
 		TEST_METHOD(Int32AddCodegen)
 		{
-			llvm::LLVMContext context;
-			llvm::IRBuilder<> builder(context); 
-			auto module = new llvm::Module("Module", context);
+			llvm::IRBuilder<> builder(llvm::getGlobalContext()); 
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<AddOperation>(new IntegerConstant("1"), new IntegerConstant("1"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table , &builder, &context, module);
+			auto val = expr->CodeGen(table , &builder, &llvm::getGlobalContext(), module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 2);
+		}
+
+		TEST_METHOD(Int32SubCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<SubtractOperation>(new IntegerConstant("1"), new IntegerConstant("1"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0);
+		}
+
+		TEST_METHOD(Int32MulCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<MultiplyOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 30);
+		}
+
+		TEST_METHOD(Int32DivCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<DivideOperation>(new IntegerConstant("100"), new IntegerConstant("5"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 20);
+		}
+
+		TEST_METHOD(Int32RemCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<RemainderOperation>(new IntegerConstant("11"), new IntegerConstant("3"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 2);
+		}
+
+		TEST_METHOD(Int32GTECodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<GreaterThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<GreaterThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<GreaterThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+		}
+
+		TEST_METHOD(Int32LTECodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<LessThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<LessThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<LessThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+		}
+
+		TEST_METHOD(Int32GTCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<GreaterThanOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<GreaterThanOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<GreaterThanOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+		}
+
+		TEST_METHOD(Int32LTCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<LessThanOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<LessThanOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<LessThanOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+		}
+
+		TEST_METHOD(Int32EqCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<EqualToOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<EqualToOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+		}
+
+		TEST_METHOD(Int32NeqCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<NotEqualToOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
+
+			expr = std::make_shared<NotEqualToOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
+		}
+
+		TEST_METHOD(Int32BitAndCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<BitwiseAndOperation>(new IntegerConstant("0x1010"), new IntegerConstant("0x1101"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0x1000);
+		}
+
+		TEST_METHOD(Int32BitOrCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<BitwiseOrOperation>(new IntegerConstant("0x1010"), new IntegerConstant("0x1100"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0x1110);
+		}
+
+		TEST_METHOD(Int32BitXorCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<BitwiseXorOperation>(new IntegerConstant("0x1010"), new IntegerConstant("0x1100"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0x0110);
+		}
+
+		TEST_METHOD(Int32BitShlCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<BitwiseShiftLeftOperation>(new IntegerConstant("0xF"), new IntegerConstant("2"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 60);
+
+			expr = std::make_shared<BitwiseShiftLeftOperation>(new IntegerConstant("1", true /*negate*/), new IntegerConstant("2"));
+			expr->Evaluate(table);
+			val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == llvm::APInt(32, -4, true));
+		}
+
+		TEST_METHOD(Int32BitShrCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<BitwiseShiftRightOperation>(new IntegerConstant("0xF"), new IntegerConstant("2"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 3);
+		}
+
+		TEST_METHOD(Int32PostIncrCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
+			assignment->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PostIncrementOperation(new Reference("i")));
+			exprStmt->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+		}
+
+		TEST_METHOD(Int32PostDecCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
+			assignment->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PostDecrementOperation(new Reference("i")));
+			exprStmt->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+		}
+
+		TEST_METHOD(Int32PreIncrCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
+			assignment->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PreIncrementOperation(new Reference("i")));
+			exprStmt->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+		}
+
+		TEST_METHOD(Int32PreDecCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
+			assignment->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PreDecrementOperation(new Reference("i")));
+			exprStmt->TypeCheck(table, &builder, &llvm::getGlobalContext(), module);
+		}
+
+		TEST_METHOD(Int32ComplCodegen)
+		{
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
+			auto table = std::make_shared<SymbolTable>();
+			auto expr = std::make_shared<ComplementOperation>(new IntegerConstant("0x0F0F0F0F"));
+			expr->Evaluate(table);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
+			Assert::IsTrue(val->getType()->isIntegerTy());
+			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 4042322160);
 		}
 
 		TEST_METHOD(Int64AddCodegen)
 		{
-			llvm::LLVMContext context;
-			llvm::IRBuilder<> builder(context);
-			auto module = new llvm::Module("Module", context);
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<AddOperation>(new IntegerConstant("2147483649"), new IntegerConstant("2147483649"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &context, module);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 64, ((llvm::ConstantInt*)val)->getBitWidth());
 		}
 
 		TEST_METHOD(Float64AddCodegen)
 		{
-			llvm::LLVMContext context;
-			llvm::IRBuilder<> builder(context);
-			auto module = new llvm::Module("Module", context);
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<AddOperation>(new FloatingConstant("1.5"), new FloatingConstant("1.5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &context, module);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
 			Assert::IsTrue(val->getType()->isDoubleTy());
 		}
 	};
@@ -62,16 +389,16 @@ namespace CodeGenTests
 	{
 		TEST_METHOD(Int32AndInt64AddCodegen)
 		{
-			llvm::LLVMContext context;
-			llvm::IRBuilder<> builder(context);
-			auto module = new llvm::Module("Module", context);
+			llvm::IRBuilder<> builder(llvm::getGlobalContext());
+			auto module = new llvm::Module("Module", llvm::getGlobalContext());
 			auto table = std::make_shared<SymbolTable>();
 
 			auto expr = std::make_shared<AddOperation>(new IntegerConstant("1"), new IntegerConstant("2147483649"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &context, module);
+			auto val = expr->CodeGen(table, &builder, &llvm::getGlobalContext(), module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int)64, ((llvm::ConstantInt*)val)->getBitWidth());
+			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 2147483650);
 		}
 	};
 }

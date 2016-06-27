@@ -39,7 +39,7 @@ namespace Ast
 	class ClassMemberDeclaration : public ClassStatement
 	{
 	public:
-		ClassMemberDeclaration(Visibility visibility, Modifier* modifiers, TypeInfo* typeInfo, const std::string& name,
+		ClassMemberDeclaration(Visibility visibility, Modifier* modifiers, std::shared_ptr<TypeInfo> typeInfo, const std::string& name,
 			ConstantExpression* defaultValue = nullptr) :
 			_visibility(visibility),
 			_mods(modifiers),
@@ -60,7 +60,7 @@ namespace Ast
 	class Argument : public Node
 	{
 	public:
-		Argument(TypeInfo* typeInfo, const std::string& name) : _typeInfo(typeInfo), _name(name)
+		Argument(std::shared_ptr<TypeInfo> typeInfo, const std::string& name) : _typeInfo(typeInfo), _name(name)
 		{}
 
 		std::shared_ptr<TypeInfo> _typeInfo;

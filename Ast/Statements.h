@@ -216,7 +216,7 @@ namespace Ast
 	class DeclareVariable : public AssignFromSingle
 	{
 	public:
-		DeclareVariable(TypeInfo* typeInfo, const std::string& name) 
+		DeclareVariable(std::shared_ptr<TypeInfo> typeInfo, const std::string& name) 
 			: _typeInfo(typeInfo), _name(name)
 		{
 		}

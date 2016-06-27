@@ -37,14 +37,7 @@ namespace Ast
 				throw OperationNotDefinedException(operation->OperatorString());
 			}
 
-			if (operation->IsAssignment())
-			{
-				if (IsImplicitlyAssignableFrom(rhs, symbolTable))
-					return SupportsOperator(operation) ? shared_from_this() : throw OperationNotDefinedException(operation->OperatorString());
-				else
-					throw OperationNotDefinedException(operation->OperatorString());
-			}
-			else if (operation->IsArithmetic())
+			if (operation->IsArithmetic())
 			{
 				if (rhs->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
 					return rhs->SupportsOperator(operation) ? rhs : throw OperationNotDefinedException(operation->OperatorString());
@@ -151,7 +144,7 @@ namespace Ast
 		auto otherAsClassType = std::dynamic_pointer_cast<ClassTypeInfo>(other);
 		if (otherAsClassType != nullptr)
 		{
-			return Equals(otherAsClassType);
+			return otherAsClassType.get() == this;
 		}
 
 		auto otherAsCompositeType = std::dynamic_pointer_cast<CompositeTypeInfo>(other);
@@ -172,10 +165,6 @@ namespace Ast
 	{
 		// Not until operator overloading is implemented
 		return false;
-	}
-
-	UnresolvedClassTypeInfo::UnresolvedClassTypeInfo(Reference* id) : _name(id->Id())
-	{
 	}
 
 	bool UnresolvedClassTypeInfo::IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable)
