@@ -14,6 +14,11 @@ namespace Ast
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) = 0;
 
 		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) = 0;
+		
+		virtual bool IsConstantExpression()
+		{
+			return false;
+		}
 	};
 
 	class Reference : public Expression

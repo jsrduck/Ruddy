@@ -74,6 +74,8 @@ namespace Ast
 		{
 		}
 
+		void AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput = false);
+
 		std::shared_ptr<Argument> _argument;
 		std::shared_ptr<ArgumentList> _next;
 	};
@@ -176,12 +178,10 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 
 		const std::string _name;
 		std::shared_ptr<Expression> _expression;
+		std::vector<llvm::AllocaInst*> _outputValues;
 	};
 }

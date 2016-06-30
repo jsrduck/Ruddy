@@ -134,9 +134,9 @@ namespace Ast
 	class AssignFromSingle
 	{
 	public:
-		virtual std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable) = 0;
+		virtual std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) = 0;
 		virtual void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) = 0;
-		virtual llvm::AllocaInst* GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
+		virtual llvm::Value* GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
 	};
 
 	class AssignFrom : public Node
@@ -146,12 +146,18 @@ namespace Ast
 		{
 		}
 
-		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable)
+		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr)
 		{
-			_thisType = _thisOne->Resolve(symbolTable);
+			auto rhsTypeInfoAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhsTypeInfo);
+			auto thisRhs = rhsTypeInfoAsComposite != nullptr ? rhsTypeInfoAsComposite->_thisType : rhsTypeInfo;
+			auto rhsExprAsList = std::dynamic_pointer_cast<ExpressionList>(rhsExpr);
+			auto thisRhsExpr = rhsExprAsList != nullptr ? rhsExprAsList->_left : rhsExpr;
+			_thisType = _thisOne->Resolve(symbolTable, thisRhs, thisRhsExpr);
 			if (_next == nullptr)
 				return _thisType;
-			_nextType = _next->Resolve(symbolTable);
+			if (rhsTypeInfoAsComposite == nullptr)
+				throw UnexpectedException();
+			_nextType = _next->Resolve(symbolTable, rhsTypeInfoAsComposite->_next, rhsExprAsList ? rhsExprAsList->_right : rhsExpr);
 			auto nextAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(_nextType);
 			if (nextAsComposite == nullptr)
 				nextAsComposite = std::make_shared<CompositeTypeInfo>(_nextType);
@@ -167,7 +173,7 @@ namespace Ast
 				{
 					// It better be a single type
 					if (rhsAsComposite->_next != nullptr)
-						throw TypeMismatchException(_thisOne->Resolve(symbolTable), rhs);
+						throw TypeMismatchException(_thisType, rhs);
 					_thisOne->Bind(symbolTable, rhsAsComposite->_thisType);
 				}
 				else
@@ -179,7 +185,12 @@ namespace Ast
 			{
 				auto rhsAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhs);
 				if (rhsAsComposite == nullptr)
-					throw TypeMismatchException(Resolve(symbolTable), rhs);
+				{
+					auto nextAsComp = std::dynamic_pointer_cast<CompositeTypeInfo>(_nextType);
+					if (nextAsComp == nullptr)
+						nextAsComp = std::make_shared<CompositeTypeInfo>(_nextType);
+					throw TypeMismatchException(std::make_shared<CompositeTypeInfo>(_thisType, nextAsComp), rhs);
+				}
 				_thisOne->Bind(symbolTable, rhsAsComposite->_thisType);
 				_next->Bind(symbolTable, rhsAsComposite->_next);
 			}
@@ -201,14 +212,14 @@ namespace Ast
 		{
 		}
 
-		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable) override;
+		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) override;
 
 		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) override
 		{
 			// Not necessary, it's already been bound to a type
 		}
 
-		virtual llvm::AllocaInst* GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
 		const std::string _ref;
 	};
@@ -221,11 +232,11 @@ namespace Ast
 		{
 		}
 
-		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable) override;
+		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) override;
 
 		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) override;
 
-		virtual llvm::AllocaInst* GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
 		std::shared_ptr<TypeInfo> _typeInfo;
 		const std::string _name;

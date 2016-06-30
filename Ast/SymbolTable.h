@@ -63,9 +63,14 @@ namespace Ast
 
 			virtual std::shared_ptr<TypeInfo> GetTypeInfo() = 0;
 
-			virtual llvm::AllocaInst* GetAllocationInstance()
+			virtual void BindIRValue(llvm::Value* value)
 			{
-				throw UnexpectedException();
+				_value = value;
+			}
+
+			virtual llvm::Value* GetIRValue()
+			{
+				return _value;
 			}
 
 			virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
@@ -86,12 +91,13 @@ namespace Ast
 			std::string _fullyQualifiedName;
 			std::string _parentNamespace;
 			Visibility _visibility;
+			llvm::Value* _value = nullptr;
 		};
 
-		void BindVariable(const std::string& symbolName, std::shared_ptr<TypeInfo> node);
+		std::shared_ptr<SymbolTable::SymbolBinding> BindVariable(const std::string& symbolName, std::shared_ptr<TypeInfo> node);
 		void BindNamespace(const std::string& namespaceName);
 		void BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration);
-		void BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
+		std::shared_ptr<SymbolTable::SymbolBinding> BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
 		void BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable);
 		void BindLoop();
 
@@ -133,11 +139,9 @@ namespace Ast
 
 			bool IsVariableBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override { return _variableType; }
-			llvm::AllocaInst* GetAllocationInstance() override { return _allocation; }
 			virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
 			std::shared_ptr<TypeInfo> _variableType;
-			llvm::AllocaInst* _allocation;
 		};
 
 		class NamespaceBinding : public SymbolBinding

@@ -11,6 +11,7 @@ namespace Ast {
 		virtual bool SupportsOperator(Operation* operation) override; \
 		static std::shared_ptr<TypeInfo> Get() { return _staticInstance; }; \
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override; \
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool isOutput = false) override; \
 	private: \
 		static const std::string _name; \
 		static int _supportedOperations; \

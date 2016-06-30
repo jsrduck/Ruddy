@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Expressions.h"
+#include "Primitives.h"
 #include <string>
 
 namespace Ast
@@ -28,8 +29,16 @@ namespace Ast
 		virtual bool IsBinary() override { return true; }
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			_lhsTypeInfo = _lhs->Evaluate(symbolTable);
 			_rhsTypeInfo = _rhs->Evaluate(symbolTable);
+			_lhsTypeInfo = _lhs->Evaluate(symbolTable);
+			if (_rhsTypeInfo->IsConstant() && _lhsTypeInfo->IsConstant())
+			{
+				// They both end up evaluating to constant types, which isn't that helpful.
+				// Try and make them resolve to best fit types.
+				_rhsTypeInfo = std::dynamic_pointer_cast<ConstantExpression>(_rhs)->BestFitTypeInfo();
+				_lhsTypeInfo = std::dynamic_pointer_cast<ConstantExpression>(_lhs)->BestFitTypeInfo();
+			}
+
 			_resultOfOperation = _lhsTypeInfo->EvaluateOperation(this, _rhsTypeInfo);
 			return _resultOfOperation;
 		}

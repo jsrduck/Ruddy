@@ -1301,6 +1301,24 @@ namespace TypeCheckingTests
 		}
 	};
 
+	TEST_CLASS(BestFitTests)
+	{
+		TEST_METHOD(AutoIntegerTypeDefaultsToInt32)
+		{
+			auto tree = ParseTree("class A { fun Foo() { let i = 1; int j = i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+
+			auto theClass = dynamic_pointer_cast<ClassDeclaration>(tree->_stmt);
+			Assert::IsTrue(theClass != nullptr);
+			auto declaration = dynamic_pointer_cast<FunctionDeclaration>(theClass->_list->_statement);
+			auto lineStmts = dynamic_pointer_cast<LineStatements>(declaration->_body);
+			auto stmt1 = dynamic_pointer_cast<Assignment>(lineStmts->_statement);
+			auto stmt2 = dynamic_pointer_cast<Assignment>(lineStmts->_next->_statement);
+			// TODO?
+		}
+	};
+
 	vector<shared_ptr<TypeInfo>> PrimitivesTest::_primitives;
 	vector<shared_ptr<TypeInfo>> PrimitiveArithmeticOperationTest::_nonBoolPrimitives;
 	vector<shared_ptr<ArithmeticBinaryOperation>> PrimitiveArithmeticOperationTest::_arithmeticOperations;

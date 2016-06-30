@@ -40,6 +40,10 @@ namespace Ast
 	public:
 		virtual llvm::Value* CreateValue(llvm::LLVMContext* context, uint64_t constant) = 0;
 		virtual bool Signed() = 0;
+		virtual bool IsInteger()
+		{
+			return true;
+		}
 	};
 
 	// TODO: String should be defined as a class IN Ruddy code, but the compiler needs to be smart enough 
@@ -72,14 +76,30 @@ namespace Ast
 	// An expression that recognizes a static constant, ie the zero in int i = 0;
 	class ConstantExpression : public Expression
 	{
+	public:
+		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() = 0;
+		virtual bool IsConstantExpression() override
+		{
+			return true;
+		}
 	};
 
 	class ConstantType : public TypeInfo
 	{
+
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
 		{
 			// You can't have a variable with a constant type, it should be resolved to an actual type by then
 			throw UnexpectedException();
+		}
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput) override
+		{
+			// You can't have a variable with a constant type, it should be resolved to an actual type by then
+			throw UnexpectedException();
+		}
+		virtual bool IsConstant() override
+		{
+			return true;
 		}
 	};
 
@@ -105,6 +125,11 @@ namespace Ast
 		bool SupportsOperator(Operation* operation) override
 		{
 			return Int64TypeInfo::Get()->SupportsOperator(operation);
+		}
+
+		virtual bool IsInteger() override
+		{
+			return true;
 		}
 
 		static std::shared_ptr<TypeInfo> Get();
@@ -151,6 +176,11 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
+			return IntegerConstantType::Get();
+		}
+
+		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
+		{
 			// Need to pick the best fit
 			if (FitsInt32())
 				return Int32TypeInfo::Get();
@@ -165,6 +195,19 @@ namespace Ast
 		uint8_t AsByte()
 		{
 			return GetAs<uint8_t>();
+		}
+
+		bool FitsByte()
+		{
+			try
+			{
+				auto result = AsByte();
+				return true;
+			}
+			catch (OverflowException&)
+			{
+				return false;
+			}
 		}
 
 		int32_t AsInt32()
@@ -206,6 +249,19 @@ namespace Ast
 		uint32_t AsUInt32()
 		{
 			return GetAs<uint32_t>();
+		}
+
+		bool FitsUInt32()
+		{
+			try
+			{
+				auto result = AsUInt32();
+				return true;
+			}
+			catch (OverflowException&)
+			{
+				return false;
+			}
 		}
 
 		uint64_t AsUInt64()
@@ -367,6 +423,12 @@ namespace Ast
 
 		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
+		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
+		{
+			// Just assume double, it's higher precision.
+			return Float64TypeInfo::Get();
+		}
+
 		float AsFloat32()
 		{
 			if (!_fitsInFloat)
@@ -432,6 +494,11 @@ namespace Ast
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return _typeInfo;
+		}
+
+		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
+		{
+			return BoolTypeInfo::Get();
 		}
 
 		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
@@ -523,6 +590,11 @@ namespace Ast
 			}
 		}
 
+		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
+		{
+			return CharTypeInfo::Get();
+		}
+
 		uint16_t Value()
 		{
 			return _value;
@@ -586,6 +658,11 @@ namespace Ast
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return _typeInfo;
+		}
+
+		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
+		{
+			return StringTypeInfo::Get();
 		}
 
 		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;

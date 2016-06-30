@@ -12,29 +12,132 @@
 
 namespace Ast {
 
-	llvm::AllocaInst* DeclareVariable::GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+	llvm::Value* DeclareVariable::GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return symbolTable->Lookup(_name)->CreateAllocationInstance(_name, builder, context);
 	}
 
-	llvm::AllocaInst* AssignFromReference::GetAllocation(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+	llvm::Value* AssignFromReference::GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
-		return symbolTable->Lookup(_ref)->GetAllocationInstance();
+		return symbolTable->Lookup(_ref)->GetIRValue();
 	}
 
 	void AssignFrom::CodeGen(std::shared_ptr<Expression> rhs, std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
-		// Worry about multi-types later
 		if (_next != nullptr)
 		{
-			throw UnexpectedException();
+			// The rhs must be an expression list or function to support this
+			auto rhsAsList = std::dynamic_pointer_cast<ExpressionList>(rhs);
+			auto rhsAsFunction = std::dynamic_pointer_cast<FunctionCall>(rhs);
+			if (rhsAsList != nullptr)
+			{
+				auto rhValue = rhsAsList->_left->CodeGen(symbolTable, builder, context, module, _thisType);
+				auto alloc = _thisOne->GetIRValue(symbolTable, builder, context);
+				builder->CreateStore(rhValue, alloc);
+				_next->CodeGen(rhsAsList->_right, symbolTable, builder, context, module);
+			}
+			else if (rhsAsFunction != nullptr)
+			{
+				auto nextAsComp = std::dynamic_pointer_cast<CompositeTypeInfo>(_nextType);
+				if (nextAsComp == nullptr)
+					nextAsComp = std::make_shared<CompositeTypeInfo>(_nextType);
+
+				auto compTypeExpected = std::dynamic_pointer_cast<CompositeTypeInfo>(_thisType);
+				if (compTypeExpected == nullptr)
+					compTypeExpected = std::make_shared<CompositeTypeInfo>(_thisType, nextAsComp);
+				else
+					compTypeExpected->_next = nextAsComp;
+				auto functionCall = (llvm::CallInst*)rhsAsFunction->CodeGen(symbolTable, builder, context, module, compTypeExpected);
+
+				// Store each output value in a value from the lhs
+				auto lhsVar = _next;
+				for (auto &outputVal : rhsAsFunction->_outputValues)
+				{
+					auto val = builder->CreateLoad(outputVal);
+					auto alloc = lhsVar->_thisOne->GetIRValue(symbolTable, builder, context);
+					builder->CreateStore(val, alloc);
+					lhsVar = lhsVar->_next;
+				}
+
+				// Store the first guy that we do return
+				auto alloc = _thisOne->GetIRValue(symbolTable, builder, context);
+				builder->CreateStore(functionCall, alloc);
+			}
+			else
+			{
+				throw UnexpectedException();
+			}
 		}
 		else
 		{
 			auto rhValue = rhs->CodeGen(symbolTable, builder, context, module, _thisType);
-			auto alloc = _thisOne->GetAllocation(symbolTable, builder, context);
+			auto alloc = _thisOne->GetIRValue(symbolTable, builder, context);
 			builder->CreateStore(rhValue, alloc);
 		}
+	}
+
+	void ArgumentList::AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput)
+	{
+		if (_argument != nullptr)
+		{
+			inputVector.push_back(_argument->_typeInfo->GetIRType(context, asOutput));
+		}
+		if (_next != nullptr)
+			_next->AddIRTypesToVector(inputVector, context, asOutput);
+	}
+
+	llvm::Value* FunctionCall::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		auto functionBinding = symbolTable->Lookup(_name);
+		auto functionType = std::dynamic_pointer_cast<FunctionTypeInfo>(functionBinding->GetTypeInfo());
+		if (functionType == nullptr)
+			throw UnexpectedException();
+		auto evaluatedType = _expression->Evaluate(symbolTable);
+		if (!functionType->InputArgsType()->IsImplicitlyAssignableFrom(evaluatedType, symbolTable))
+		{
+			throw TypeMismatchException(functionType->InputArgsType(), evaluatedType);
+		}
+		auto function = module->getFunction(_name);
+		std::vector<llvm::Value*> args;
+		auto exprList = std::dynamic_pointer_cast<ExpressionList>(_expression);
+		if (exprList != nullptr)
+		{
+			auto argList = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->_inputArgs);
+			while (exprList != nullptr)
+			{
+				auto val = exprList->_left->CodeGen(symbolTable, builder, context, module, argList->_thisType);
+				args.push_back(val);
+				if (exprList->_right != nullptr)
+				{
+					auto right = exprList->_right;
+					exprList = std::dynamic_pointer_cast<ExpressionList>(right);
+					if (exprList == nullptr)
+					{
+						auto argsValue = right->CodeGen(symbolTable, builder, context, module, functionType->_inputArgs);
+						args.push_back(argsValue);
+					}
+				}
+				argList = argList->_next;
+			}
+		}
+		else
+		{
+			auto argsValue = _expression->CodeGen(symbolTable, builder, context, module, functionType->_inputArgs);
+			args.push_back(argsValue);
+		}
+
+		// Are there multiple return types? If so, we need to add the extras as "out" parameters
+		auto outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->OutputArgsType());
+		if (outputAsComposite != nullptr)
+			outputAsComposite = outputAsComposite->_next;
+		while (outputAsComposite != nullptr && outputAsComposite->_thisType != nullptr)
+		{
+			auto tempVal = outputAsComposite->_thisType->CreateAllocation(outputAsComposite->_name, builder, context);
+			_outputValues.push_back(tempVal);
+			args.push_back(tempVal);
+			outputAsComposite = outputAsComposite->_next;
+		}
+		return builder->CreateCall(function, args);
 	}
 
 	llvm::Value* DebugPrintStatement::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
@@ -104,9 +207,9 @@ namespace Ast {
 	{
 		auto symbol = symbolTable->Lookup(_id);
 		if (symbol->GetTypeInfo()->IsPrimitiveType())
-			return builder->CreateLoad(symbol->GetAllocationInstance(), _id);
+			return builder->CreateLoad(symbol->GetIRValue(), _id);
 		else
-			return symbol->GetAllocationInstance();
+			return symbol->GetIRValue();
 	}
 
 	llvm::Value* ExpressionList::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
@@ -127,10 +230,7 @@ namespace Ast {
 
 	llvm::Value* IntegerConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		std::shared_ptr<IntegerTypeInfo> hintAsInteger = nullptr;
-		if (hint != nullptr)
-			hintAsInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(hint);
-		if (hintAsInteger == nullptr)
+		if (hint == nullptr || hint->IsConstant())
 		{
 			// Trying to fit auto type, pick the best type we have
 			if (FitsInt32())
@@ -143,6 +243,7 @@ namespace Ast {
 		else
 		{
 			// Try to fit it in the given type
+			auto hintAsInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(hint);
 			return hintAsInteger->CreateValue(context, GetRaw());
 		}
 	}
@@ -170,10 +271,10 @@ namespace Ast {
 
 	llvm::Value* AddOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 
-		if (std::dynamic_pointer_cast<IntegerTypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation))
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateAdd(lhs, rhs, "", true, true); // TODO: Think about overflow
 		}
@@ -193,7 +294,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 
-		if (std::dynamic_pointer_cast<IntegerTypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateSub(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
 		}
@@ -211,7 +312,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 
-		if (std::dynamic_pointer_cast<IntegerTypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateMul(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
 		}
@@ -229,7 +330,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 
-		if (std::dynamic_pointer_cast<IntegerTypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateSDiv(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
 		}
@@ -247,7 +348,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 
-		if (std::dynamic_pointer_cast<IntegerTypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateSRem(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
 		}
@@ -272,9 +373,9 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
+			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
 			if (intType == nullptr || intType->Signed())
 				return builder->CreateICmpSGE(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
@@ -303,9 +404,9 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
+			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
 			if (intType == nullptr || intType->Signed())
 				return builder->CreateICmpSLE(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
@@ -332,9 +433,9 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
+			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
 			if (intType == nullptr || intType->Signed())
 				return builder->CreateICmpSGT(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
@@ -361,9 +462,9 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
+			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
 			if (intType == nullptr || intType->Signed())
 				return builder->CreateICmpSLT(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
@@ -390,8 +491,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
 			return builder->CreateICmpEQ(lhs, rhs);
 		}
@@ -416,8 +516,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
 			return builder->CreateICmpNE(lhs, rhs);
 		}
@@ -443,7 +542,7 @@ namespace Ast {
 		if (exprAsReference == nullptr)
 			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
 		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetAllocationInstance());
+		builder->CreateStore(result, symbol->GetIRValue());
 		return val; // Return the result before the increment
 	}
 
@@ -457,7 +556,7 @@ namespace Ast {
 		if (exprAsReference == nullptr)
 			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
 		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetAllocationInstance());
+		builder->CreateStore(result, symbol->GetIRValue());
 		return val; // Return the result before the decrement
 	}
 
@@ -471,7 +570,7 @@ namespace Ast {
 		if (exprAsReference == nullptr)
 			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
 		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetAllocationInstance());
+		builder->CreateStore(result, symbol->GetIRValue());
 		return result; // Return the result after the increment
 	}
 
@@ -485,7 +584,7 @@ namespace Ast {
 		if (exprAsReference == nullptr)
 			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
 		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetAllocationInstance());
+		builder->CreateStore(result, symbol->GetIRValue());
 		return result; // Return the result after the decrement
 	}
 
@@ -524,8 +623,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
 			return builder->CreateAnd(lhs, rhs);
 		}
@@ -545,8 +643,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
 			return builder->CreateOr(lhs, rhs);
 		}
@@ -566,8 +663,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_resultOfOperation) != nullptr)
+		if (implicitCastType->IsInteger())
 		{
 			return builder->CreateXor(lhs, rhs);
 		}
@@ -580,8 +676,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _lhsTypeInfo);
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(_lhsTypeInfo);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_lhsTypeInfo) != nullptr)
+		if (_lhsTypeInfo->IsInteger())
 		{
 			return builder->CreateShl(lhs, rhs); // Only has logical shl, why?
 		}
@@ -594,8 +689,7 @@ namespace Ast {
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, Int32TypeInfo::Get());
 
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(_lhsTypeInfo);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_lhsTypeInfo) != nullptr)
+		if (_lhsTypeInfo)
 		{
 			return builder->CreateLShr(lhs, rhs); // TODO: Pick logical or arith shift
 		}
@@ -606,8 +700,7 @@ namespace Ast {
 	llvm::Value* ComplementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint);
-		auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(_typeInfo);
-		if (intType != nullptr || std::dynamic_pointer_cast<IntegerConstantType>(_typeInfo) != nullptr)
+		if (_typeInfo->IsInteger())
 		{
 			return builder->CreateXor(val, 0xFFFFFFFFFFFFFFFF); // XOR with 0xFFFF....
 		}

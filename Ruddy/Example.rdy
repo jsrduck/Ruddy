@@ -1,5 +1,62 @@
 class Program 
 { 
+	static fun(int ret) Add(int a, int b)
+	{
+		return a + b;
+	}
+
+	static fun(uint ret) Factorial(uint f)
+	{
+		if (f == 1)
+			return 1;
+		return f * Factorial(f-1);
+	}
+
+	static fun(int min, int max) GetMinMax(int a, int b, int c)
+	{
+		if (a < b)
+		{
+			if (a < c)
+			{
+				if (b < c)
+				{
+					return a,c;
+				}
+				else
+				{
+					return a,b;
+				}
+			}
+			else
+			{
+				return c, b;
+			}
+		}
+		else
+		{
+			if (b < c)
+			{
+				if (a < c)
+				{
+					return b,c;
+				}
+				else
+				{
+					return b,a;
+				}
+			}
+			else
+			{
+				return c,a;
+			}
+		}
+	}
+
+	static fun(int ten, int hundred, int thous) MultOfTen(int input)
+	{
+		return input*10,input*100,input*1000;
+	}
+
 	static fun main() 
 	{ 
 		print("Hello World"); 
@@ -58,14 +115,53 @@ class Program
 		{
 			print("\nThis should be printed though");
 		}
-		int m = 0;
-		int n = m++;
-		print("\nShould say 0:");
-		print(n);
+		int m, int n = 0, 1;
 		print("\nShould say 1:");
+		print(n);
+		print("\nShould say 0:");
 		print(m);
-		n = 2147483647;
-		m = n+1;
-		print(m);
+		let y = Add(k, n);
+		print("\nShould say 4:");
+		print(y);
+		print("\nShould say 120:");
+		print(Factorial(5));
+		int j0 = 0;
+		int j1 = 1;
+		int j2 = 2;
+		int j3 = 3;
+		int j4 = 4;
+		if (j0 < j1)
+		{
+			if (j1 < j2)
+			{
+				print("\nMake sure you see this guy");
+				if (j2 < j3)
+				{
+					print("\nAlso want to see this.");
+				}
+				print("\nEspecially want to see this.");
+			}
+			else
+			{
+				print("\nDon't want to see this.");
+			}
+		}
+		else
+		{
+			print("\nDon't want to see this.");
+		}
+		print("\nMake sure you see this too");
+		print("\nShould say 0,4\n");
+		let min, let max = GetMinMax(j0, j3, j4);
+		print(min);
+		print(",");
+		print(max);
+		print("\nShould say 20,200,2000:\n");
+		let ten, let hund, let thous = MultOfTen(2);
+		print(ten);
+		print(",");
+		print(hund);
+		print(",");
+		print(thous);
 	} 
 }

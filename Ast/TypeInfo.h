@@ -22,6 +22,7 @@ namespace llvm {
 
 	class AllocaInst;
 	class BasicBlock;
+	class Type;
 }
 
 namespace Ast
@@ -41,7 +42,10 @@ namespace Ast
 		virtual bool IsAutoType() { return false; }
 		virtual bool NeedsResolution() { return false; }
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) = 0;
 		virtual bool IsPrimitiveType() { return false; }
+		virtual bool IsConstant() { return false; }
+		virtual bool IsInteger() { return false; }
 	};
 
 	class NotSupportedByAutoTypeException : public std::exception
@@ -67,6 +71,12 @@ namespace Ast
 		}
 
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
 		{
 			// TODO
 			throw UnexpectedException();
@@ -136,6 +146,12 @@ namespace Ast
 			throw UnexpectedException();
 		}
 
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
 		std::shared_ptr<TypeInfo> _thisType;
 		std::shared_ptr<CompositeTypeInfo> _next;
 		std::string _name;
@@ -157,6 +173,12 @@ namespace Ast
 		virtual bool SupportsOperator(Operation* operation) { return false; } // For now, we don't support operators on functions.
 
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
 		{
 			// TODO
 			throw UnexpectedException();
@@ -197,6 +219,12 @@ namespace Ast
 			throw UnexpectedException();
 		}
 
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
 	private:
 		std::string _name;
 	};
@@ -228,6 +256,12 @@ namespace Ast
 		}
 
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
 		{
 			// TODO
 			throw UnexpectedException();

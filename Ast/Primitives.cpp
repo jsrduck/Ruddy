@@ -43,6 +43,11 @@ namespace Ast
 		//return builder->CreateAlloca(llvm::ArrayType::get(llvm::Type::getInt8Ty(*context), ))
 		throw UnexpectedException();
 	}
+	llvm::Type* StringTypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		// TODO
+		throw UnexpectedException();
+	}
 
 	/* Int32 */
 	IMPL_PRIMITIVE_TYPE_INFO4(Int32TypeInfo, "int32", ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType)
@@ -51,6 +56,13 @@ namespace Ast
 	llvm::AllocaInst* Int32TypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getInt32Ty(*context), nullptr, name.c_str());
+	}
+	llvm::Type* Int32TypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt32PtrTy(*context);
+		else
+			return llvm::Type::getInt32Ty(*context);
 	}
 
 	/* Int64*/
@@ -61,6 +73,13 @@ namespace Ast
 	{
 		return builder->CreateAlloca(llvm::Type::getInt64Ty(*context), nullptr, name.c_str());
 	}
+	llvm::Type* Int64TypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt64PtrTy(*context);
+		else
+			return llvm::Type::getInt64Ty(*context);
+	}
 
 	/* UInt32 */
 	IMPL_PRIMITIVE_TYPE_INFO4(UInt32TypeInfo, "uint32", ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType)
@@ -69,6 +88,13 @@ namespace Ast
 	llvm::AllocaInst* UInt32TypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getInt32Ty(*context), nullptr, name.c_str());
+	}
+	llvm::Type* UInt32TypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt32PtrTy(*context);
+		else
+			return llvm::Type::getInt32Ty(*context);
 	}
 
 	/* UInt64 */
@@ -79,6 +105,13 @@ namespace Ast
 	{
 		return builder->CreateAlloca(llvm::Type::getInt64Ty(*context), nullptr, name.c_str());
 	}
+	llvm::Type* UInt64TypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt64PtrTy(*context);
+		else
+			return llvm::Type::getInt64Ty(*context);
+	}
 
 	/* Float32 */
 	IMPL_PRIMITIVE_TYPE_INFO8(Float32TypeInfo, "float", ByteTypeInfo, Int32TypeInfo, UInt32TypeInfo, Int64TypeInfo, UInt64TypeInfo, CharByteTypeInfo, CharTypeInfo, FloatingConstantType)
@@ -86,6 +119,13 @@ namespace Ast
 	llvm::AllocaInst* Float32TypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getFloatTy(*context), nullptr, name.c_str());
+	}
+	llvm::Type* Float32TypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getFloatPtrTy(*context);
+		else
+			return llvm::Type::getFloatTy(*context);
 	}
 
 	/* Float64 */
@@ -95,6 +135,13 @@ namespace Ast
 	{
 		return builder->CreateAlloca(llvm::Type::getDoubleTy(*context), nullptr, name.c_str());
 	}
+	llvm::Type* Float64TypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getDoublePtrTy(*context);
+		else
+			return llvm::Type::getDoubleTy(*context);
+	}
 
 	/* CharByte */
 	IMPL_PRIMITIVE_TYPE_INFO1(CharByteTypeInfo, "char", CharConstantType)
@@ -103,6 +150,13 @@ namespace Ast
 	{
 		return builder->CreateAlloca(llvm::Type::getInt8Ty(*context), nullptr, name.c_str());
 	}
+	llvm::Type* CharByteTypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt8PtrTy(*context);
+		else
+			return llvm::Type::getInt8Ty(*context);
+	}
 
 	/* Char */
 	IMPL_PRIMITIVE_TYPE_INFO1(CharTypeInfo, "wchar", CharConstantType)
@@ -110,6 +164,13 @@ namespace Ast
 	llvm::AllocaInst* CharTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getInt16Ty(*context), nullptr, name.c_str());
+	}
+	llvm::Type* CharTypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt16PtrTy(*context);
+		else
+			return llvm::Type::getInt16Ty(*context);
 	}
 
 	/* Bool */
@@ -120,13 +181,27 @@ namespace Ast
 	{
 		return builder->CreateAlloca(llvm::Type::getInt1Ty(*context), nullptr, name.c_str());
 	}
+	llvm::Type* BoolTypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt1PtrTy(*context);
+		else
+			return llvm::Type::getInt1Ty(*context);
+	}
 
 	/* Byte */
-	IMPL_PRIMITIVE_TYPE_INFO2(ByteTypeInfo, "byte", CharByteTypeInfo, IntegerConstantType)
+	IMPL_PRIMITIVE_TYPE_INFO1(ByteTypeInfo, "byte", CharByteTypeInfo)
 	IMPL_PRIMITIVE_ALL_OPERATORS(ByteTypeInfo)
 	llvm::AllocaInst* ByteTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getInt8Ty(*context), nullptr, name.c_str());
+	}
+	llvm::Type* ByteTypeInfo::GetIRType(llvm::LLVMContext* context, bool asOutput)
+	{
+		if (asOutput)
+			return llvm::Type::getInt8PtrTy(*context);
+		else
+			return llvm::Type::getInt8Ty(*context);
 	}
 
 }

@@ -18,7 +18,7 @@ namespace Ast
 		Exit(); // Exit Global Scope
 	}
 
-	void SymbolTable::BindVariable(const std::string& symbolName, std::shared_ptr<TypeInfo> type)
+	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::BindVariable(const std::string& symbolName, std::shared_ptr<TypeInfo> type)
 	{
 		if (_map.count(symbolName) > 0)
 		{
@@ -28,6 +28,7 @@ namespace Ast
 		auto binding = std::make_shared<VariableBinding>(symbolName, type);
 		_map[symbolName] = binding;
 		_aux_stack.push(binding);
+		return binding;
 	}
 
 	void SymbolTable::BindNamespace(const std::string& namespaceName)
@@ -56,7 +57,7 @@ namespace Ast
 		_currentAddressableNamespaces.push_back(binding);
 	}
 
-	void SymbolTable::BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration)
+	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration)
 	{
 		if (_currentFunction.size() > 0 || _currentClass.size() == 0)
 		{
@@ -70,6 +71,7 @@ namespace Ast
 		_map[binding->GetFullyQualifiedName()] = binding;
 		_aux_stack.push(binding);
 		_currentFunction.push(binding);
+		return binding;
 	}
 
 	void SymbolTable::BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable)
@@ -317,7 +319,8 @@ namespace Ast
 
 	llvm::AllocaInst* SymbolTable::VariableBinding::CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
-		_allocation = _variableType->CreateAllocation(name, builder, context);
-		return _allocation;
+		auto alloc = _variableType->CreateAllocation(name, builder, context);
+		_value = alloc;
+		return alloc;
 	}
 }

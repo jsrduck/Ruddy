@@ -31,7 +31,11 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> ExpressionList::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
 	{
-		return std::make_shared<CompositeTypeInfo>(_left->Evaluate(symbolTable), std::make_shared<CompositeTypeInfo>(_right->Evaluate(symbolTable), nullptr));
+		auto rhs = _right->Evaluate(symbolTable);
+		auto rhsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhs);
+		if (rhsComposite == nullptr)
+			rhsComposite = std::make_shared<CompositeTypeInfo>(rhs, nullptr);
+		return std::make_shared<CompositeTypeInfo>(_left->Evaluate(symbolTable), rhsComposite);
 	}
 
 	std::shared_ptr<TypeInfo> NewExpression::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
@@ -94,6 +98,7 @@ namespace Ast {
 
 		// CodeGen
 		auto ifContBlock = doCodeGen ? llvm::BasicBlock::Create(*context) : nullptr; // The label after the if/else statement is over
+		bool ifContBlockReachable = false;
 		auto func = doCodeGen ? builder->GetInsertBlock()->getParent() : nullptr;
 		auto elseBlock = _elseStatement != nullptr && doCodeGen ? llvm::BasicBlock::Create(*context) : nullptr;
 		if (doCodeGen)
@@ -104,9 +109,14 @@ namespace Ast {
 			auto ifBlock = llvm::BasicBlock::Create(*context, "", func);
 
 			if (elseBlock != nullptr)
+			{
 				builder->CreateCondBr(cond, ifBlock, elseBlock);
+			}
 			else
+			{
 				builder->CreateCondBr(cond, ifBlock, ifContBlock);
+				ifContBlockReachable = true;
+			}
 
 			builder->SetInsertPoint(ifBlock);
 		}
@@ -114,7 +124,16 @@ namespace Ast {
 		symbolTable->Enter();
 		_statement->TypeCheck(symbolTable, builder, context, module);
 		if (doCodeGen)
-			builder->CreateBr(ifContBlock);
+		{
+			// Add a branch to the continue block (after the if/else)
+			// but not if there's already a terminator, ie a return stmt.
+			auto ifBlock = builder->GetInsertBlock();
+			if (ifBlock->empty() || !ifBlock->back().isTerminator())
+			{
+				builder->CreateBr(ifContBlock);
+				ifContBlockReachable = true;
+			}
+		}
 		symbolTable->Exit();
 
 		if (_elseStatement != nullptr)
@@ -128,11 +147,20 @@ namespace Ast {
 			symbolTable->Enter();
 			_elseStatement->TypeCheck(symbolTable, builder, context, module);
 			if (doCodeGen)
-				builder->CreateBr(ifContBlock);
+			{
+				// Add a branch to the continue block (after the if/else)
+				// but not if there's already a terminator, ie a return stmt.
+				elseBlock = builder->GetInsertBlock();
+				if (elseBlock->empty() || !elseBlock->back().isTerminator())
+				{
+					builder->CreateBr(ifContBlock);
+					ifContBlockReachable = true;
+				}
+			}
 			symbolTable->Exit();
 		}
 
-		if (doCodeGen)
+		if (doCodeGen && ifContBlockReachable)
 		{
 			func->getBasicBlockList().push_back(ifContBlock);
 			builder->SetInsertPoint(ifContBlock);
@@ -187,7 +215,7 @@ namespace Ast {
 		}
 	}
 
-	std::shared_ptr<TypeInfo> AssignFromReference::Resolve(std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> AssignFromReference::Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr)
 	{
 		auto symbol = symbolTable->Lookup(_ref);
 		if (symbol == nullptr)
@@ -201,7 +229,7 @@ namespace Ast {
 		return symbol->GetTypeInfo();
 	}
 
-	std::shared_ptr<TypeInfo> DeclareVariable::Resolve(std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> DeclareVariable::Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr)
 	{
 		if (_typeInfo->NeedsResolution())
 		{
@@ -212,6 +240,17 @@ namespace Ast {
 				throw SymbolWrongTypeException(symbol->GetFullyQualifiedName());
 			_typeInfo = symbol->GetTypeInfo();
 		}
+		if (_typeInfo->IsAutoType())
+		{
+			// Need to resolve based on the rhs
+			if (rhsTypeInfo->IsConstant())
+			{
+				auto rhsAsConstant = std::dynamic_pointer_cast<ConstantExpression>(rhsExpr);
+				if (rhsAsConstant == nullptr)
+					throw UnexpectedException();
+				_typeInfo = rhsAsConstant->BestFitTypeInfo();
+			}
+		}
 		return _typeInfo;
 	}
 
@@ -221,17 +260,15 @@ namespace Ast {
 		{
 			throw TypeMismatchException(_typeInfo, rhs);
 		}
-		// TODO: On auto type, assigning right hand type of constant won't work, 
-		// you need to assign the type to the "best fit" for that constant
-		// TODO: This should be fixed now, test with a unit test
-		symbolTable->BindVariable(_name,_typeInfo->IsAutoType() ? rhs : _typeInfo);
+		// TODO: Unit test cases where rhs is constant
+		symbolTable->BindVariable(_name, _typeInfo->IsAutoType() ? rhs : _typeInfo);
 	}
 
 	void Assignment::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
-		_lhsTypeInfo = _lhs->Resolve(symbolTable);
-
 		_rhsTypeInfo = _rhs->Evaluate(symbolTable);
+		_lhsTypeInfo = _lhs->Resolve(symbolTable, _rhsTypeInfo, _rhs);
+
 		if (!_lhsTypeInfo->IsImplicitlyAssignableFrom(_rhsTypeInfo, symbolTable))
 		{
 			throw TypeMismatchException(_lhsTypeInfo, _rhsTypeInfo);
@@ -245,7 +282,7 @@ namespace Ast {
 	{
 		_returnType = _idList->Evaluate(symbolTable);
 		auto functionSymbol = symbolTable->GetCurrentFunction();
-		if (symbolTable->GetCurrentFunction() == nullptr)
+		if (functionSymbol == nullptr)
 		{
 			throw ReturnStatementMustBeDeclaredInFunctionScopeException();
 		}
@@ -256,7 +293,75 @@ namespace Ast {
 			throw TypeMismatchException(functionTypeInfo->OutputArgsType(), _returnType);
 		if (builder != nullptr)
 		{
-			throw UnexpectedException(); // TODO: Function support (besides main)
+			auto outputTypeAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionTypeInfo->OutputArgsType());
+			if (outputTypeAsComposite != nullptr)
+			{
+				// Return the 1st parameter, treat the rest as out parameters
+				auto exprList = std::dynamic_pointer_cast<ExpressionList>(_idList);
+
+				auto function = (llvm::Function*)functionSymbol->GetIRValue();
+
+				// Get the number of input arguments
+				int inputArgCount = 0;
+				if (functionTypeInfo->InputArgsType() != nullptr)
+				{
+					auto inputArgsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionTypeInfo->InputArgsType());
+					if (inputArgsComposite == nullptr)
+					{
+						inputArgCount++;
+					}
+					else
+					{
+						auto inputArg = inputArgsComposite;
+						while (inputArg != nullptr && inputArgsComposite->_thisType != nullptr)
+						{
+							inputArgCount++;
+							inputArg = inputArg->_next;
+						}
+					}
+				}
+				auto currExprList = exprList;
+				auto currOutputType = outputTypeAsComposite;
+				int i = 0;
+				for (auto &arg : function->args())
+				{
+					if (i++ < inputArgCount)
+						continue;
+
+					// Now we've gotten to output args
+					// TODO: Passing fun with same output type???
+					currOutputType = currOutputType->_next;
+					auto currExpr = currExprList->_right;
+					if (currExpr != nullptr)
+					{
+						currExprList = std::dynamic_pointer_cast<ExpressionList>(currExpr);
+						if (currExprList == nullptr)
+						{
+							// Just finish up last parameter
+							builder->CreateStore(currExpr->CodeGen(symbolTable, builder, context, module, currOutputType->_thisType), &arg/*ptr (deref)*/);
+							break;
+						}
+						else
+						{
+							builder->CreateStore(currExprList->_left->CodeGen(symbolTable, builder, context, module, currOutputType->_thisType), &arg /*ptr (deref)*/);
+						}
+					}
+					else
+					{
+						throw UnexpectedException();
+					}
+				}
+
+				// Ret has to go last
+				builder->CreateRet(exprList ? 
+					exprList->_left->CodeGen(symbolTable, builder, context, module, outputTypeAsComposite->_thisType) 
+					: _idList->CodeGen(symbolTable, builder, context, module, outputTypeAsComposite)); // TODO: Will this work for return functions with same type?
+			}
+			else
+			{
+				auto val = _idList->CodeGen(symbolTable, builder, context, module, _returnType);
+				builder->CreateRet(val);
+			}
 		}
 	}
 
@@ -321,23 +426,69 @@ namespace Ast {
 	void FunctionDeclaration::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		symbolTable->Enter();
-		symbolTable->BindFunction(_name, dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()));
-
-		// TODO: Actual support for function codegen
-		bool doCodeGen = builder != nullptr;
-		auto ft = doCodeGen ? llvm::FunctionType::get(llvm::Type::getVoidTy(*context), false) : nullptr;
-		auto function = doCodeGen ? llvm::Function::Create(ft, llvm::Function::ExternalLinkage, _name, module) : nullptr;
-		if (doCodeGen)
-		{
-			auto bb = llvm::BasicBlock::Create(*context, "", function);
-			builder->SetInsertPoint(bb);
-		}
+		auto binding = symbolTable->BindFunction(_name, dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()));
 
 		auto argumentList = _inputArgs;
+		std::vector<std::shared_ptr<SymbolTable::SymbolBinding>> argBindings;
 		while (argumentList != nullptr)
 		{
-			symbolTable->BindVariable(argumentList->_argument->_name, argumentList->_argument->_typeInfo);
+			auto varBinding = symbolTable->BindVariable(argumentList->_argument->_name, argumentList->_argument->_typeInfo);
+			argBindings.push_back(varBinding);
 			argumentList = argumentList->_next;
+		}
+
+		bool doCodeGen = builder != nullptr;
+
+		llvm::FunctionType* ft = nullptr;
+		llvm::Function* function = nullptr;
+		if (doCodeGen)
+		{
+			// Parameter type
+			std::vector<llvm::Type*> argTypes;
+			if (_inputArgs != nullptr)
+				_inputArgs->AddIRTypesToVector(argTypes, context);
+
+			// Return type
+			llvm::Type* retType = llvm::Type::getVoidTy(*context);
+			if (_returnArgs != nullptr && _returnArgs->_argument != nullptr)
+			{
+				retType = _returnArgs->_argument->_typeInfo->GetIRType(context);
+			}
+			if (_returnArgs != nullptr && _returnArgs->_next != nullptr)
+			{
+				// LLVM doesn't support multiple return types, so we'll treat them as out
+				// paramaters
+				_returnArgs->_next->AddIRTypesToVector(argTypes, context, true /*asOutput*/);
+			}
+
+			ft = llvm::FunctionType::get(retType, argTypes, false /*isVarArg*/);
+			function = llvm::Function::Create(ft, llvm::Function::ExternalLinkage /*TODO*/, _name, module);
+			binding->BindIRValue(function);
+			auto bb = llvm::BasicBlock::Create(*context, "", function);
+			builder->SetInsertPoint(bb);
+
+			// Now store the args
+			auto currArg = _inputArgs;
+			int i = 0;
+			for (auto &arg : function->args())
+			{
+				arg.setName(currArg->_argument->_name);
+				if (i >= argBindings.size())
+				{
+					// We've reached output args, we don't need to bind them.
+					currArg = currArg->_next;
+					i++;
+					continue;
+				}
+				auto binding = argBindings[i++];
+				// Create an allocation for the arg
+				auto alloc = binding->CreateAllocationInstance(currArg->_argument->_name, builder, context);
+				builder->CreateStore(&arg, alloc);
+				binding->BindIRValue(alloc);
+				currArg = currArg->_next;
+				if (currArg == nullptr && _returnArgs != nullptr && _returnArgs->_next != nullptr)
+					currArg = _returnArgs->_next;
+			}
 		}
 
 		if (_body != nullptr)
@@ -345,7 +496,8 @@ namespace Ast {
 
 		if (doCodeGen)
 		{
-			builder->CreateRetVoid();
+			if (_returnArgs == nullptr || _returnArgs->_argument == nullptr)
+				builder->CreateRetVoid(); // What if user added return statement to the end of the block already?
 			llvm::verifyFunction(*function);
 		}
 		symbolTable->Exit();
