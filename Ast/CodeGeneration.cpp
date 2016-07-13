@@ -70,7 +70,7 @@ namespace Ast {
 		}
 		else
 		{
-			auto rhValue = rhs->CodeGen(symbolTable, builder, context, module, _thisType);
+			auto rhValue = rhs->CodeGen(symbolTable, builder, context, module, _thisType->IsAutoType() ? nullptr : _thisType);
 			auto alloc = _thisOne->GetIRValue(symbolTable, builder, context);
 			builder->CreateStore(rhValue, alloc);
 		}
@@ -92,14 +92,24 @@ namespace Ast {
 		auto functionType = std::dynamic_pointer_cast<FunctionTypeInfo>(functionBinding->GetTypeInfo());
 		if (functionType == nullptr)
 			throw UnexpectedException();
-		auto evaluatedType = _expression->Evaluate(symbolTable);
-		if (!functionType->InputArgsType()->IsImplicitlyAssignableFrom(evaluatedType, symbolTable))
+		if (_expression == nullptr)
 		{
-			throw TypeMismatchException(functionType->InputArgsType(), evaluatedType);
+			if (functionType->InputArgsType() != nullptr)
+			{
+				throw TypeMismatchException(functionType->InputArgsType(), nullptr);
+			}
+		}
+		else
+		{
+			auto evaluatedType = _expression->Evaluate(symbolTable);
+			if (!functionType->InputArgsType()->IsImplicitlyAssignableFrom(evaluatedType, symbolTable))
+			{
+				throw TypeMismatchException(functionType->InputArgsType(), evaluatedType);
+			}
 		}
 		auto function = module->getFunction(_name);
 		std::vector<llvm::Value*> args;
-		auto exprList = std::dynamic_pointer_cast<ExpressionList>(_expression);
+		auto exprList = _expression ? std::dynamic_pointer_cast<ExpressionList>(_expression) : nullptr;
 		if (exprList != nullptr)
 		{
 			auto argList = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->_inputArgs);
@@ -113,14 +123,14 @@ namespace Ast {
 					exprList = std::dynamic_pointer_cast<ExpressionList>(right);
 					if (exprList == nullptr)
 					{
-						auto argsValue = right->CodeGen(symbolTable, builder, context, module, functionType->_inputArgs);
+						auto argsValue = right->CodeGen(symbolTable, builder, context, module, argList->_next->_thisType);
 						args.push_back(argsValue);
 					}
 				}
 				argList = argList->_next;
 			}
 		}
-		else
+		else if (_expression != nullptr)
 		{
 			auto argsValue = _expression->CodeGen(symbolTable, builder, context, module, functionType->_inputArgs);
 			args.push_back(argsValue);
@@ -148,7 +158,53 @@ namespace Ast {
 		if (value->getType()->isIntegerTy())
 		{
 			// Create a string on the stack, and then print it
-			auto strConst = llvm::ConstantDataArray::getString(*context, llvm::StringRef("%d"));
+			const char* specifier;
+			bool isSigned = false;
+
+			auto asInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(_expressionTypeInfo);
+			if (asInteger == nullptr)
+			{
+				auto exprAsConstant = std::dynamic_pointer_cast<IntegerConstant>(_expression);
+				if (!exprAsConstant)
+					throw UnexpectedException();
+				asInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(exprAsConstant->BestFitTypeInfo());
+			}
+			isSigned = asInteger->Signed();
+
+			switch (value->getType()->getIntegerBitWidth())
+			{
+				case 8:
+					if (_expressionTypeInfo == CharByteTypeInfo::Get())
+						specifier = "%c";
+					else if (isSigned)
+						specifier = "%hhd";
+					else
+						specifier = "%hhu";
+					break;
+				case 16:
+					if (_expressionTypeInfo == CharTypeInfo::Get())
+						specifier = "%lc";
+					else if (isSigned)
+						specifier = "%hd";
+					else
+						specifier = "%hu";
+					break;
+				case 32:
+					if (isSigned)
+						specifier = "%d";
+					else
+						specifier = "%u";
+					break;
+				case 64:
+					if (isSigned)
+						specifier = "%lld";
+					else
+						specifier = "%llu";
+					break;
+				default:
+					throw UnexpectedException();
+			}
+			auto strConst = llvm::ConstantDataArray::getString(*context, llvm::StringRef(specifier));
 			auto alloc = builder->CreateAlloca(strConst->getType(), builder->getInt32(llvm::dyn_cast<llvm::ConstantDataSequential>(strConst)->getNumElements()));
 			builder->CreateStore(strConst, alloc);
 			std::vector<llvm::Value*> index_vector;
@@ -156,14 +212,14 @@ namespace Ast {
 			index_vector.push_back(builder->getInt32(0));
 			auto valueAsPtr = builder->CreateGEP(alloc, index_vector);
 
-			// printf("%d", val)
+			// printf(specifier, val)
 			args.push_back(valueAsPtr);
 			args.push_back(value);
 		}
-		else if (value->getType()->isDoubleTy())
+		else if (value->getType()->isFloatingPointTy())
 		{
 			// Create a string on the stack, and then print it
-			auto strConst = llvm::ConstantDataArray::getString(*context, llvm::StringRef("%f"));
+			auto strConst = llvm::ConstantDataArray::getString(*context, llvm::StringRef("%g"));
 			auto alloc = builder->CreateAlloca(strConst->getType(), builder->getInt32(llvm::dyn_cast<llvm::ConstantDataSequential>(strConst)->getNumElements()));
 			builder->CreateStore(strConst, alloc);
 			std::vector<llvm::Value*> index_vector;
@@ -171,8 +227,10 @@ namespace Ast {
 			index_vector.push_back(builder->getInt32(0));
 			auto valueAsPtr = builder->CreateGEP(alloc, index_vector);
 
-			// printf("%f", val)
+			// printf("%g", val)
 			args.push_back(valueAsPtr);
+			if (value->getType()->isFloatTy())
+				value = builder->CreateCast(llvm::Instruction::CastOps::FPExt, value, llvm::Type::getDoubleTy(*context));
 			args.push_back(value);
 		}
 		else if (llvm::isa<llvm::AllocaInst>(value))
@@ -207,7 +265,19 @@ namespace Ast {
 	{
 		auto symbol = symbolTable->Lookup(_id);
 		if (symbol->GetTypeInfo()->IsPrimitiveType())
-			return builder->CreateLoad(symbol->GetIRValue(), _id);
+		{
+			auto loaded = builder->CreateLoad(symbol->GetIRValue(), _id);
+			if (hint != nullptr && symbol->GetTypeInfo() != hint)
+			{
+				if (!hint->IsImplicitlyAssignableFrom(symbol->GetTypeInfo(), symbolTable))
+					throw UnexpectedException(); // Somehow we're trying to implicitly cast something that doesn't implicitly cast
+				return builder->CreateCast(llvm::Instruction::CastOps::ZExt, loaded, hint->GetIRType(context));
+			}
+			else
+			{
+				return loaded;
+			}
+		}
 		else
 			return symbol->GetIRValue();
 	}
@@ -244,7 +314,11 @@ namespace Ast {
 		{
 			// Try to fit it in the given type
 			auto hintAsInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(hint);
-			return hintAsInteger->CreateValue(context, GetRaw());
+			if (hintAsInteger != nullptr)
+			{
+				return hintAsInteger->CreateValue(context, GetRaw());
+			}
+			throw UnexpectedException();
 		}
 	}
 
@@ -265,24 +339,37 @@ namespace Ast {
 			return llvm::ConstantInt::getFalse(*context);
 	}
 
+	llvm::Value* CharConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		auto val = llvm::ConstantInt::get(*context, llvm::APInt(16, Value()));
+		if (hint != nullptr && hint != _typeInfo)
+			if (hint->IsImplicitlyAssignableFrom(_typeInfo, symbolTable))
+				return builder->CreateCast(llvm::Instruction::CastOps::ZExt, val, hint->GetIRType(context));
+			else
+				throw UnexpectedException();
+		return val;
+	}
+
 	/*
 	 * Operations
 	 */
 
 	llvm::Value* AddOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 
 		if (_resultOfOperation->IsInteger())
 		{
-			return builder->CreateAdd(lhs, rhs, "", true, true); // TODO: Think about overflow
+			return builder->CreateAdd(lhs, rhs); // TODO: Think about overflow
 		}
 		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr 
 			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr 
-			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr)
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats (float32)
 			return builder->CreateFAdd(lhs, rhs);
 		}
 		// TODO: Non integer types that implement add
@@ -298,9 +385,13 @@ namespace Ast {
 		{
 			return builder->CreateSub(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr 
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr 
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFSub(lhs, rhs);
 		}
 		// TODO: Non integer types that implement subtract
@@ -316,9 +407,13 @@ namespace Ast {
 		{
 			return builder->CreateMul(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFMul(lhs, rhs);
 		}
 		// TODO: Non integer types that implement multiply
@@ -332,11 +427,18 @@ namespace Ast {
 
 		if (_resultOfOperation->IsInteger())
 		{
-			return builder->CreateSDiv(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
+			if (_resultIsSigned)
+				return builder->CreateSDiv(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
+			else
+				return builder->CreateUDiv(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFDiv(lhs, rhs);
 		}
 		// TODO: Non integer types that implement divide
@@ -350,11 +452,18 @@ namespace Ast {
 
 		if (_resultOfOperation->IsInteger())
 		{
-			return builder->CreateSRem(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
+			if (_resultIsSigned)
+				return builder->CreateSRem(lhs, rhs); // TODO: Think about overflow, think about my rules (float + int) vs what LLVM will actually do
+			else
+				return builder->CreateURem(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_resultOfOperation) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFRem(lhs, rhs);
 		}
 		// TODO: Non integer types that implement divide
@@ -363,29 +472,23 @@ namespace Ast {
 
 	llvm::Value* GreaterThanOrEqualOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_implicitCastType->IsInteger())
 		{
-			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-			if (intType == nullptr || intType->Signed())
+			if (_resultIsSigned)
 				return builder->CreateICmpSGE(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
 				return builder->CreateICmpUGE(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(implicitCastType) != nullptr 
-			|| std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr 
-			|| std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFCmpOGE(lhs, rhs); // TODO: Difference between ordered, unordered?
 		}
 		// TODO: Non integer types that implement GTE
@@ -394,27 +497,23 @@ namespace Ast {
 
 	llvm::Value* LessThanOrEqualOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_implicitCastType->IsInteger())
 		{
-			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-			if (intType == nullptr || intType->Signed())
+			if (_resultIsSigned)
 				return builder->CreateICmpSLE(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
 				return builder->CreateICmpULE(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFCmpOGE(lhs, rhs); // TODO: Difference between ordered, unordered?
 		}
 		// TODO: Non integer types that implement GTE
@@ -423,27 +522,23 @@ namespace Ast {
 
 	llvm::Value* GreaterThanOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_implicitCastType->IsInteger())
 		{
-			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-			if (intType == nullptr || intType->Signed())
+			if (_resultIsSigned)
 				return builder->CreateICmpSGT(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
 				return builder->CreateICmpUGT(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFCmpOGT(lhs, rhs); // TODO: Difference between ordered, unordered?
 		}
 		// TODO: Non integer types that implement GT
@@ -452,27 +547,23 @@ namespace Ast {
 
 	llvm::Value* LessThanOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_implicitCastType->IsInteger())
 		{
-			auto intType = std::dynamic_pointer_cast<IntegerTypeInfo>(implicitCastType);
-			if (intType == nullptr || intType->Signed())
+			if (_resultIsSigned)
 				return builder->CreateICmpSLT(lhs, rhs); // TODO: Think about overflow, think about IntegerConstantType being big enough to be unsigned
 			else
 				return builder->CreateICmpULT(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFCmpOLT(lhs, rhs); // TODO: Difference between ordered, unordered?
 		}
 		// TODO: Non integer types that implement GT
@@ -481,23 +572,20 @@ namespace Ast {
 
 	llvm::Value* EqualToOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_implicitCastType->IsInteger())
 		{
 			return builder->CreateICmpEQ(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFCmpOEQ(lhs, rhs); // TODO: Difference between ordered, unordered?
 		}
 		// TODO: Non integer types that implement GT
@@ -506,23 +594,20 @@ namespace Ast {
 
 	llvm::Value* NotEqualToOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_implicitCastType->IsInteger())
 		{
 			return builder->CreateICmpNE(lhs, rhs);
 		}
-		else if (std::dynamic_pointer_cast<FloatingConstantType>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr || std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr)
+		else if (std::dynamic_pointer_cast<FloatingConstantType>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float64TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr
+			|| std::dynamic_pointer_cast<Float32TypeInfo>(_implicitCastType) != nullptr)
 		{
-			// doubles (float64)
+			// doubles (float64) and floats
 			return builder->CreateFCmpONE(lhs, rhs); // TODO: Difference between ordered, unordered?
 		}
 		// TODO: Non integer types that implement GT
@@ -531,12 +616,26 @@ namespace Ast {
 
 	// A single static constant representing "1" for all the increment/decrement operators
 	static std::shared_ptr<IntegerConstant> s_one = std::make_shared<IntegerConstant>("1");
+	static std::shared_ptr<FloatingConstant> s_oneFloat = std::make_shared<FloatingConstant>("1.0");
 
 	llvm::Value* PostIncrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint);
+		auto type = hint ? hint : _typeInfo;
+		auto val = _expr->CodeGen(symbolTable, builder, context, module, type);
 		// Now increment it by one
-		auto result = builder->CreateAdd(val, s_one->CodeGen(symbolTable, builder, context, module, hint));
+		llvm::Value* result;
+		if (val->getType()->isIntegerTy())
+		{
+			result = builder->CreateAdd(val, s_one->CodeGen(symbolTable, builder, context, module, type));
+		}
+		else if (val->getType()->isFloatingPointTy())
+		{
+			result = builder->CreateFAdd(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, type));
+		}
+		else
+		{
+			throw UnexpectedException();
+		}
 		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
 		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
 		if (exprAsReference == nullptr)
@@ -548,9 +647,21 @@ namespace Ast {
 
 	llvm::Value* PostDecrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint);
+		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
 		// Now decrement it by one
-		auto result = builder->CreateSub(val, s_one->CodeGen(symbolTable, builder, context, module, hint));
+		llvm::Value* result;
+		if (val->getType()->isIntegerTy())
+		{
+			result = builder->CreateSub(val, s_one->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+		}
+		else if (val->getType()->isFloatingPointTy())
+		{
+			result = builder->CreateFSub(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+		}
+		else
+		{
+			throw UnexpectedException();
+		}
 		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
 		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
 		if (exprAsReference == nullptr)
@@ -562,9 +673,21 @@ namespace Ast {
 
 	llvm::Value* PreIncrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint);
+		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
 		// Now increment it by one
-		auto result = builder->CreateAdd(val, s_one->CodeGen(symbolTable, builder, context, module, hint));
+		llvm::Value* result;
+		if (val->getType()->isIntegerTy())
+		{
+			result = builder->CreateAdd(val, s_one->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+		}
+		else if (val->getType()->isFloatingPointTy())
+		{
+			result = builder->CreateFAdd(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+		}
+		else
+		{
+			throw UnexpectedException();
+		}
 		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
 		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
 		if (exprAsReference == nullptr)
@@ -576,9 +699,21 @@ namespace Ast {
 
 	llvm::Value* PreDecrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint);
+		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
 		// Now decrement it by one
-		auto result = builder->CreateSub(val, s_one->CodeGen(symbolTable, builder, context, module, hint));
+		llvm::Value* result;
+		if (val->getType()->isIntegerTy())
+		{
+			result = builder->CreateSub(val, s_one->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+		}
+		else if (val->getType()->isFloatingPointTy())
+		{
+			result = builder->CreateFSub(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+		}
+		else
+		{
+			throw UnexpectedException();
+		}
 		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
 		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
 		if (exprAsReference == nullptr)
@@ -613,17 +748,10 @@ namespace Ast {
 
 	llvm::Value* BitwiseAndOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateAnd(lhs, rhs);
 		}
@@ -633,17 +761,10 @@ namespace Ast {
 
 	llvm::Value* BitwiseOrOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateOr(lhs, rhs);
 		}
@@ -653,17 +774,10 @@ namespace Ast {
 
 	llvm::Value* BitwiseXorOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		// At this point, we've already done the type checking, so one should be implicitly assignable to the other
-		std::shared_ptr<TypeInfo> implicitCastType;
-		if (_rhsTypeInfo->IsImplicitlyAssignableFrom(_lhsTypeInfo, symbolTable))
-			implicitCastType = _lhsTypeInfo;
-		else
-			implicitCastType = _rhsTypeInfo;
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, implicitCastType);
-
-		if (implicitCastType->IsInteger())
+		if (_resultOfOperation->IsInteger())
 		{
 			return builder->CreateXor(lhs, rhs);
 		}
@@ -673,8 +787,8 @@ namespace Ast {
 
 	llvm::Value* BitwiseShiftLeftOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _lhsTypeInfo);
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 
 		if (_lhsTypeInfo->IsInteger())
 		{
@@ -686,8 +800,8 @@ namespace Ast {
 
 	llvm::Value* BitwiseShiftRightOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, Int32TypeInfo::Get());
+		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 
 		if (_lhsTypeInfo)
 		{
@@ -699,10 +813,27 @@ namespace Ast {
 
 	llvm::Value* ComplementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint);
-		if (_typeInfo->IsInteger())
+		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
+		if (val->getType()->isIntegerTy())
 		{
-			return builder->CreateXor(val, 0xFFFFFFFFFFFFFFFF); // XOR with 0xFFFF....
+			// XOR with 0xFFFF....
+			switch (val->getType()->getIntegerBitWidth())
+			{
+				case 8:
+					return builder->CreateXor(val, 0xFF);
+					break;
+				case 16:
+					return builder->CreateXor(val, 0xFFFF);
+					break;
+				case 32:
+					return builder->CreateXor(val, 0xFFFFFFFF);
+					break;
+				case 64:
+					return builder->CreateXor(val, 0xFFFFFFFFFFFFFFFF);
+					break;
+				default:
+					throw UnexpectedException();
+			}
 		}
 		// TODO: Non integer types that implement ~
 		throw UnexpectedException();

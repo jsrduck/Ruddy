@@ -32,6 +32,25 @@ namespace Ast {
 		DECLARE_PRIMITIVE_TYPE_INFO_OVERRIDES(CLASS_NAME) \
 	};
 
+#define DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CLASS_NAME, SIGNED, AUTO_IMPLICIT_CAST_TO_CLASS_NAME) \
+	class CLASS_NAME : public IntegerTypeInfo \
+	{ \
+	public: \
+		virtual llvm::Value* CreateValue(llvm::LLVMContext* context, uint64_t constant) override; \
+		virtual bool Signed() override { return SIGNED; } \
+		DECLARE_PRIMITIVE_TYPE_INFO_OVERRIDES(CLASS_NAME) \
+	public: \
+		virtual bool IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(Operation* operation, std::shared_ptr<TypeInfo>& implicitCastTypeOut) override \
+		{ \
+			if (AUTO_IMPLICIT_CAST_TO_CLASS_NAME::Get()->SupportsOperator(operation)) \
+			{ \
+				implicitCastTypeOut = AUTO_IMPLICIT_CAST_TO_CLASS_NAME::Get(); \
+				return true; \
+			} \
+			return false; \
+		} \
+	};
+
 #define IMPL_PRIMITIVE_ALL_OPERATORS(CLASS_NAME) \
 	int CLASS_NAME::_supportedOperations = 0xFFFFFFFF;
 

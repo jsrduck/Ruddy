@@ -29,5 +29,15 @@
     <ClCompile Include="Primitives.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Functions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProgramValidation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="ValidateFunctions.rdy" />
+    <CustomBuild Include="ValidateFunctions.txt" />
   </ItemGroup>
 </Project>

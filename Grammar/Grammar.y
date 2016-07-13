@@ -577,21 +577,25 @@ binary_arith_expression:
 	  };
 
 unary_arith_expression:
-	  expression TKN_ARITHMETIC_OPERATOR_INCREMENT
+	  single_identifier TKN_ARITHMETIC_OPERATOR_INCREMENT
 	  {
 		$$ = new PostIncrementOperation($1);
 	  }
-	| TKN_ARITHMETIC_OPERATOR_INCREMENT expression
+	| TKN_ARITHMETIC_OPERATOR_INCREMENT single_identifier
 	  {
 		$$ = new PreIncrementOperation($2);
 	  }
-	| expression TKN_ARITHMETIC_OPERATOR_DECREMENT
+	| single_identifier TKN_ARITHMETIC_OPERATOR_DECREMENT
 	  {
 		$$ = new PostDecrementOperation($1);
 	  }
-	| TKN_ARITHMETIC_OPERATOR_DECREMENT expression 
+	| TKN_ARITHMETIC_OPERATOR_DECREMENT single_identifier 
 	  {
 		$$ = new PreDecrementOperation($2);
+	  }
+	| TKN_BITWISE_OPERATOR_COMPLEMENT expression
+	  {
+		$$ = new ComplementOperation($2);
 	  };
 
 valid_expression_as_statement:

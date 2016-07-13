@@ -77,6 +77,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\ParserTests;..\Ast;..\Lexer;..\Parser;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(OutDir);$(VC_ExecutablePath_x86);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(MSBuild_ExecutablePath);$(SystemRoot)\SysWow64;$(FxCopDir);$(PATH);</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -85,6 +86,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\ParserTests;..\Ast;..\Lexer;..\Parser;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(OutDir);$(VC_ExecutablePath_x86);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(MSBuild_ExecutablePath);$(SystemRoot)\SysWow64;$(FxCopDir);$(PATH);</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -104,6 +106,12 @@
       <AdditionalLibraryDirectories>$(LLVM_BINARY_PATH)\Debug\lib;$(VCInstallDir)UnitTest\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>llvmcore.lib;llvmsupport.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <CustomBuildStep>
+      <Command>call ValidatePrimitives.exe &gt; $(TargetDir)ValidatePrimitives.txt &amp;&amp; call ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt</Command>
+      <Message>Running test exes</Message>
+      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe</Inputs>
+      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -164,6 +172,8 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Functions.cpp" />
+    <ClCompile Include="ProgramValidation.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -188,6 +198,25 @@
     <ProjectReference Include="..\Parser\Parser.vcxproj">
       <Project>{be0fbfbf-f3b4-4937-9a35-8b89e938e5da}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\Ruddy\Ruddy.vcxproj">
+      <Project>{145b67e1-9bc0-4f45-a73f-2f5aec1b8072}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="ValidatePrimitives.rdy">
+      <FileType>Document</FileType>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidatePrimitives.ll;ValidatePrimitives.obj;ValidatePrimitives.exe</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidatePrimitives.rdy"</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidatePrimitives.rdy</Command>
+    </CustomBuild>
+    <CustomBuild Include="ValidateFunctions.rdy">
+      <FileType>Document</FileType>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateFunctions.ll;ValidateFunctions.obj;ValidateFunctions.exe</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateFunctions.rdy"</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidateFunctions.rdy</Command>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

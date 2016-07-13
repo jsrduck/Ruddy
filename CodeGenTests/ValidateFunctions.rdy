@@ -1,0 +1,84 @@
+class Program 
+{ 
+	static fun(int ret) AddInt(int a, int b)
+	{
+		return a + b;
+	}
+
+	static fun(int64 ret) AddInt64(int64 a, int64 b)
+	{
+		return a + b;
+	}
+
+	static fun(uint ret) AddUInt(uint a, uint b)
+	{
+		return a + b;
+	}
+
+	static fun(uint64 ret) AddUInt64(uint64 a, uint64 b)
+	{
+		return a + b;
+	}
+
+	static fun(uint ret) Factorial(uint f)
+	{
+		if (f == 1)
+			return 1;
+		return f * Factorial(f-1);
+	}
+
+	static fun(int min, int max) GetMinMax(int a, int b, int c)
+	{
+		if (a < b)
+		{
+			if (a < c)
+			{
+				if (b < c)
+				{
+					return a,c;
+				}
+				else
+				{
+					return a,b;
+				}
+			}
+			else
+			{
+				return c, b;
+			}
+		}
+		else
+		{
+			if (b < c)
+			{
+				if (a < c)
+				{
+					return b,c;
+				}
+				else
+				{
+					return b,a;
+				}
+			}
+			else
+			{
+				return c,a;
+			}
+		}
+	}
+	
+	static fun(int ten, int hundred, int thous) MultOfTen(int input)
+	{
+		return input*10,input*100,input*1000;
+	}
+
+	static fun(int ret) main()
+	{ 
+		print(AddInt(3,4));
+		print(AddInt64(5,6));
+		print(AddInt64(2147483649,1));
+		print(AddUInt(7,8));
+		print(AddUInt64(2147483650,7));
+		return 0;
+	} 
+}

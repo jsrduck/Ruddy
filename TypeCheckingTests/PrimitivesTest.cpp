@@ -301,8 +301,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int64TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
-				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int64TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -310,8 +313,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -319,8 +325,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -328,8 +337,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(Int32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -337,8 +349,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -346,8 +361,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
-				Assert::IsTrue(Int32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -357,15 +375,18 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get());
 				}); 
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -374,8 +395,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float32TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float32TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -383,8 +407,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -392,8 +419,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
-				Assert::IsTrue(Int64TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int64TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -401,8 +431,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
-				Assert::IsTrue(Int64TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int64TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -410,8 +443,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(Int64TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int64TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -419,8 +455,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(Int64TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int64TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -430,11 +469,13 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int64TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -443,8 +484,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
-				Assert::IsTrue(UInt32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(UInt32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -452,8 +496,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(UInt32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(UInt32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -461,8 +508,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(UInt32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(UInt32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -470,8 +520,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(UInt64TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get()));
-				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(UInt64TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -479,8 +532,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -488,8 +544,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -499,11 +558,13 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -512,8 +573,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
-				Assert::IsTrue(UInt64TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(UInt64TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -521,8 +585,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(UInt64TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(UInt64TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -530,8 +597,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(UInt64TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(UInt64TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -539,8 +609,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float32TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float32TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -548,8 +621,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -559,7 +635,8 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -568,8 +645,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -577,8 +657,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
-				Assert::IsTrue(Float32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -586,8 +669,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(Float32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -595,8 +681,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(Float32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float32TypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -606,7 +695,8 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Float32TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -615,8 +705,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -624,8 +717,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -633,8 +729,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(Float64TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Float64TypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Float64TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -644,17 +743,38 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Float64TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
 
-		TEST_METHOD(CharAndByteArithOperations)
+		TEST_METHOD(CharByteAndByteArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
-				Assert::IsTrue(ByteTypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(ByteTypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(ByteTypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<ByteTypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(ByteTypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<ByteTypeInfo>(implicitType) != nullptr);
+			}
+		}
+
+		TEST_METHOD(CharByteAndEverythingElseArithOperationsThrowsException)
+		{
+			for (auto& operation : _arithmeticOperations)
+			{
+				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
+				{
+					std::shared_ptr<TypeInfo> implicitType;
+					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
+				});
+				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
+				{
+					std::shared_ptr<TypeInfo> implicitType;
+					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get());
+				});
 			}
 		}
 
@@ -664,26 +784,13 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get());
-				});
-			}
-		}
-
-		TEST_METHOD(WCharAndEverythingElseArithOperationsThrowsException)
-		{
-			for (auto& operation : _arithmeticOperations)
-			{
-				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
-				{
-					CharTypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
-				});
-				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
-				{
-					CharTypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get());
 				});
 			}
 		}
@@ -692,10 +799,15 @@ namespace TypeCheckingTests
 		{
 			for (auto& prim : _nonBoolPrimitives)
 			{
-				Assert::IsTrue(prim == prim->EvaluateOperation(&_preInc));
-				Assert::IsTrue(prim == prim->EvaluateOperation(&_postInc));
-				Assert::IsTrue(prim == prim->EvaluateOperation(&_preDec));
-				Assert::IsTrue(prim == prim->EvaluateOperation(&_postDec));
+				std::shared_ptr<TypeInfo> implicitCastType;
+				Assert::IsTrue(prim == prim->EvaluateOperation(implicitCastType, &_preInc));
+				Assert::IsTrue(implicitCastType == prim);
+				Assert::IsTrue(prim == prim->EvaluateOperation(implicitCastType, &_postInc));
+				Assert::IsTrue(implicitCastType == prim);
+				Assert::IsTrue(prim == prim->EvaluateOperation(implicitCastType, &_preDec));
+				Assert::IsTrue(implicitCastType == prim);
+				Assert::IsTrue(prim == prim->EvaluateOperation(implicitCastType, &_postDec));
+				Assert::IsTrue(implicitCastType == prim);
 			}
 		}
 
@@ -703,19 +815,23 @@ namespace TypeCheckingTests
 		{
 			Assert::ExpectException<OperationNotDefinedException>([this]()
 			{
-				BoolTypeInfo::Get()->EvaluateOperation(&_preInc);
+				std::shared_ptr<TypeInfo> implicitCastType;
+				BoolTypeInfo::Get()->EvaluateOperation(implicitCastType, &_preInc);
 			});
 			Assert::ExpectException<OperationNotDefinedException>([this]()
 			{
-				BoolTypeInfo::Get()->EvaluateOperation(&_postInc);
+				std::shared_ptr<TypeInfo> implicitCastType;
+				BoolTypeInfo::Get()->EvaluateOperation(implicitCastType, &_postInc);
 			});
 			Assert::ExpectException<OperationNotDefinedException>([this]()
 			{
-				BoolTypeInfo::Get()->EvaluateOperation(&_preDec);
+				std::shared_ptr<TypeInfo> implicitCastType;
+				BoolTypeInfo::Get()->EvaluateOperation(implicitCastType, &_preDec);
 			});
 			Assert::ExpectException<OperationNotDefinedException>([this]()
 			{
-				BoolTypeInfo::Get()->EvaluateOperation(&_postDec);
+				std::shared_ptr<TypeInfo> implicitCastType;
+				BoolTypeInfo::Get()->EvaluateOperation(implicitCastType, &_postDec);
 			});
 		}
 
@@ -747,12 +863,19 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitCastType;
+				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitCastType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitCastType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitCastType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitCastType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitCastType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitCastType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitCastType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitCastType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitCastType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitCastType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitCastType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitCastType) != nullptr);
 			}
 		}
 
@@ -762,15 +885,18 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -779,12 +905,19 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -794,11 +927,13 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int64TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -807,13 +942,21 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -823,7 +966,8 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					UInt32TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					UInt32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -832,12 +976,19 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -847,7 +998,8 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					UInt64TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					UInt64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -856,10 +1008,15 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -869,7 +1026,8 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Float32TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Float32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -878,9 +1036,13 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(BoolTypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(BoolTypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(BoolTypeInfo::Get() == Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Float64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -890,7 +1052,8 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Float64TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Float64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -899,7 +1062,9 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(BoolTypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<ByteTypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -909,11 +1074,13 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get());
 				});
 			}
 		}
@@ -924,11 +1091,13 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					CharTypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					CharTypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -939,7 +1108,8 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					ByteTypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}
@@ -978,7 +1148,8 @@ namespace TypeCheckingTests
 					{
 						Assert::ExpectException<OperationNotDefinedException>([this, &operation, i, j]()
 						{
-							_nonBoolTypes[i]->EvaluateOperation(operation.get(), _nonBoolTypes[j]);
+							std::shared_ptr<TypeInfo> implicitType;
+							_nonBoolTypes[i]->EvaluateOperation(implicitType, operation.get(), _nonBoolTypes[j]);
 						});
 					}
 				}
@@ -989,7 +1160,9 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::IsTrue(BoolTypeInfo::Get() == BoolTypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(BoolTypeInfo::Get() == BoolTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<BoolTypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -1029,18 +1202,23 @@ namespace TypeCheckingTests
 				// RHS must be implicitly convertable to an int
 				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
 				{
-					Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive));
-					Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive));
+					std::shared_ptr<TypeInfo> implicitType;
+					Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+					Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 				}
 				else
 				{
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						Int32TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						Int32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 					});
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						Int32TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						Int32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive);
 					});
 				}
 			}
@@ -1053,18 +1231,23 @@ namespace TypeCheckingTests
 				// RHS must be implicitly convertable to an int
 				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
 				{
-					Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive));
-					Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive));
+					std::shared_ptr<TypeInfo> implicitType;
+					Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+					Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 				}
 				else
 				{
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						Int64TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						Int64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 					});
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						Int64TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						Int64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive);
 					});
 				}
 			}
@@ -1074,21 +1257,26 @@ namespace TypeCheckingTests
 		{
 			for (auto& primitive : _primitives)
 			{
-				// RHS must be implicitly convertable to an int
+				// RHS must be implicitly convertable to a uint
 				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
 				{
-					Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive));
-					Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive));
+					std::shared_ptr<TypeInfo> implicitType;
+					Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
+					Assert::IsTrue(UInt32TypeInfo::Get() == UInt32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<UInt32TypeInfo>(implicitType) != nullptr);
 				}
 				else
 				{
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						UInt32TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						UInt32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 					});
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						UInt32TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						UInt32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive);
 					});
 				}
 			}
@@ -1101,18 +1289,52 @@ namespace TypeCheckingTests
 				// RHS must be implicitly convertable to an int
 				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
 				{
-					Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive));
-					Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive));
+					std::shared_ptr<TypeInfo> implicitType;
+					Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
+					Assert::IsTrue(UInt64TypeInfo::Get() == UInt64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<UInt64TypeInfo>(implicitType) != nullptr);
 				}
 				else
 				{
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						UInt64TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						UInt64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 					});
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						UInt64TypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						UInt64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive);
+					});
+				}
+			}
+		}
+
+		TEST_METHOD(CharByteLegalShiftOperations)
+		{
+			for (auto& primitive : _primitives)
+			{
+				// RHS must be implicitly convertable to an int
+				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
+				{
+					std::shared_ptr<TypeInfo> implicitType;
+					Assert::IsTrue(Int32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+					Assert::IsTrue(Int32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+				}
+				else
+				{
+					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
+					{
+						std::shared_ptr<TypeInfo> implicitType;
+						CharByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
+					});
+					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
+					{
+						std::shared_ptr<TypeInfo> implicitType;
+						CharByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive);
 					});
 				}
 			}
@@ -1125,42 +1347,23 @@ namespace TypeCheckingTests
 				// RHS must be implicitly convertable to an int
 				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
 				{
-					Assert::IsTrue(CharByteTypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive));
-					Assert::IsTrue(CharByteTypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive));
+					std::shared_ptr<TypeInfo> implicitType;
+					Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+					Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 				}
 				else
 				{
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						CharByteTypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						CharTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 					});
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						CharByteTypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive);
-					});
-				}
-			}
-		}
-
-		TEST_METHOD(WCharLegalShiftOperations)
-		{
-			for (auto& primitive : _primitives)
-			{
-				// RHS must be implicitly convertable to an int
-				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
-				{
-					Assert::IsTrue(CharTypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive));
-					Assert::IsTrue(CharTypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive));
-				}
-				else
-				{
-					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
-					{
-						CharTypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
-					});
-					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
-					{
-						CharTypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						CharTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive);
 					});
 				}
 			}
@@ -1173,18 +1376,23 @@ namespace TypeCheckingTests
 				// RHS must be implicitly convertable to an int
 				if (Int32TypeInfo::Get()->IsImplicitlyAssignableFrom(primitive, nullptr))
 				{
-					Assert::IsTrue(ByteTypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive));
-					Assert::IsTrue(ByteTypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive));
+					std::shared_ptr<TypeInfo> implicitType;
+					Assert::IsTrue(ByteTypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<ByteTypeInfo>(implicitType) != nullptr);
+					Assert::IsTrue(ByteTypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive));
+					Assert::IsTrue(std::dynamic_pointer_cast<ByteTypeInfo>(implicitType) != nullptr);
 				}
 				else
 				{
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						ByteTypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						ByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 					});
 					Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 					{
-						ByteTypeInfo::Get()->EvaluateOperation(&_shiftRight, primitive);
+						std::shared_ptr<TypeInfo> implicitType;
+						ByteTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftRight, primitive);
 					});
 				}
 			}
@@ -1196,15 +1404,18 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 				{
-					BoolTypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+					std::shared_ptr<TypeInfo> implicitType;
+					BoolTypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 				{
-					Float32TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+					std::shared_ptr<TypeInfo> implicitType;
+					Float32TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &primitive]()
 				{
-					Float64TypeInfo::Get()->EvaluateOperation(&_shiftLeft, primitive);
+					std::shared_ptr<TypeInfo> implicitType;
+					Float64TypeInfo::Get()->EvaluateOperation(implicitType, &_shiftLeft, primitive);
 				});
 			}
 		}
@@ -1213,8 +1424,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _bitwiseOperations)
 			{
-				Assert::IsTrue(Int64TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Int64TypeInfo::Get()));
-				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int64TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int64TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int64TypeInfo::Get() == Int64TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int64TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -1222,8 +1436,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _bitwiseOperations)
 			{
-				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), CharByteTypeInfo::Get()));
-				Assert::IsTrue(Int32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int32TypeInfo::Get() == CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -1231,8 +1448,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _bitwiseOperations)
 			{
-				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), CharTypeInfo::Get()));
-				Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -1240,8 +1460,11 @@ namespace TypeCheckingTests
 		{
 			for (auto& operation : _bitwiseOperations)
 			{
-				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(operation.get(), ByteTypeInfo::Get()));
-				Assert::IsTrue(Int32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(operation.get(), Int32TypeInfo::Get()));
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
+				Assert::IsTrue(Int32TypeInfo::Get() == ByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Int32TypeInfo::Get()));
+				Assert::IsTrue(std::dynamic_pointer_cast<Int32TypeInfo>(implicitType) != nullptr);
 			}
 		}
 
@@ -1251,23 +1474,28 @@ namespace TypeCheckingTests
 			{
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt32TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt32TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Float32TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float32TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), Float64TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), Float64TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), UInt64TypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), UInt64TypeInfo::Get());
 				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
-					Int32TypeInfo::Get()->EvaluateOperation(operation.get(), BoolTypeInfo::Get());
+					std::shared_ptr<TypeInfo> implicitType;
+					Int32TypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
 			}
 		}

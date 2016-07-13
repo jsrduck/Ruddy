@@ -64,13 +64,13 @@ namespace Ast
 
 	DECLARE_PRIMITIVE_TYPE_INFO(Float64TypeInfo)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(CharByteTypeInfo)
+	DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CharByteTypeInfo, false, Int32TypeInfo)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(CharTypeInfo)
+	DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CharTypeInfo, false, Int32TypeInfo)
 
 	DECLARE_PRIMITIVE_TYPE_INFO(BoolTypeInfo)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(ByteTypeInfo)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(ByteTypeInfo, false)
 
 
 	// An expression that recognizes a static constant, ie the zero in int i = 0;
@@ -605,10 +605,7 @@ namespace Ast
 			return _typeInfo;
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		static std::shared_ptr<CharConstantType> _typeInfo;
 	private:

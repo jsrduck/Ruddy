@@ -1,0 +1,460 @@
+class Program 
+{ 
+	static fun(int ret) main()
+	{
+		// bool
+		if (true && true)
+			print("y");
+		if (true && false)
+			print("n");
+		if (false && true)
+			print("n");
+		if (false && false)
+			print("n");
+		if (true || true)
+			print("y");
+		if (true || false)
+			print("y");
+		if (false || true)
+			print("y");
+		if (false || false)
+			print("n");
+		if (0 < 1 && 1 < 2)
+			print("y");
+		if (0 < 1 && 1 > 2)
+			print("n");
+		if (0 < 1 || 1 > 2)
+			print("y");
+		if (1 > 2 || 0 < 1)
+			print("y");
+
+		// int32
+		int i = 3;
+		int j = 12;
+		int k = 10;
+		print(i+j); // 15
+		print(i-j); // -9
+		print(i*j); // 36
+		print(j/i); // 4
+		print(k%i); // 1
+		if (j >= k)
+			print("y");
+		if (j >= 12)
+			print("y");
+		if (k >= j)
+			print("n");
+		if (k <= j)
+			print("y");
+		if (k <= 10)
+			print("y");
+		if (j <= 10)
+			print("n");
+		if (j > k)
+			print("y");
+		if (k > j)
+			print("n");
+		if (k < j)
+			print("y");
+		if (j < k)
+			print("n");
+		if (i == 3)
+			print("y");
+		if (i == j)
+			print("n");
+		if (i != j)
+			print("y");
+		if (i != 3)
+			print("n");
+		print(i++); // 3
+		print(i); // 4
+		print(++i); // 5
+		print(i--); // 5
+		print(--i); // 3
+		print(j << 2); // 48
+		print(j >> 2); // 3
+		print(j & k); // 8
+		print(j | k); // 14
+		print(j ^ k); // 6
+		print(~j); // -13
+
+		// int64
+		int64 l = 2147483649;
+		int64 m = 100;
+		print(l+m); // 2147483749
+		print(l-m); // 2147483549
+		print(l*m); // 214748364900
+		print(l/m); // 21474836
+		print(l%m); // 49
+		if (l >= m)
+			print("y");
+		if (m >= l)
+			print("n");
+		if (l >= 2147483649)
+			print("y");
+		if (l > m)
+			print("y");
+		if (m > l)
+			print("n");
+		if (l > 2147483649)
+			print("n");
+		if (m < l)
+			print("y");
+		if (l < m)
+			print("n");
+		if (l == m)
+			print("n");
+		if (l != m)
+			print("y");
+		if (l == 2147483649)
+			print("y");
+		if (l != 2147483649)
+			print("n");
+		print(l++); // 2147483649
+		print(l); // 2147483650
+		print(++l); // 2147483651
+		print(l--); // 2147483651
+		print(l); // 2147483650
+		print(--l); // 2147483649
+		print(l >> 5); // 67108864
+		print(l << 5); // 68719476768
+		l = 992137450920;
+		m = 10913511960120;
+		print(l&m); // 983547511848
+		print(l|m); // 10922101899192
+		print(l^m); // 9938554387344
+		print(~l); // -992137450921
+
+		// uint32
+		uint n = 2147483649;
+		uint o = 100;
+		uint p = 1073741824;
+		uint q = 2;
+		print(n+o); // 2147483749
+		print(n-o); // 2147483549
+		print(p*q); // 2147483648
+		print(p/q); // 536870912
+		print(n%o); // 49
+		if (n >= o)
+			print("y");
+		if (o >= n)
+			print("n");
+		if (n >= 2147483649)
+			print("y");
+		if (n > o)
+			print("y");
+		if (o > n)
+			print("n");
+		if (n > 2147483649)
+			print("n");
+		if (o < n)
+			print("y");
+		if (n < o)
+			print("n");
+		if (n == o)
+			print("n");
+		if (n != o)
+			print("y");
+		if (n == 2147483649)
+			print("y");
+		if (n != 2147483649)
+			print("n");
+		print(n++); // 2147483649
+		print(n); // 2147483650
+		print(++n); // 2147483651
+		print(n--); // 2147483651
+		print(n); // 2147483650
+		print(--n); // 2147483649
+		print(n >> 5); // 67108864
+		print(n << 5); // 32
+		n = 2454267024;
+		o = 27889398;
+		print(n&o); // 590992
+		print(n|o); // 2481565430
+		print(n^o); // 2480974438
+		print(~n); // 1840700271
+
+		// uint64
+		uint64 r = 2147483649;
+		uint64 s = 100;
+		print(r+s); // 2147483749
+		print(r-s); // 2147483549
+		print(r*s); // 214748364900
+		print(r/s); // 21474836
+		print(r%s); // 49
+		if (r >= s)
+			print("y");
+		if (s >= r)
+			print("n");
+		if (r >= 2147483649)
+			print("y");
+		if (r > s)
+			print("y");
+		if (s > r)
+			print("n");
+		if (r > 2147483649)
+			print("n");
+		if (s < r)
+			print("y");
+		if (r < s)
+			print("n");
+		if (r == s)
+			print("n");
+		if (r != s)
+			print("y");
+		if (r == 2147483649)
+			print("y");
+		if (r != 2147483649)
+			print("n");
+		print(r++); // 2147483649
+		print(r); // 2147483650
+		print(++r); // 2147483651
+		print(r--); // 2147483651
+		print(r); // 2147483650
+		print(--r); // 2147483649
+		print(r >> 5); // 67108864
+		print(r << 5); // 68719476768
+		r = 6341208816332045040;
+		s = 792651102041505630;
+		print(r&s); // 576478147994810960
+		print(r|s); // 6557381770378739710
+		print(r^s); // 5980903622383928750
+		print(~r); // 12105535257377506575
+		
+		// float
+		float t = 10.875;
+		float u = 21.1;
+		float v = 2.0;
+		print(t+u); // 31.975
+		print(t-u); // -10.225
+		print(t*u); // 229.463
+		print(t/u); // 0.515403
+		print(t%v); // 0.875
+		if (u >= t)
+			print("y");
+		if (t >= u)
+			print("n");
+		if (t >= 10.875)
+			print("y");
+		if (u > t)
+			print("y");
+		if (t > u)
+			print("n");
+		if (t > 10.875)
+			print("n");
+		if (t < u)
+			print("y");
+		if (u < t)
+			print("n");
+		if (t == u)
+			print("n");
+		if (t != u)
+			print("y");
+		if (t == 10.875)
+			print("y");
+		if (t >= 10.875)
+			print("y");
+		if (t != 10.875)
+			print("n");
+		print(t++); // 10.875
+		print(t); // 11.875
+		print(++t); // 12.875
+		print(t--); // 12.875
+		print(t); // 11.875
+		print(--t); // 10.875
+
+		// float64
+		float64 w = 1.1e38;
+		float64 x = 3.40282e39;
+		float64 y = 2.0e37;
+		print(w+x); // 3.51282e+39
+		print(w-x); // -3.29282e+39
+		print(w*x); // 3.7431e+77
+		print(w/x); // 0.0323261
+		print(w%y); // 1e+37
+		if (x >= w)
+			print("y");
+		if (w >= x)
+			print("n");
+		if (w >= 10.875)
+			print("y");
+		if (x > w)
+			print("y");
+		if (w > x)
+			print("n");
+		if (w > 1.1e38)
+			print("n");
+		if (w < x)
+			print("y");
+		if (x < w)
+			print("n");
+		if (w == x)
+			print("n");
+		if (w != x)
+			print("y");
+		if (w == 1.1e38)
+			print("y");
+		if (w >= 1.1e38)
+			print("y");
+		if (w != 1.1e38)
+			print("n");
+		w = 10.875;
+		print(w++); // 10.875
+		print(w); // 11.875
+		print(++w); // 12.875
+		print(w--); // 12.875
+		print(w); // 11.875
+		print(--w); // 10.875
+
+		// bytes
+		byte b1 = 0xA6;
+		byte b2 = 0x0F;
+		byte b3 = 0x02;
+		print(b1+b2); // 181
+		print(b1-b2); // 151
+		print(b2*b3); // 30
+		print(b2/b3); // 7
+		print(b2%b3); // 1
+		if (b2 >= b3)
+			print("y");
+		if (b2 >= 0x0F)
+			print("y");
+		if (b3 >= b2)
+			print("n");
+		if (b3 <= b2)
+			print("y");
+		if (b3 <= 0x02)
+			print("y");
+		if (b2 <= 0xE)
+			print("n");
+		if (b2 > b3)
+			print("y");
+		if (b3 > b2)
+			print("n");
+		if (b3 < b2)
+			print("y");
+		if (b2 < b3)
+			print("n");
+		if (b1 == 0xA6)
+			print("y");
+		if (b1 == b2)
+			print("n");
+		if (b1 != b2)
+			print("y");
+		if (b1 != 0xA6)
+			print("n");
+		print(b1++); // 166
+		print(b1); // 167
+		print(++b1); // 168
+		print(b1--); // 168
+		print(--b1); // 166
+		print(b2 << 2); // 60
+		print(b2 >> 2); // 3
+		print(b1 & b2); // 6
+		print(b1 | b2); // 175
+		print(b1 ^ b2); // 169
+		print(~b1); // 89
+		
+
+		// char
+		// First, regular old chars'
+		char c1 = 'a';
+		char c2 = 'z';
+		print(c1 + c2); // 219
+		print(c2 - c1); // 25
+		print(c1 * c2); // 11834
+		print(c2 / c1); // 1
+		print(c2 % c1); // 25
+		if (c2 >= c1)
+			print("y");
+		if (c2 >= 'z')
+			print("y");
+		if (c1 >= c2)
+			print("n");
+		if (c1 <= c2)
+			print("y");
+		if (c1 <= 'a')
+			print("y");
+		if (c2 <= 'y')
+			print("n");
+		if (c2 > c1)
+			print("y");
+		if (c1 > c2)
+			print("n");
+		if (c1 < c2)
+			print("y");
+		if (c2 < c1)
+			print("n");
+		if (c1 =='a')
+			print("y");
+		if (c1 == c2)
+			print("n");
+		if (c1 != c2)
+			print("y");
+		if (c1 != 'a')
+			print("n");
+		print(c1++); // 'a'
+		print(c1); // 'b'
+		print(++c1); // 'c'
+		print(c1--); // 'c'
+		print(--c1); // 'a'
+		
+		print(c2 << 2); // 488
+		print(c2 >> 2); // 30
+		print(c1 & c2); // 96
+		print(c1 | c2); // 123
+		print(c1 ^ c2); // 27
+		print(~c2); // -123
+
+		// Now some unicode chars
+		/*
+		char c3 = '\u05D0'; // ? (Hebrew Alef)
+		char c4 = '\u05EA'; // ? (Hebrew Tav)
+		print(c3 + c4); // 3002
+		print(c4 - c3); // 26
+		print(c3 * c4); // 2252832
+		print(c4 / c3); // 1
+		print(c4 % c3); // 26
+		if (c4 >= c3)
+			print("y");
+		if (c4 >= 'z')
+			print("y");
+		if (c3 >= c4)
+			print("n");
+		if (c3 <= c4)
+			print("y");
+		if (c3 <= 'a')
+			print("y");
+		if (c4 <= 'y')
+			print("n");
+		if (c4 > c3)
+			print("y");
+		if (c3 > c4)
+			print("n");
+		if (c3 < c4)
+			print("y");
+		if (c4 < c3)
+			print("n");
+		if (c3 =='a')
+			print("y");
+		if (c3 == c4)
+			print("n");
+		if (c3 != c4)
+			print("y");
+		if (c3 != 'a')
+			print("n");
+		print(c3++); // '?'
+		print(c3); // '?'
+		print(++c3); // '?'
+		print(c3--); // '?'
+		print(--c3); // '?'
+		
+		print(c4 << 2); // 6056
+		print(c4 >> 2); // 378
+		print(c3 & c4); // 1472
+		print(c3 | c4); // 1530
+		print(c3 ^ c4); // 58
+		print(~c4); // -1515
+		*/
+		return 0;
+	}
+}

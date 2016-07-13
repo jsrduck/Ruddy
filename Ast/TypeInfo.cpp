@@ -14,9 +14,9 @@ namespace Ast
 	TypeMismatchException::TypeMismatchException(std::shared_ptr<TypeInfo> expected, std::shared_ptr<TypeInfo> actual)
 	{
 		error = std::string("Type MismatchException: expected type \"");
-		error.append(expected->Name());
+		error.append(expected ? expected->Name() : "void");
 		error.append("\" found type \"");
-		error.append(actual->Name());
+		error.append(actual ? actual->Name() : "void");
 		error.append("\"");
 	}
 
@@ -27,7 +27,7 @@ namespace Ast
 		error.append("\"");
 	}
 
-	std::shared_ptr<TypeInfo> TypeInfo::EvaluateOperation(Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> TypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		if (operation->IsBinary())
 		{
@@ -40,9 +40,31 @@ namespace Ast
 			if (operation->IsArithmetic())
 			{
 				if (rhs->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
-					return rhs->SupportsOperator(operation) ? rhs : throw OperationNotDefinedException(operation->OperatorString());
+				{
+					if (rhs->SupportsOperator(operation))
+					{
+						implicitCastTypeOut = rhs;
+						return rhs;
+					}
+					else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+					{
+						return implicitCastTypeOut;
+					}
+					else throw OperationNotDefinedException(operation->OperatorString());
+				}
 				else if (IsImplicitlyAssignableFrom(rhs, symbolTable))
-					return SupportsOperator(operation) ? shared_from_this() : throw OperationNotDefinedException(operation->OperatorString());
+				{
+					if (SupportsOperator(operation))
+					{
+						implicitCastTypeOut = shared_from_this();
+						return shared_from_this();
+					}
+					else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+					{
+						return implicitCastTypeOut;
+					}
+					else throw OperationNotDefinedException(operation->OperatorString());
+				}
 				else
 					throw OperationNotDefinedException(operation->OperatorString());
 			}
@@ -52,8 +74,32 @@ namespace Ast
 				{
 					assert(!operation->IsBoolean());
 					assert(!operation->IsBitwise());
-					if (rhs->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable) || IsImplicitlyAssignableFrom(rhs, symbolTable))
-						return rhs->SupportsOperator(operation) ? BoolTypeInfo::Get() : throw OperationNotDefinedException(operation->OperatorString());
+					if (rhs->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
+					{
+						if (rhs->SupportsOperator(operation))
+						{
+							implicitCastTypeOut = rhs;
+							return BoolTypeInfo::Get();
+						}
+						else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+						{
+							return BoolTypeInfo::Get();
+						}
+						else throw OperationNotDefinedException(operation->OperatorString());
+					}
+					else if (IsImplicitlyAssignableFrom(rhs, symbolTable))
+					{
+						if (SupportsOperator(operation))
+						{
+							implicitCastTypeOut = shared_from_this();
+							return BoolTypeInfo::Get();
+						}
+						else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+						{
+							return BoolTypeInfo::Get();
+						}
+						else throw OperationNotDefinedException(operation->OperatorString());
+					}
 					else
 						throw OperationNotDefinedException(operation->OperatorString());
 				}
@@ -61,9 +107,15 @@ namespace Ast
 				{
 					assert(!operation->IsBitwise());
 					if (BoolTypeInfo::Get()->IsImplicitlyAssignableFrom(rhs, symbolTable) && BoolTypeInfo::Get()->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
-						return BoolTypeInfo::Get()->SupportsOperator(operation) ? BoolTypeInfo::Get() : throw OperationNotDefinedException(operation->OperatorString());
-					else
-						throw OperationNotDefinedException(operation->OperatorString());
+					{
+						if (BoolTypeInfo::Get()->SupportsOperator(operation))
+						{
+							implicitCastTypeOut = BoolTypeInfo::Get();
+							return BoolTypeInfo::Get();
+						}
+						else throw OperationNotDefinedException(operation->OperatorString());
+					}
+					else throw OperationNotDefinedException(operation->OperatorString());
 				}
 				else
 				{
@@ -77,7 +129,16 @@ namespace Ast
 							UInt32TypeInfo::Get()->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable) ||
 							UInt64TypeInfo::Get()->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable)))
 						{
-							return SupportsOperator(operation) ? shared_from_this() : throw OperationNotDefinedException(operation->OperatorString());
+							if (SupportsOperator(operation))
+							{
+								implicitCastTypeOut = shared_from_this();
+								return shared_from_this();
+							}
+							else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+							{
+								return implicitCastTypeOut;
+							}
+							else throw OperationNotDefinedException(operation->OperatorString());
 						}
 						else
 						{
@@ -88,13 +149,36 @@ namespace Ast
 					{
 						// Bitwise AND, OR and XOR
 						if (BoolTypeInfo::Get()->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
+						{
 							throw OperationNotDefinedException(operation->OperatorString()); // To avoid hard-to-find bugs
+						}
 						else if (rhs->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
-							return rhs->SupportsOperator(operation) ? rhs : throw OperationNotDefinedException(operation->OperatorString());
+						{
+							if (rhs->SupportsOperator(operation))
+							{
+								implicitCastTypeOut = rhs;
+								return rhs;
+							}
+							else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+							{
+								return implicitCastTypeOut;
+							}
+							else throw OperationNotDefinedException(operation->OperatorString());
+						}
 						else if (IsImplicitlyAssignableFrom(rhs, symbolTable))
-							return SupportsOperator(operation) ? shared_from_this() : throw OperationNotDefinedException(operation->OperatorString());
-						else
-							throw OperationNotDefinedException(operation->OperatorString());
+						{
+							if (SupportsOperator(operation))
+							{
+								implicitCastTypeOut = shared_from_this();
+								return shared_from_this();
+							}
+							else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+							{
+								return implicitCastTypeOut;
+							}
+							else throw OperationNotDefinedException(operation->OperatorString());
+						}
+						else throw OperationNotDefinedException(operation->OperatorString());
 					}
 				}
 			}
@@ -109,18 +193,49 @@ namespace Ast
 
 			if (operation->IsArithmetic())
 			{
-				return SupportsOperator(operation) ? shared_from_this() : throw OperationNotDefinedException(operation->OperatorString());
+				if (SupportsOperator(operation))
+				{
+					implicitCastTypeOut = shared_from_this();
+					return shared_from_this();
+				}
+				else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+				{
+					return implicitCastTypeOut;
+				}
+				else throw OperationNotDefinedException(operation->OperatorString());
 			}
 			else if (operation->IsLogical())
 			{
 				if (operation->IsBoolean())
 				{
-					return BoolTypeInfo::Get()->SupportsOperator(operation) ? BoolTypeInfo::Get() : throw OperationNotDefinedException(operation->OperatorString());
+					if (shared_from_this() != BoolTypeInfo::Get())
+					{
+						throw OperationNotDefinedException(operation->OperatorString());
+					}
+					else if (BoolTypeInfo::Get()->SupportsOperator(operation))
+					{
+						implicitCastTypeOut = BoolTypeInfo::Get();
+						return BoolTypeInfo::Get();
+					}
+					else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+					{
+						return implicitCastTypeOut;
+					}
+					else throw OperationNotDefinedException(operation->OperatorString());
 				}
 				else
 				{
 					assert(operation->IsBitwise());
-					return SupportsOperator(operation) ? shared_from_this() : throw OperationNotDefinedException(operation->OperatorString());
+					if (SupportsOperator(operation))
+					{
+						implicitCastTypeOut = shared_from_this();
+						return shared_from_this();
+					}
+					else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+					{
+						return implicitCastTypeOut;
+					}
+					else throw OperationNotDefinedException(operation->OperatorString());
 				}
 			}
 		}
@@ -155,7 +270,7 @@ namespace Ast
 		throw UnexpectedException();
 	}
 
-	std::shared_ptr<TypeInfo> ClassTypeInfo::EvaluateOperation(Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> ClassTypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		// This would depend on operator overloading
 		return nullptr;
@@ -197,7 +312,7 @@ namespace Ast
 		return resolvedType->IsImplicitlyAssignableFrom(other, symbolTable);
 	}
 
-	std::shared_ptr<TypeInfo> UnresolvedClassTypeInfo::EvaluateOperation(Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> UnresolvedClassTypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		// This would depend on operator overloading
 		return nullptr;

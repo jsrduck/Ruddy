@@ -25,7 +25,7 @@ namespace Ast
 	class BinaryOperation : public Operation
 	{
 	public:
-		BinaryOperation(Expression* lhs, Expression* rhs) : _lhs(lhs), _rhs(rhs) {}
+		BinaryOperation(Expression* lhs, Expression* rhs) : _lhs(lhs), _rhs(rhs), _resultIsSigned(false) {}
 		virtual bool IsBinary() override { return true; }
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
@@ -39,7 +39,15 @@ namespace Ast
 				_lhsTypeInfo = std::dynamic_pointer_cast<ConstantExpression>(_lhs)->BestFitTypeInfo();
 			}
 
-			_resultOfOperation = _lhsTypeInfo->EvaluateOperation(this, _rhsTypeInfo);
+			_resultOfOperation = _lhsTypeInfo->EvaluateOperation(_implicitCastType, this, _rhsTypeInfo, symbolTable);
+			if (_resultOfOperation->IsInteger())
+			{
+				_resultIsSigned = std::dynamic_pointer_cast<IntegerTypeInfo>(_resultOfOperation)->Signed();
+			}
+			else if (_lhsTypeInfo->IsInteger() && _rhsTypeInfo->IsInteger())
+			{
+				_resultIsSigned = std::dynamic_pointer_cast<IntegerTypeInfo>(_implicitCastType)->Signed();
+			}
 			return _resultOfOperation;
 		}
 	protected:
@@ -48,6 +56,8 @@ namespace Ast
 		std::shared_ptr<Expression> _rhs;
 		std::shared_ptr<TypeInfo> _rhsTypeInfo;
 		std::shared_ptr<TypeInfo> _resultOfOperation;
+		std::shared_ptr<TypeInfo> _implicitCastType;
+		bool _resultIsSigned;
 	};
 
 	/* Arithmetic Binary Operations */
@@ -282,12 +292,19 @@ namespace Ast
 		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			_typeInfo = _expr->Evaluate(symbolTable);
-			return _typeInfo;
+			if (_typeInfo->IsConstant())
+			{
+				_typeInfo = std::dynamic_pointer_cast<ConstantExpression>(_expr)->BestFitTypeInfo();
+			}
+			auto result = _typeInfo->EvaluateOperation(_implicitCastType, this, nullptr, symbolTable);
+
+			return result;
 		}
 
 	protected:
 		std::shared_ptr<Expression> _expr;
 		std::shared_ptr<TypeInfo> _typeInfo;
+		std::shared_ptr<TypeInfo> _implicitCastType;
 	};
 
 	class PrefixOperation : public UnaryOperation

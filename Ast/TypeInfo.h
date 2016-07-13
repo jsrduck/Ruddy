@@ -37,8 +37,12 @@ namespace Ast
 		virtual const std::string& Name() = 0;
 		
 		// Operator logic
-		virtual std::shared_ptr<TypeInfo> EvaluateOperation(Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr);
+		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr);
 		virtual bool SupportsOperator(Operation* operation) = 0;
+		virtual bool IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(Operation* operation, std::shared_ptr<TypeInfo>& implicitCastTypeOut)
+		{
+			return false;
+		}
 		virtual bool IsAutoType() { return false; }
 		virtual bool NeedsResolution() { return false; }
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
@@ -83,7 +87,7 @@ namespace Ast
 		}
 
 		// Operator logic
-		virtual std::shared_ptr<TypeInfo> EvaluateOperation(Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override { throw NotSupportedByAutoTypeException(); }
+		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override { throw NotSupportedByAutoTypeException(); }
 		virtual bool SupportsOperator(Operation* operation) override { throw NotSupportedByAutoTypeException(); }
 		virtual bool IsAutoType() override { return true; }
 		std::string _name = "auto type";
@@ -209,7 +213,7 @@ namespace Ast
 			return _name;
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateOperation(Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
+		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
 		virtual bool SupportsOperator(Operation* operation) override;
 
@@ -246,7 +250,7 @@ namespace Ast
 			return _name;
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateOperation(Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
+		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
 		virtual bool SupportsOperator(Operation* operation) override;
 		

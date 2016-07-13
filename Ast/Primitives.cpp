@@ -50,7 +50,7 @@ namespace Ast
 	}
 
 	/* Int32 */
-	IMPL_PRIMITIVE_TYPE_INFO4(Int32TypeInfo, "int32", ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType)
+	IMPL_PRIMITIVE_TYPE_INFO5(Int32TypeInfo, "int32", ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType, CharConstantType)
 	IMPL_PRIMITIVE_ALL_OPERATORS(Int32TypeInfo)
 	IMPL_PRIMITIVE_INTEGER_TYPE(Int32TypeInfo, 32, true)
 	llvm::AllocaInst* Int32TypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
@@ -66,7 +66,7 @@ namespace Ast
 	}
 
 	/* Int64*/
-	IMPL_PRIMITIVE_TYPE_INFO6(Int64TypeInfo, "int64", Int32TypeInfo, UInt32TypeInfo, ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType)
+	IMPL_PRIMITIVE_TYPE_INFO7(Int64TypeInfo, "int64", Int32TypeInfo, UInt32TypeInfo, ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType, CharConstantType)
 	IMPL_PRIMITIVE_ALL_OPERATORS(Int64TypeInfo)
 	IMPL_PRIMITIVE_INTEGER_TYPE(Int64TypeInfo, 64, true)
 	llvm::AllocaInst* Int64TypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
@@ -82,7 +82,7 @@ namespace Ast
 	}
 
 	/* UInt32 */
-	IMPL_PRIMITIVE_TYPE_INFO4(UInt32TypeInfo, "uint32", ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType)
+	IMPL_PRIMITIVE_TYPE_INFO5(UInt32TypeInfo, "uint32", ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType, CharConstantType)
 	IMPL_PRIMITIVE_ALL_OPERATORS(UInt32TypeInfo)
 	IMPL_PRIMITIVE_INTEGER_TYPE(UInt32TypeInfo, 32, false)
 	llvm::AllocaInst* UInt32TypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
@@ -98,7 +98,7 @@ namespace Ast
 	}
 
 	/* UInt64 */
-	IMPL_PRIMITIVE_TYPE_INFO5(UInt64TypeInfo, "uint64", UInt32TypeInfo, ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType)
+	IMPL_PRIMITIVE_TYPE_INFO6(UInt64TypeInfo, "uint64", UInt32TypeInfo, ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType, CharConstantType)
 	IMPL_PRIMITIVE_ALL_OPERATORS(UInt64TypeInfo)
 	IMPL_PRIMITIVE_INTEGER_TYPE(UInt64TypeInfo, 64, false)
 	llvm::AllocaInst* UInt64TypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
@@ -144,8 +144,11 @@ namespace Ast
 	}
 
 	/* CharByte */
-	IMPL_PRIMITIVE_TYPE_INFO1(CharByteTypeInfo, "char", CharConstantType)
-	IMPL_PRIMITIVE_ALL_OPERATORS(CharByteTypeInfo)
+	IMPL_PRIMITIVE_TYPE_INFO2(CharByteTypeInfo, "charbyte", CharConstantType, IntegerConstantType)
+	IMPL_PRIMITIVE_INTEGER_TYPE(CharByteTypeInfo, 8, false)
+	// CharByte is implicitly convertable to integer, so all integer operations are de facto "supported"
+	int CharByteTypeInfo::_supportedOperations =
+		PostDecrementOperation::Id | PostIncrementOperation::Id | PreDecrementOperation::Id | PreIncrementOperation::Id;
 	llvm::AllocaInst* CharByteTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getInt8Ty(*context), nullptr, name.c_str());
@@ -159,8 +162,11 @@ namespace Ast
 	}
 
 	/* Char */
-	IMPL_PRIMITIVE_TYPE_INFO1(CharTypeInfo, "wchar", CharConstantType)
-	IMPL_PRIMITIVE_ALL_OPERATORS(CharTypeInfo)
+	IMPL_PRIMITIVE_TYPE_INFO2(CharTypeInfo, "char", CharConstantType, IntegerConstantType)
+	IMPL_PRIMITIVE_INTEGER_TYPE(CharTypeInfo, 16, false)
+	// Char is implicitly convertable to integer, so all integer operations are de facto "supported"
+	int CharTypeInfo::_supportedOperations = 
+		PostDecrementOperation::Id | PostIncrementOperation::Id | PreDecrementOperation::Id | PreIncrementOperation::Id;
 	llvm::AllocaInst* CharTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getInt16Ty(*context), nullptr, name.c_str());
@@ -190,8 +196,9 @@ namespace Ast
 	}
 
 	/* Byte */
-	IMPL_PRIMITIVE_TYPE_INFO1(ByteTypeInfo, "byte", CharByteTypeInfo)
+	IMPL_PRIMITIVE_TYPE_INFO2(ByteTypeInfo, "byte", CharByteTypeInfo, IntegerConstantType)
 	IMPL_PRIMITIVE_ALL_OPERATORS(ByteTypeInfo)
+	IMPL_PRIMITIVE_INTEGER_TYPE(ByteTypeInfo, 8, true)
 	llvm::AllocaInst* ByteTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
 		return builder->CreateAlloca(llvm::Type::getInt8Ty(*context), nullptr, name.c_str());
