@@ -353,7 +353,6 @@ class Program
 		print(b1 | b2); // 175
 		print(b1 ^ b2); // 169
 		print(~b1); // 89
-		
 
 		// char
 		// First, regular old chars'
@@ -406,14 +405,13 @@ class Program
 		print(~c2); // -123
 
 		// Now some unicode chars
-		/*
-		char c3 = '\u05D0'; // ? (Hebrew Alef)
-		char c4 = '\u05EA'; // ? (Hebrew Tav)
-		print(c3 + c4); // 3002
-		print(c4 - c3); // 26
-		print(c3 * c4); // 2252832
+		char c3 = '\u0100'; // (Latin capital letter a with macron)
+		char c4 = '\u017e'; // (Latin small letter z with caron)
+		print(c3 + c4); // 638
+		print(c4 - c3); // 126
+		print(c3 * c4); // 97792
 		print(c4 / c3); // 1
-		print(c4 % c3); // 26
+		print(c4 % c3); // 126
 		if (c4 >= c3)
 			print("y");
 		if (c4 >= 'z')
@@ -422,7 +420,7 @@ class Program
 			print("n");
 		if (c3 <= c4)
 			print("y");
-		if (c3 <= 'a')
+		if (c3 <= '\u0100')
 			print("y");
 		if (c4 <= 'y')
 			print("n");
@@ -434,27 +432,77 @@ class Program
 			print("y");
 		if (c4 < c3)
 			print("n");
-		if (c3 =='a')
+		if (c3 =='\u0100')
 			print("y");
 		if (c3 == c4)
 			print("n");
 		if (c3 != c4)
 			print("y");
-		if (c3 != 'a')
+		if (c3 != '\u0100')
 			print("n");
-		print(c3++); // '?'
-		print(c3); // '?'
-		print(++c3); // '?'
-		print(c3--); // '?'
-		print(--c3); // '?'
+
+		print(c3++);  // (Latin capital letter a with macron)
+		print(c3); // (Latin Small Letter a with Macron)
+		print(++c3); // (Latin Capital Letter a with Breve)
+		print(c3--); // (Latin Capital Letter a with Breve)
+		print(--c3); // (Latin capital letter a with macron)
 		
-		print(c4 << 2); // 6056
-		print(c4 >> 2); // 378
-		print(c3 & c4); // 1472
-		print(c3 | c4); // 1530
-		print(c3 ^ c4); // 58
-		print(~c4); // -1515
-		*/
+		print(c4 << 2); // 1528
+		print(c4 >> 2); // 95
+		print(c3 & c4); // 256
+		print(c3 | c4); // 382
+		print(c3 ^ c4); //126
+		print(~c4); // -383
+
+		// Now charbytes
+		charbyte cb1 = 'a';
+		charbyte cb2 = 'z';
+		print(cb1 + cb2); // 219
+		print(cb2 - cb1); // 25
+		print(cb1 * cb2); // 11834
+		print(cb2 / cb1); // 1
+		print(cb2 % cb1); // 25
+		if (cb2 >= cb1)
+			print("y");
+		if (cb2 >= 'z')
+			print("y");
+		if (cb1 >= cb2)
+			print("n");
+		if (cb1 <= cb2)
+			print("y");
+		if (cb1 <= 'a')
+			print("y");
+		if (cb2 <= 'y')
+			print("n");
+		if (cb2 > cb1)
+			print("y");
+		if (cb1 > cb2)
+			print("n");
+		if (cb1 < cb2)
+			print("y");
+		if (cb2 < cb1)
+			print("n");
+		if (cb1 =='a')
+			print("y");
+		if (cb1 == cb2)
+			print("n");
+		if (cb1 != cb2)
+			print("y");
+		if (cb1 != 'a')
+			print("n");
+		print(cb1++); // 'a'
+		print(cb1); // 'b'
+		print(++cb1); // 'c'
+		print(cb1--); // 'c'
+		print(--cb1); // 'a'
+		
+		print(cb2 << 2); // 488
+		print(cb2 >> 2); // 30
+		print(cb1 & cb2); // 96
+		print(cb1 | cb2); // 123
+		print(cb1 ^ cb2); // 27
+		print(~cb2); // -123
+
 		return 0;
 	}
 }

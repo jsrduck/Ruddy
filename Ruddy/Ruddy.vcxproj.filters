@@ -27,7 +27,7 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="IO.h">
+    <ClInclude Include="os_io.h">
       <Filter>Header Files\OS</Filter>
     </ClInclude>
   </ItemGroup>

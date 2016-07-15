@@ -5,6 +5,6 @@
 namespace OS 
 {
 
-	extern "C" int _os_printf(char const* const _Format, ...);
+	extern "C" int _os_printf(wchar_t const* const _Format, ...);
 
 }

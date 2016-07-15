@@ -40,7 +40,7 @@ void AddExternOsFunctions(llvm::Module* module)
 {
 	// printf
 	std::vector<llvm::Type*> printfArgTypes;
-	printfArgTypes.push_back(llvm::Type::getInt8PtrTy(llvm::getGlobalContext()));
+	printfArgTypes.push_back(llvm::Type::getInt16PtrTy(llvm::getGlobalContext()));
 	auto printfFunctionType = llvm::FunctionType::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), printfArgTypes, true /*isVarArg*/);
 	auto printfFunction = llvm::Function::Create(printfFunctionType, llvm::Function::ExternalLinkage, "_os_printf", module);
 }

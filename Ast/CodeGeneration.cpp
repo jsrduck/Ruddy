@@ -158,7 +158,7 @@ namespace Ast {
 		if (value->getType()->isIntegerTy())
 		{
 			// Create a string on the stack, and then print it
-			const char* specifier;
+			std::wstring specifier;
 			bool isSigned = false;
 
 			auto asInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(_expressionTypeInfo);
@@ -175,36 +175,39 @@ namespace Ast {
 			{
 				case 8:
 					if (_expressionTypeInfo == CharByteTypeInfo::Get())
-						specifier = "%c";
+						specifier = L"%c";
 					else if (isSigned)
-						specifier = "%hhd";
+						specifier = L"%hhd";
 					else
-						specifier = "%hhu";
+						specifier = L"%hhu";
 					break;
 				case 16:
 					if (_expressionTypeInfo == CharTypeInfo::Get())
-						specifier = "%lc";
+						specifier = L"%lc";
 					else if (isSigned)
-						specifier = "%hd";
+						specifier = L"%hd";
 					else
-						specifier = "%hu";
+						specifier = L"%hu";
 					break;
 				case 32:
 					if (isSigned)
-						specifier = "%d";
+						specifier = L"%d";
 					else
-						specifier = "%u";
+						specifier = L"%u";
 					break;
 				case 64:
 					if (isSigned)
-						specifier = "%lld";
+						specifier = L"%lld";
 					else
-						specifier = "%llu";
+						specifier = L"%llu";
 					break;
 				default:
 					throw UnexpectedException();
 			}
-			auto strConst = llvm::ConstantDataArray::getString(*context, llvm::StringRef(specifier));
+			llvm::SmallVector<uint16_t, 8> ElementVals;
+			ElementVals.append(specifier.begin(), specifier.end());
+			ElementVals.push_back(0);
+			auto strConst = llvm::ConstantDataArray::get(*context, ElementVals);
 			auto alloc = builder->CreateAlloca(strConst->getType(), builder->getInt32(llvm::dyn_cast<llvm::ConstantDataSequential>(strConst)->getNumElements()));
 			builder->CreateStore(strConst, alloc);
 			std::vector<llvm::Value*> index_vector;
@@ -219,7 +222,11 @@ namespace Ast {
 		else if (value->getType()->isFloatingPointTy())
 		{
 			// Create a string on the stack, and then print it
-			auto strConst = llvm::ConstantDataArray::getString(*context, llvm::StringRef("%g"));
+			std::wstring specifier = L"%g";
+			llvm::SmallVector<uint16_t, 8> ElementVals;
+			ElementVals.append(specifier.begin(), specifier.end());
+			ElementVals.push_back(0);
+			auto strConst = llvm::ConstantDataArray::get(*context, ElementVals);
 			auto alloc = builder->CreateAlloca(strConst->getType(), builder->getInt32(llvm::dyn_cast<llvm::ConstantDataSequential>(strConst)->getNumElements()));
 			builder->CreateStore(strConst, alloc);
 			std::vector<llvm::Value*> index_vector;
@@ -295,7 +302,11 @@ namespace Ast {
 
 	llvm::Value* StringConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		return llvm::ConstantDataArray::getString(*context, llvm::StringRef(_input.c_str()));
+		std::wstring asWideString(_input.begin(), _input.end()); // TODO: Doesn't handle inlined unicode characters
+		llvm::SmallVector<uint16_t, 8> ElementVals;
+		ElementVals.append(asWideString.begin(), asWideString.end());
+		ElementVals.push_back(0);
+		return llvm::ConstantDataArray::get(*context, ElementVals);
 	}
 
 	llvm::Value* IntegerConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
@@ -341,8 +352,8 @@ namespace Ast {
 
 	llvm::Value* CharConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = llvm::ConstantInt::get(*context, llvm::APInt(16, Value()));
-		if (hint != nullptr && hint != _typeInfo)
+		auto val = llvm::ConstantInt::get(*context, llvm::APInt(hint == CharByteTypeInfo::Get() ? 8 : 16, Value()));
+		if (hint != nullptr && hint != _typeInfo && hint != CharByteTypeInfo::Get() && hint != CharTypeInfo::Get())
 			if (hint->IsImplicitlyAssignableFrom(_typeInfo, symbolTable))
 				return builder->CreateCast(llvm::Instruction::CastOps::ZExt, val, hint->GetIRType(context));
 			else
