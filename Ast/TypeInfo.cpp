@@ -48,7 +48,7 @@ namespace Ast
 					}
 					else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 					{
-						return implicitCastTypeOut;
+						return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
 					}
 					else throw OperationNotDefinedException(operation->OperatorString());
 				}
@@ -61,12 +61,19 @@ namespace Ast
 					}
 					else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 					{
-						return implicitCastTypeOut;
+						return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 					}
 					else throw OperationNotDefinedException(operation->OperatorString());
 				}
-				else
-					throw OperationNotDefinedException(operation->OperatorString());
+				else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+				{
+					return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
+				}
+				else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+				{
+					return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
+				}
+				else throw OperationNotDefinedException(operation->OperatorString());
 			}
 			else if (operation->IsLogical())
 			{
@@ -83,7 +90,7 @@ namespace Ast
 						}
 						else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 						{
-							return BoolTypeInfo::Get();
+							return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
 						}
 						else throw OperationNotDefinedException(operation->OperatorString());
 					}
@@ -96,12 +103,19 @@ namespace Ast
 						}
 						else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 						{
-							return BoolTypeInfo::Get();
+							return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 						}
 						else throw OperationNotDefinedException(operation->OperatorString());
 					}
-					else
-						throw OperationNotDefinedException(operation->OperatorString());
+					else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+					{
+						return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
+					}
+					else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+					{
+						return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
+					}
+					else throw OperationNotDefinedException(operation->OperatorString());
 				}
 				else if (operation->IsBoolean())
 				{
@@ -136,7 +150,7 @@ namespace Ast
 							}
 							else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 							{
-								return implicitCastTypeOut;
+								return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 							}
 							else throw OperationNotDefinedException(operation->OperatorString());
 						}
@@ -161,7 +175,7 @@ namespace Ast
 							}
 							else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 							{
-								return implicitCastTypeOut;
+								return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
 							}
 							else throw OperationNotDefinedException(operation->OperatorString());
 						}
@@ -174,9 +188,17 @@ namespace Ast
 							}
 							else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 							{
-								return implicitCastTypeOut;
+								return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 							}
 							else throw OperationNotDefinedException(operation->OperatorString());
+						}
+						else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+						{
+							return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
+						}
+						else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
+						{
+							return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 						}
 						else throw OperationNotDefinedException(operation->OperatorString());
 					}
@@ -237,6 +259,10 @@ namespace Ast
 					}
 					else throw OperationNotDefinedException(operation->OperatorString());
 				}
+			}
+			else if (dynamic_cast<CastOperation*>(operation) != nullptr)
+			{
+				return dynamic_cast<CastOperation*>(operation)->_castTo; // TODO: What if type casting not supported?
 			}
 		}
 		throw UnexpectedException();

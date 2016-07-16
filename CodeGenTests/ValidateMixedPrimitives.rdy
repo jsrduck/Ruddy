@@ -1,0 +1,298 @@
+class Program 
+{ 
+	static fun(int ret) main()
+	{
+		// int32 and int64
+		{
+			int i32 = 10;
+			int64 i64 = 2147483648;
+			print(i32+i64); // 2147483658
+			i32 = -10;
+			i64 = -2147483648;
+			print(i32+i64); // -2147483658
+			print((int)i64); // -2147483648
+		}
+		// int32 and uint32
+		{
+			int i32 = 10;
+			uint ui32 = 2147483648;
+			print((uint)i32+ui32); // 2147483658
+			i32 = -1;
+			print((uint)i32); // 4294967295
+			print((int)ui32); // -2147483648
+		}
+		// int32 and uint64
+		{
+			int i32 = 10;
+			uint64 ui64 = 2147483648;
+			print((uint64)i32+ui64); // 2147483658
+			i32 = -1;
+			ui64 = (uint)i32; // Two casts, one explicit, one implicit 
+			print(ui64); // 4294967295
+			ui64 = (uint64)i32;
+			print(ui64); // 18446744073709551615
+			print((int)ui64); // -1
+		}
+		// int32 and float
+		{
+			int i32 = 10;
+			float f = 1.5;
+			print(i32+f); // 11.5
+			print((int)f); // 1
+		}
+		// int32 and float64
+		{
+			int i32 = 10;
+			float64 f64 = 1.5;
+			print(i32+f64); // 11.5
+			print((int)f64); // 1
+		}
+		// int32 and char
+		{
+			int i32 = 100;
+			char c = 'a';
+			print(i32 + c); // 197
+			print((char)i32); // 'd'
+			c = '\u8000';
+			print(i32 + c); // 32868
+		}
+		// int32 and charbyte
+		{
+			int i32 = 100;
+			charbyte cb = 'a';
+			print(i32 + cb); // 197
+			print((charbyte)i32); // 'd'
+			cb = 0xFF;
+			print(i32 + cb); // 355
+		}
+		// int32 and byte
+		{
+			int i32 = 100;
+			byte b = 0xFF;
+			print(i32 + b); // 355
+			i32 = 0xFFFF;
+			print((byte)i32); // 255
+		}
+		
+		// uint32 and int64
+		{
+			uint ui32 = 4294967295;
+			int64 i64 = -4294967296;
+			print(ui32 + i64); // -1
+			print((uint)i64); // 0
+		}
+		// uint32 and uint64
+		{
+			uint ui32 = 100;
+			uint64 ui64 = 4294967296;
+			print(ui32 + ui64); // 4294967396
+			print((uint)ui64); // 0
+		}
+		// uint32 and float
+		{
+			uint ui32 = 100;
+			float f = -10.875;
+			print(ui32 + f); // 89.125
+			print((uint)f); // 4294967286
+		}
+		// uint32 and float64
+		{
+			uint ui32 = 100;
+			float64 f = -10.875;
+			print(ui32 + f); // 89.125
+			print((uint)f); // 4294967286
+		}
+		// uint32 and char
+		{
+			uint ui32 = 100;
+			char c = 'a';
+			print(ui32 + c); // 197
+			print((char)ui32); // 'd'
+			c = '\u8000';
+			print(ui32 + c); // 32868
+		}
+		// uint32 and charbyte
+		{
+			uint ui32 = 100;
+			charbyte cb = 'a';
+			print(ui32 + cb); // 197
+			print((charbyte)ui32); // 'd'
+			cb = 0xFF;
+			print(ui32 + cb); // 355
+		}
+		// uint32 and byte
+		{
+			uint ui32 = 100;
+			byte b = 0xFF;
+			print(ui32 + b); // 355
+			ui32 = 0xFFFF;
+			print((byte)ui32); // 255
+		}
+
+		// int64 and uint64
+		{
+			int64 i64 = -8589934592;
+			uint64 ui64 = 4294967296;
+			print(i64+(int64)ui64); // -4294967296
+			print((uint64)i64 + ui64); // 18446744069414584320
+		}
+		// int64 and float
+		{
+			int64 i64 = -8589934592;
+			float f = 10.875;
+			print(i64 + f); // -8.58993e+09
+			print((int64)f); // 10
+		}
+		// int64 and char
+		{
+			int64 i64 = 100;
+			char c = 'a';
+			print(i64 + c); // 197
+			print((char)i64); // 'd'
+			c = '\u8000';
+			print(i64 + c); // 32868
+		}
+		// int64 and charbyte
+		{
+			int64 i64 = 100;
+			charbyte cb = 'a';
+			print(i64 + cb); // 197
+			print((charbyte)i64); // 'd'
+			cb = 0xFF;
+			print(i64 + cb); // 355
+		}
+		// uint32 and byte
+		{
+			int64 i64 = -8589934592;
+			byte b = 0xFF;
+			print(i64 + b); // -8589934337
+			i64 = 0xFFFF;
+			print((byte)i64); // 255
+		}
+
+		// uint64 and float
+		{
+			uint ui64 = 100;
+			float f = -10.875;
+			print(ui64 + f); // 89.125
+			print((uint64)f); // 18446744073709551606
+		}
+		// uint64 and float64
+		{
+			uint ui64 = 100;
+			float64 f = -10.875;
+			print(ui64 + f); // 89.125
+			print((uint64)f); // 18446744073709551606
+		}
+		// uint64 and char
+		{
+			uint ui64 = 100;
+			char c = 'a';
+			print(ui64 + c); // 197
+			print((char)ui64); // 'd'
+			c = '\u8000';
+			print(ui64 + c); // 32868
+		}
+		// uint64 and charbyte
+		{
+			uint ui64 = 100;
+			charbyte cb = 'a';
+			print(ui64 + cb); // 197
+			print((charbyte)ui64); // 'd'
+			cb = 0xFF;
+			print(ui64 + cb); // 355
+		}
+		// uint64 and byte
+		{
+			uint ui64 = 100;
+			byte b = 0xFF;
+			print(ui64 + b); // 355
+			ui64 = 0xFFFF;
+			print((byte)ui64); // 255
+		}
+
+		// float32 and float64
+		{
+			float f = 3.402823466e+38;
+			float64 f64 = 3.402823466e+39;
+			print(f64 - f); // 3.06254e+39
+			print((float)f64); // inf
+		}
+		// float32 and char
+		{
+			float f = 100.5;
+			char c = 'a';
+			print(f + c); // 197.5
+			print((char)f); // 'd'
+			c = '\u8000';
+			print(f + c); // 32868.5
+		}
+		// float32 and charbyte
+		{
+			float f = 100.5;
+			charbyte cb = 'a';
+			print(f + cb); // 197.5
+			print((char)f); // 'd'
+			cb = 0xFF;
+			print(f + cb); // 355.5
+		}
+		// float32 and byte
+		{
+			float f = 100.5;
+			byte b = 0xFF;
+			print(f + b); // 355.5
+			f = 3.402823466e+38;
+			print((byte)f); // 0
+		}
+
+		// float64 and char
+		{
+			float64 f = 100.5;
+			char c = 'a';
+			print(f + c); // 197.5
+			print((char)f); // 'd'
+			c = '\u8000';
+			print(f + c); // 32868.5
+		}
+		// float64 and charbyte
+		{
+			float64 f = 100.5;
+			charbyte cb = 'a';
+			print(f + cb); // 197.5
+			print((char)f); // 'd'
+			cb = 0xFF;
+			print(f + cb); // 355.5
+		}
+		// float64 and byte
+		{
+			float64 f = 100.5;
+			byte b = 0xFF;
+			print(f + b); // 355.5
+			f = 3.402823466e+38;
+			print((byte)f); // 0
+		}
+
+		// char and charbyte
+		{
+			char c = '\u8062';
+			charbyte cb = 'a';
+
+			// Both will be cast down to integer first during add
+			print(c+cb); // 32963
+			print((char)cb); // 'a'
+			print((charbyte)c); // 'b'
+		}
+		// char and byte
+		{
+			char c = '\u8000';
+			byte b = 0xFF;
+			// After byte is cast to a char, they are both cast to integers
+			print(c + (char)b); // 33023
+			print((byte)c + b); // 255
+		}
+
+		// charbyte and byte are essentially the same thing
+
+		return 0;
+	}
+}

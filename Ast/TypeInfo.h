@@ -50,6 +50,11 @@ namespace Ast
 		virtual bool IsPrimitiveType() { return false; }
 		virtual bool IsConstant() { return false; }
 		virtual bool IsInteger() { return false; }
+		virtual bool IsFloatingPoint() { return false; }
+		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo)
+		{
+			throw UnexpectedException();
+		}
 	};
 
 	class NotSupportedByAutoTypeException : public std::exception

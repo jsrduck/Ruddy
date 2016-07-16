@@ -383,7 +383,8 @@ namespace Ast {
 	void ScopedStatements::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		symbolTable->Enter();
-		_statements->TypeCheck(symbolTable, builder, context, module);
+		if (_statements != nullptr)
+			_statements->TypeCheck(symbolTable, builder, context, module);
 		symbolTable->Exit();
 	}
 

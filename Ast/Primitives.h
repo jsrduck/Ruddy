@@ -40,10 +40,22 @@ namespace Ast
 	public:
 		virtual llvm::Value* CreateValue(llvm::LLVMContext* context, uint64_t constant) = 0;
 		virtual bool Signed() = 0;
-		virtual bool IsInteger()
+		virtual bool IsInteger() override
 		{
 			return true;
 		}
+		virtual int Bits() = 0;
+		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo) override;
+	};
+
+	class FloatingTypeInfo : public PrimitiveTypeInfo
+	{
+	public:
+		virtual bool IsFloatingPoint() override
+		{
+			return true;
+		}
+		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo) override;
 	};
 
 	// TODO: String should be defined as a class IN Ruddy code, but the compiler needs to be smart enough 
@@ -52,25 +64,25 @@ namespace Ast
 
 	DECLARE_PRIMITIVE_TYPE_INFO(StringTypeInfo)
 
-	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(Int32TypeInfo, true)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(Int32TypeInfo, true, 32)
 
-	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(Int64TypeInfo, true)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(Int64TypeInfo, true, 64)
 
-	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(UInt32TypeInfo, false)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(UInt32TypeInfo, false, 32)
 
-	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(UInt64TypeInfo, false)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(UInt64TypeInfo, false, 64)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(Float32TypeInfo)
+	DECLARE_PRIMITIVE_FLOATING_TYPE_INFO(Float32TypeInfo)
 
-	DECLARE_PRIMITIVE_TYPE_INFO(Float64TypeInfo)
+	DECLARE_PRIMITIVE_FLOATING_TYPE_INFO(Float64TypeInfo)
 
-	DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CharByteTypeInfo, false, Int32TypeInfo)
+	DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CharByteTypeInfo, false, 8, Int32TypeInfo)
 
-	DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CharTypeInfo, false, Int32TypeInfo)
+	DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CharTypeInfo, false, 16, Int32TypeInfo)
 
 	DECLARE_PRIMITIVE_TYPE_INFO(BoolTypeInfo)
 
-	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(ByteTypeInfo, false)
+	DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(ByteTypeInfo, false, 8)
 
 
 	// An expression that recognizes a static constant, ie the zero in int i = 0;

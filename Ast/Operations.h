@@ -407,4 +407,42 @@ namespace Ast
 		virtual std::string OperatorString() override { return "~"; }
 		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
+
+	class CastOperation : public Operation
+	{
+	public:
+		CastOperation(std::shared_ptr<TypeInfo> typeInfo, Expression* expression) : _castTo(typeInfo), _expression(expression)
+		{
+		}
+
+		static const int Id = 0x400000;
+
+		virtual const int OperatorId() override
+		{
+			return Id;
+		}
+
+		virtual std::string OperatorString() override
+		{
+			return "(T)";
+		}
+
+		virtual bool IsBinary() override
+		{
+			return false;
+		}
+
+		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			// TODO: What about types that can't be cast at all?
+			_castFrom = _expression->Evaluate(symbolTable);
+			return _castTo;
+		}
+
+		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
+
+		std::shared_ptr<TypeInfo> _castTo;
+		std::shared_ptr<Expression> _expression;
+		std::shared_ptr<TypeInfo> _castFrom;
+	};
 }

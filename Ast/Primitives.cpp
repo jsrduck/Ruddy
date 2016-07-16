@@ -49,6 +49,61 @@ namespace Ast
 		throw UnexpectedException();
 	}
 
+	int IntegerTypeInfo::CreateCast(std::shared_ptr<TypeInfo> castTo)
+	{
+		if (castTo->IsInteger())
+		{
+			auto castToInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(castTo);
+			if (Bits() > castToInteger->Bits())
+			{
+				return llvm::Instruction::CastOps::Trunc;
+			}
+			else if(!Signed())
+			{
+				return llvm::Instruction::CastOps::ZExt;
+			}
+			else
+			{
+				return llvm::Instruction::CastOps::SExt;
+			}
+		}
+		else if (castTo->IsFloatingPoint())
+		{
+			if (Signed())
+				return llvm::Instruction::CastOps::SIToFP;
+			else
+				return llvm::Instruction::CastOps::UIToFP;
+		}
+		else
+		{
+			throw UnexpectedException();
+		}
+	}
+
+	int FloatingTypeInfo::CreateCast(std::shared_ptr<TypeInfo> castTo)
+	{
+		llvm::Instruction::CastOps ops;
+		if (castTo->IsFloatingPoint())
+		{
+			if (std::dynamic_pointer_cast<Float64TypeInfo>(castTo) != nullptr)
+				return llvm::Instruction::CastOps::FPExt;
+			else
+				return llvm::Instruction::CastOps::FPTrunc;
+		}
+		else if (castTo->IsInteger())
+		{
+			auto castToInteger = std::dynamic_pointer_cast<IntegerTypeInfo>(castTo);
+			if (castToInteger->Signed())
+				return llvm::Instruction::CastOps::FPToSI;
+			else
+				return llvm::Instruction::CastOps::FPToUI;
+		}
+		else
+		{
+			throw UnexpectedException();
+		}
+	}
+
 	/* Int32 */
 	IMPL_PRIMITIVE_TYPE_INFO5(Int32TypeInfo, "int32", ByteTypeInfo, CharByteTypeInfo, CharTypeInfo, IntegerConstantType, CharConstantType)
 	IMPL_PRIMITIVE_ALL_OPERATORS(Int32TypeInfo)

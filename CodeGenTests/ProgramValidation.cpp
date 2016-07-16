@@ -42,6 +42,19 @@ namespace CodeGenTests {
 			Assert::AreEqual(c_expected, input.c_str());
 		}
 
+		TEST_METHOD(ValidateMixedPrimitives)
+		{
+			const wchar_t * c_expected = L"2147483658-2147483658-214748364821474836584294967295-21474836482147483658429496729518446744073709551615"
+				"-111.5111.51197d32868197d355355255-104294967396089.125429496728689.1254294967286197d32868197d355355255-42949672961844674406941458"
+				"4320-8.58993e+0910197d32868197d355-858993433725589.1251844674407370955160689.12518446744073709551606197d32868197d3553552553.06254e+39"
+				"inf197.5d32868.5197.5d355.5355.50197.5d32868.5197.5d355.5355.5032963ab33023255";
+			std::ifstream inputStream("ValidateMixedPrimitives.txt");
+			std::stringstream ss;
+			ss << inputStream.rdbuf() << '\0';
+			std::wstring input((wchar_t*) ss.str().c_str());
+			Assert::AreEqual(c_expected, input.c_str());
+		}
+
 		BEGIN_TEST_METHOD_ATTRIBUTE(ValidateFunctions)
 			TEST_METHOD_ATTRIBUTE(L"DeploymentItem", L"ValidateFunctions.txt")
 		END_TEST_METHOD_ATTRIBUTE()

@@ -333,7 +333,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(IntAndCharArithOperations)
+		TEST_METHOD(IntAndCharByteArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -345,7 +345,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(IntAndWCharArithOperations)
+		TEST_METHOD(IntAndCharArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -439,7 +439,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(Int64AndCharArithOperations)
+		TEST_METHOD(Int64AndCharByteArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -451,7 +451,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(Int64AndWCharArithOperations)
+		TEST_METHOD(Int64AndCharArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -492,7 +492,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(UIntAndCharArithOperations)
+		TEST_METHOD(UIntAndCharByteArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -504,7 +504,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(UIntAndWCharArithOperations)
+		TEST_METHOD(UIntAndCharArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -581,7 +581,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(UInt64AndCharArithOperations)
+		TEST_METHOD(UInt64AndCharByteArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -593,7 +593,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(UInt64AndWCharArithOperations)
+		TEST_METHOD(UInt64AndCharArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -665,7 +665,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(Float32AndCharArithOperations)
+		TEST_METHOD(Float32AndCharByteArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -677,7 +677,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(Float32AndWCharArithOperations)
+		TEST_METHOD(Float32AndCharArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -713,7 +713,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(Float64AndCharArithOperations)
+		TEST_METHOD(Float64AndCharByteArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -725,7 +725,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(Float64AndWCharArithOperations)
+		TEST_METHOD(Float64AndCharArithOperations)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -770,15 +770,28 @@ namespace TypeCheckingTests
 					std::shared_ptr<TypeInfo> implicitType;
 					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
-				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
-				{
-					std::shared_ptr<TypeInfo> implicitType;
-					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get());
-				});
 			}
 		}
 
-		TEST_METHOD(CharAndEverythingElseArithOperationsThrowsException)
+		TEST_METHOD(CharAndByteArithOperationsReturnInt32)
+		{
+			for (auto& operation : _arithmeticOperations)
+			{
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get()));
+			}
+		}
+
+		TEST_METHOD(CharAndCharByteArithOperationsReturnInt32)
+		{
+			for (auto& operation : _arithmeticOperations)
+			{
+				std::shared_ptr<TypeInfo> implicitType;
+				Assert::IsTrue(Int32TypeInfo::Get() == CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharByteTypeInfo::Get()));
+			}
+		}
+
+		TEST_METHOD(CharAndBoolArithOperationsThrowsException)
 		{
 			for (auto& operation : _arithmeticOperations)
 			{
@@ -786,11 +799,6 @@ namespace TypeCheckingTests
 				{
 					std::shared_ptr<TypeInfo> implicitType;
 					CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
-				});
-				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
-				{
-					std::shared_ptr<TypeInfo> implicitType;
-					CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get());
 				});
 			}
 		}
@@ -1058,7 +1066,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(CharComparisonOperators)
+		TEST_METHOD(CharByteComparisonOperators)
 		{
 			for (auto& operation : _logicalOperations)
 			{
@@ -1068,7 +1076,7 @@ namespace TypeCheckingTests
 			}
 		}
 
-		TEST_METHOD(CharIllegalComparisonOperators)
+		TEST_METHOD(CharByteIllegalComparisonOperators)
 		{
 			for (auto& operation : _logicalOperations)
 			{
@@ -1077,23 +1085,13 @@ namespace TypeCheckingTests
 					std::shared_ptr<TypeInfo> implicitType;
 					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), BoolTypeInfo::Get());
 				});
-				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
-				{
-					std::shared_ptr<TypeInfo> implicitType;
-					CharByteTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), CharTypeInfo::Get());
-				});
 			}
 		}
 
-		TEST_METHOD(WCharIllegalComparisonOperators)
+		TEST_METHOD(CharIllegalComparisonOperators)
 		{
 			for (auto& operation : _logicalOperations)
 			{
-				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
-				{
-					std::shared_ptr<TypeInfo> implicitType;
-					CharTypeInfo::Get()->EvaluateOperation(implicitType, operation.get(), ByteTypeInfo::Get());
-				});
 				Assert::ExpectException<OperationNotDefinedException>([this, &operation]()
 				{
 					std::shared_ptr<TypeInfo> implicitType;

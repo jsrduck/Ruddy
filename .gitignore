@@ -223,3 +223,6 @@ Grammar/Grammar.tab.h
 Lexer/GeneratedLexer-configuration
 Ruddy/Example
 *.ll
+CodeGenTests/ValidateFunctions.exe
+CodeGenTests/ValidatePrimitives.exe
+CodeGenTests/ValidateMixedPrimitives.exe

@@ -174,5 +174,12 @@ namespace LexerUnitTests
 			Analyze("int i = 0", tokens);
 			AssertAreEqualTokenTypes({ TKN_TYPE_INT, TKN_IDENTIFIER, TKN_OPERATOR_ASSIGN_TO, TKN_CONSTANT_INT }, tokens);
 		}
+
+		TEST_METHOD(CastTest)
+		{
+			vector<quex::Token> tokens;
+			Analyze("int i = (int)1.0", tokens);
+			AssertAreEqualTokenTypes({ TKN_TYPE_INT, TKN_IDENTIFIER, TKN_OPERATOR_ASSIGN_TO, TKN_PAREN_OPEN, TKN_TYPE_INT, TKN_PAREN_CLOSE, TKN_CONSTANT_FLOAT }, tokens);
+		}
 	};
 }

@@ -271,14 +271,16 @@ namespace Ast {
 	llvm::Value* Reference::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto symbol = symbolTable->Lookup(_id);
-		if (symbol->GetTypeInfo()->IsPrimitiveType())
+		auto typeInfo = symbol->GetTypeInfo();
+		if (typeInfo->IsPrimitiveType())
 		{
 			auto loaded = builder->CreateLoad(symbol->GetIRValue(), _id);
-			if (hint != nullptr && symbol->GetTypeInfo() != hint)
+			if (hint != nullptr && typeInfo != hint)
 			{
-				if (!hint->IsImplicitlyAssignableFrom(symbol->GetTypeInfo(), symbolTable))
+				if (!hint->IsImplicitlyAssignableFrom(typeInfo, symbolTable))
 					throw UnexpectedException(); // Somehow we're trying to implicitly cast something that doesn't implicitly cast
-				return builder->CreateCast(llvm::Instruction::CastOps::ZExt, loaded, hint->GetIRType(context));
+
+				return builder->CreateCast(static_cast<llvm::Instruction::CastOps>(typeInfo->CreateCast(hint)), loaded, hint->GetIRType(context));
 			}
 			else
 			{
@@ -848,5 +850,19 @@ namespace Ast {
 		}
 		// TODO: Non integer types that implement ~
 		throw UnexpectedException();
+	}
+
+	llvm::Value* CastOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		auto val = _expression->CodeGen(symbolTable, builder, context, module);
+		auto castVal = builder->CreateCast((llvm::Instruction::CastOps)_castFrom->CreateCast(_castTo), val, _castTo->GetIRType(context));
+		if (hint != nullptr && hint != _castTo)
+		{
+			if (!hint->IsImplicitlyAssignableFrom(_castTo, symbolTable))
+				throw UnexpectedException(); // Somehow we're trying to implicitly cast something that doesn't implicitly cast
+
+			return builder->CreateCast(static_cast<llvm::Instruction::CastOps>(_castTo->CreateCast(hint)), castVal, hint->GetIRType(context));
+		}
+		return castVal;
 	}
 }

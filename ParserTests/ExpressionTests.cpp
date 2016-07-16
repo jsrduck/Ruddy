@@ -3,6 +3,7 @@
 #include <Statements.h>
 #include <Classes.h>
 #include <Primitives.h>
+#include <Operations.h>
 #include "Utils.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
@@ -57,6 +58,21 @@ public:
 		Assert::IsNotNull(stmts);
 		auto whileStmt = dynamic_cast<WhileStatement*>(stmts->_statement.get());
 		Assert::IsNotNull(whileStmt);
+	}
+
+	TEST_METHOD(CastStatement)
+	{
+		auto tree = ParseTree("class A { fun B() { int i = (int)1.0; } }");
+		auto clssA = dynamic_cast<ClassDeclaration*>(tree->_stmt.get());
+		Assert::IsNotNull(clssA);
+		auto funB = dynamic_cast<FunctionDeclaration*>(clssA->_list->_statement.get());
+		Assert::IsNotNull(funB);
+		auto stmts = dynamic_cast<LineStatements*>(funB->_body.get());
+		Assert::IsNotNull(stmts);
+		auto assgn = dynamic_cast<Assignment*>(stmts->_statement.get());
+		Assert::IsNotNull(assgn);
+		auto castOp = dynamic_cast<CastOperation*>(assgn->_rhs.get());
+		Assert::IsNotNull(castOp);
 	}
 };
 

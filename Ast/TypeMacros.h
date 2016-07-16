@@ -17,12 +17,19 @@ namespace Ast {
 		static int _supportedOperations; \
 		static std::shared_ptr<CLASS_NAME> _staticInstance; \
 
-#define DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(CLASS_NAME,SIGNED) \
+#define DECLARE_PRIMITIVE_INTEGER_TYPE_INFO(CLASS_NAME,SIGNED,BITS) \
 	class CLASS_NAME : public IntegerTypeInfo \
 	{ \
 	public: \
 		virtual llvm::Value* CreateValue(llvm::LLVMContext* context, uint64_t constant) override; \
 		virtual bool Signed() override { return SIGNED; } \
+		virtual int Bits() override { return BITS; } \
+		DECLARE_PRIMITIVE_TYPE_INFO_OVERRIDES(CLASS_NAME) \
+	};
+
+#define DECLARE_PRIMITIVE_FLOATING_TYPE_INFO(CLASS_NAME) \
+	class CLASS_NAME : public FloatingTypeInfo \
+	{ \
 		DECLARE_PRIMITIVE_TYPE_INFO_OVERRIDES(CLASS_NAME) \
 	};
 
@@ -32,12 +39,13 @@ namespace Ast {
 		DECLARE_PRIMITIVE_TYPE_INFO_OVERRIDES(CLASS_NAME) \
 	};
 
-#define DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CLASS_NAME, SIGNED, AUTO_IMPLICIT_CAST_TO_CLASS_NAME) \
+#define DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CLASS_NAME, SIGNED, BITS, AUTO_IMPLICIT_CAST_TO_CLASS_NAME) \
 	class CLASS_NAME : public IntegerTypeInfo \
 	{ \
 	public: \
 		virtual llvm::Value* CreateValue(llvm::LLVMContext* context, uint64_t constant) override; \
 		virtual bool Signed() override { return SIGNED; } \
+		virtual int Bits() override { return BITS; } \
 		DECLARE_PRIMITIVE_TYPE_INFO_OVERRIDES(CLASS_NAME) \
 	public: \
 		virtual bool IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(Operation* operation, std::shared_ptr<TypeInfo>& implicitCastTypeOut) override \

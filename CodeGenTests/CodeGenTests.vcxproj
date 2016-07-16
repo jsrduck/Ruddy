@@ -107,10 +107,10 @@
       <AdditionalDependencies>llvmcore.lib;llvmsupport.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
-      <Command>call ValidatePrimitives.exe &gt; $(TargetDir)ValidatePrimitives.txt &amp;&amp; call ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt</Command>
+      <Command>call ValidatePrimitives.exe &gt; $(TargetDir)ValidatePrimitives.txt &amp;&amp; call ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt &amp;&amp; call ValidateMixedPrimitives.exe &gt; $(TargetDir)ValidateMixedPrimitives.txt</Command>
       <Message>Running test exes</Message>
-      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe</Inputs>
-      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt</Outputs>
+      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe;ValidateMixedPrimitives.rdy;ValidateMixedPrimitives.exe</Inputs>
+      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt;ValidateMixedPrimitives.txt</Outputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -209,6 +209,13 @@
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidatePrimitives.rdy"</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidatePrimitives.rdy</Command>
+    </CustomBuild>
+    <CustomBuild Include="ValidateMixedPrimitives.rdy">
+      <FileType>Document</FileType>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateMixedPrimitives.ll;ValidateMixedPrimitives.obj;ValidateMixedPrimitives.exe</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateMixedPrimitives.rdy"</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidateMixedPrimitives.rdy</Command>
     </CustomBuild>
     <CustomBuild Include="ValidateFunctions.rdy">
       <FileType>Document</FileType>
