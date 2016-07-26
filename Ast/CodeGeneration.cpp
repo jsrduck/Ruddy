@@ -51,12 +51,25 @@ namespace Ast {
 
 				// Store each output value in a value from the lhs
 				auto lhsVar = _next;
+				std::shared_ptr<TypeInfo> outputArgTypeInfo = std::dynamic_pointer_cast<CompositeTypeInfo>(rhsAsFunction->_typeInfo);
 				for (auto &outputVal : rhsAsFunction->_outputValues)
 				{
-					auto val = builder->CreateLoad(outputVal);
+					if (outputArgTypeInfo == nullptr)
+						throw UnexpectedException();
+					auto asComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(outputArgTypeInfo);
+					auto thisType = asComposite != nullptr ? asComposite->_thisType : outputArgTypeInfo;
+					llvm::Value* val = builder->CreateLoad(outputVal);
 					auto alloc = lhsVar->_thisOne->GetIRValue(symbolTable, builder, context);
+					// Do we need to cast?
+					if (!lhsVar->_thisType->IsAutoType() && thisType != lhsVar->_thisType)
+					{
+						if (!lhsVar->_thisType->IsImplicitlyAssignableFrom(thisType, symbolTable))
+							throw UnexpectedException(); // We should have caught the type mismatch already
+						val = builder->CreateCast(static_cast<llvm::Instruction::CastOps>(thisType->CreateCast(lhsVar->_thisType)), val, lhsVar->_thisType->GetIRType(context));
+					}
 					builder->CreateStore(val, alloc);
 					lhsVar = lhsVar->_next;
+					outputArgTypeInfo = asComposite != nullptr ? asComposite->_next : nullptr;
 				}
 
 				// Store the first guy that we do return
@@ -86,7 +99,7 @@ namespace Ast {
 			_next->AddIRTypesToVector(inputVector, context, asOutput);
 	}
 
-	llvm::Value* FunctionCall::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* FunctionCall::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto functionBinding = symbolTable->Lookup(_name);
 		auto functionType = std::dynamic_pointer_cast<FunctionTypeInfo>(functionBinding->GetTypeInfo());
@@ -147,10 +160,11 @@ namespace Ast {
 			args.push_back(tempVal);
 			outputAsComposite = outputAsComposite->_next;
 		}
+		// TODO: Implicit casting
 		return builder->CreateCall(function, args);
 	}
 
-	llvm::Value* DebugPrintStatement::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* DebugPrintStatement::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto value = _expression->CodeGen(symbolTable, builder, context, module);
 		std::vector<llvm::Value*> args;
@@ -268,30 +282,19 @@ namespace Ast {
 		return nullptr; // ???
 	}
 
-	llvm::Value* Reference::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* Reference::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto symbol = symbolTable->Lookup(_id);
 		auto typeInfo = symbol->GetTypeInfo();
 		if (typeInfo->IsPrimitiveType())
 		{
-			auto loaded = builder->CreateLoad(symbol->GetIRValue(), _id);
-			if (hint != nullptr && typeInfo != hint)
-			{
-				if (!hint->IsImplicitlyAssignableFrom(typeInfo, symbolTable))
-					throw UnexpectedException(); // Somehow we're trying to implicitly cast something that doesn't implicitly cast
-
-				return builder->CreateCast(static_cast<llvm::Instruction::CastOps>(typeInfo->CreateCast(hint)), loaded, hint->GetIRType(context));
-			}
-			else
-			{
-				return loaded;
-			}
+			return builder->CreateLoad(symbol->GetIRValue(), _id);
 		}
 		else
 			return symbol->GetIRValue();
 	}
 
-	llvm::Value* ExpressionList::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* ExpressionList::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		throw UnexpectedException();
 		//return _symbol->GetAllocationInstance();
@@ -302,7 +305,7 @@ namespace Ast {
 	*/
 
 
-	llvm::Value* StringConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* StringConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		std::wstring asWideString(_input.begin(), _input.end()); // TODO: Doesn't handle inlined unicode characters
 		llvm::SmallVector<uint16_t, 8> ElementVals;
@@ -311,7 +314,7 @@ namespace Ast {
 		return llvm::ConstantDataArray::get(*context, ElementVals);
 	}
 
-	llvm::Value* IntegerConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* IntegerConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		if (hint == nullptr || hint->IsConstant())
 		{
@@ -335,7 +338,7 @@ namespace Ast {
 		}
 	}
 
-	llvm::Value* FloatingConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* FloatingConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		if (hint != nullptr && std::dynamic_pointer_cast<Float32TypeInfo>(hint) != nullptr)
 			return llvm::ConstantFP::get(*context, llvm::APFloat(AsFloat32()));
@@ -344,7 +347,7 @@ namespace Ast {
 		return llvm::ConstantFP::get(*context, llvm::APFloat(AsFloat64()));
 	}
 
-	llvm::Value* BoolConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BoolConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		if (_value)
 			return llvm::ConstantInt::getTrue(*context);
@@ -352,7 +355,7 @@ namespace Ast {
 			return llvm::ConstantInt::getFalse(*context);
 	}
 
-	llvm::Value* CharConstant::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* CharConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = llvm::ConstantInt::get(*context, llvm::APInt(hint == CharByteTypeInfo::Get() ? 8 : 16, Value()));
 		if (hint != nullptr && hint != _typeInfo && hint != CharByteTypeInfo::Get() && hint != CharTypeInfo::Get())
@@ -367,7 +370,7 @@ namespace Ast {
 	 * Operations
 	 */
 
-	llvm::Value* AddOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* AddOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
@@ -389,7 +392,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* SubtractOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* SubtractOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
@@ -411,7 +414,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* MultiplyOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* MultiplyOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
@@ -433,7 +436,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* DivideOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* DivideOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
@@ -458,7 +461,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* RemainderOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* RemainderOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
@@ -483,7 +486,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* GreaterThanOrEqualOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* GreaterThanOrEqualOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
@@ -508,7 +511,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* LessThanOrEqualOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LessThanOrEqualOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
@@ -533,7 +536,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* GreaterThanOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* GreaterThanOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
@@ -558,7 +561,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* LessThanOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LessThanOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
@@ -583,7 +586,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* EqualToOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* EqualToOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
@@ -605,7 +608,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* NotEqualToOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* NotEqualToOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
@@ -631,7 +634,7 @@ namespace Ast {
 	static std::shared_ptr<IntegerConstant> s_one = std::make_shared<IntegerConstant>("1");
 	static std::shared_ptr<FloatingConstant> s_oneFloat = std::make_shared<FloatingConstant>("1.0");
 
-	llvm::Value* PostIncrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PostIncrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto type = hint ? hint : _typeInfo;
 		auto val = _expr->CodeGen(symbolTable, builder, context, module, type);
@@ -658,7 +661,7 @@ namespace Ast {
 		return val; // Return the result before the increment
 	}
 
-	llvm::Value* PostDecrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PostDecrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
 		// Now decrement it by one
@@ -684,7 +687,7 @@ namespace Ast {
 		return val; // Return the result before the decrement
 	}
 
-	llvm::Value* PreIncrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PreIncrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
 		// Now increment it by one
@@ -710,7 +713,7 @@ namespace Ast {
 		return result; // Return the result after the increment
 	}
 
-	llvm::Value* PreDecrementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PreDecrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
 		// Now decrement it by one
@@ -736,14 +739,14 @@ namespace Ast {
 		return result; // Return the result after the decrement
 	}
 
-	llvm::Value* NegateOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* NegateOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val =_expr->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
 		// Now return the negation of that
 		return builder->CreateNot(val);
 	}
 
-	llvm::Value* LogicalAndOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LogicalAndOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
@@ -751,7 +754,7 @@ namespace Ast {
 		return builder->CreateAnd(lhs, rhs);
 	}
 
-	llvm::Value* LogicalOrOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LogicalOrOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
@@ -759,7 +762,7 @@ namespace Ast {
 		return builder->CreateOr(lhs, rhs);
 	}
 
-	llvm::Value* BitwiseAndOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseAndOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
@@ -772,7 +775,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseOrOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseOrOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
@@ -785,7 +788,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseXorOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseXorOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
@@ -798,7 +801,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseShiftLeftOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseShiftLeftOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
@@ -811,7 +814,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseShiftRightOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseShiftRightOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
 		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
@@ -824,7 +827,7 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* ComplementOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* ComplementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
 		if (val->getType()->isIntegerTy())
@@ -852,17 +855,31 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* CastOperation::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* CastOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = _expression->CodeGen(symbolTable, builder, context, module);
-		auto castVal = builder->CreateCast((llvm::Instruction::CastOps)_castFrom->CreateCast(_castTo), val, _castTo->GetIRType(context));
-		if (hint != nullptr && hint != _castTo)
-		{
-			if (!hint->IsImplicitlyAssignableFrom(_castTo, symbolTable))
-				throw UnexpectedException(); // Somehow we're trying to implicitly cast something that doesn't implicitly cast
+		return builder->CreateCast((llvm::Instruction::CastOps)_castFrom->CreateCast(_castTo), val, _castTo->GetIRType(context));
+	}
 
-			return builder->CreateCast(static_cast<llvm::Instruction::CastOps>(_castTo->CreateCast(hint)), castVal, hint->GetIRType(context));
+	llvm::Value* Expression::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		auto val = CodeGenInternal(symbolTable, builder, context, module, hint);
+		if (hint != nullptr && !hint->IsConstant())
+		{
+			if (hint->IsComposite())
+			{
+				// Composites are a special case. They'll do the casting themselves
+				return val;
+			}
+			// Try to implicitly cast it
+			else if (hint->GetIRType(context) != val->getType())
+			{
+				if (!hint->IsImplicitlyAssignableFrom(_typeInfo, symbolTable))
+					throw UnexpectedException(); // Somehow we're trying to implicitly cast something that doesn't implicitly cast
+
+				return builder->CreateCast(static_cast<llvm::Instruction::CastOps>(_typeInfo->CreateCast(hint)), val, hint->GetIRType(context));
+			}
 		}
-		return castVal;
+		return val;
 	}
 }

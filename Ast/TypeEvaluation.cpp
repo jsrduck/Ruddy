@@ -13,7 +13,13 @@ using namespace std;
 
 namespace Ast {
 
-	std::shared_ptr<TypeInfo> Reference::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> Expression::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
+	{
+		_typeInfo = EvaluateInternal(symbolTable);
+		return _typeInfo;
+	}
+
+	std::shared_ptr<TypeInfo> Reference::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable)
 	{
 		_symbol = symbolTable->Lookup(_id);
 		if (_symbol == nullptr)
@@ -29,7 +35,7 @@ namespace Ast {
 		return _symbol->GetTypeInfo();
 	}
 
-	std::shared_ptr<TypeInfo> ExpressionList::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> ExpressionList::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable)
 	{
 		auto rhs = _right->Evaluate(symbolTable);
 		auto rhsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhs);
@@ -38,7 +44,7 @@ namespace Ast {
 		return std::make_shared<CompositeTypeInfo>(_left->Evaluate(symbolTable), rhsComposite);
 	}
 
-	std::shared_ptr<TypeInfo> NewExpression::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> NewExpression::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable)
 	{
 		auto symbol = symbolTable->Lookup(_className);
 		if (symbol == nullptr)
@@ -54,7 +60,7 @@ namespace Ast {
 		return symbol->GetTypeInfo();
 	}
 
-	std::shared_ptr<TypeInfo> FunctionCall::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> FunctionCall::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable)
 	{
 		auto symbol = symbolTable->Lookup(_name);
 		if (symbol == nullptr)
@@ -73,7 +79,7 @@ namespace Ast {
 		return functionTypeInfo->OutputArgsType();
 	}
 
-	std::shared_ptr<TypeInfo> DebugPrintStatement::Evaluate(std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> DebugPrintStatement::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable)
 	{
 		_expressionTypeInfo = _expression->Evaluate(symbolTable);
 		return nullptr;

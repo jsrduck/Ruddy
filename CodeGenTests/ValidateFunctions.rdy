@@ -1,5 +1,10 @@
 class Program 
 { 
+	static fun PrintHello
+	{
+		print("Hello");
+	}
+
 	static fun(int ret) AddInt(int a, int b)
 	{
 		return a + b;
@@ -11,11 +16,6 @@ class Program
 	}
 
 	static fun(uint ret) AddUInt(uint a, uint b)
-	{
-		return a + b;
-	}
-
-	static fun(uint64 ret) AddUInt64(uint64 a, uint64 b)
 	{
 		return a + b;
 	}
@@ -74,11 +74,22 @@ class Program
 
 	static fun(int ret) main()
 	{ 
-		print(AddInt(3,4));
-		print(AddInt64(5,6));
-		print(AddInt64(2147483649,1));
-		print(AddUInt(7,8));
-		print(AddUInt64(2147483650,7));
+		PrintHello(); // "Hello"
+		print(AddInt(1, 2)); // 3
+		int64 i64 = AddInt(3,4);
+		print(i64); // 7
+		print(AddUInt(5,6)); // 11
+		print(Factorial(5)); // 120
+		int min, int64 max = GetMinMax(1,2,3);
+		print(min); // 1
+		print(max); // 3
+		/*i64 = AddInt64(GetMinMax(10, 100, 1000)); // support this eventually
+		print(i64); // 1010
+		*/
+		let ten, let hundred, let thousand = MultOfTen(5);
+		print(ten); // 50
+		print(hundred); // 500
+		print(thousand); // 5000
 		return 0;
-	} 
+	}
 }

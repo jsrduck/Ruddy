@@ -8,30 +8,30 @@
 namespace Ast
 {
 
-	std::shared_ptr<IntegerConstantType> IntegerConstant::_typeInfo = std::make_shared<IntegerConstantType>();
+	std::shared_ptr<IntegerConstantType> IntegerConstant::_staticTypeInfo = std::make_shared<IntegerConstantType>();
 	std::shared_ptr<TypeInfo> IntegerConstantType::Get()
 	{
-		return IntegerConstant::_typeInfo;
+		return IntegerConstant::_staticTypeInfo;
 	};
-	std::shared_ptr<FloatingConstantType> FloatingConstant::_typeInfo = std::make_shared<FloatingConstantType>();
+	std::shared_ptr<FloatingConstantType> FloatingConstant::_staticTypeInfo = std::make_shared<FloatingConstantType>();
 	std::shared_ptr<TypeInfo> FloatingConstantType::Get()
 	{
-		return FloatingConstant::_typeInfo;
+		return FloatingConstant::_staticTypeInfo;
 	};
-	std::shared_ptr<BoolConstantType> BoolConstant::_typeInfo = std::make_shared<BoolConstantType>();
+	std::shared_ptr<BoolConstantType> BoolConstant::_staticTypeInfo = std::make_shared<BoolConstantType>();
 	std::shared_ptr<TypeInfo> BoolConstantType::Get()
 	{
-		return BoolConstant::_typeInfo;
+		return BoolConstant::_staticTypeInfo;
 	};
-	std::shared_ptr<CharConstantType> CharConstant::_typeInfo = std::make_shared<CharConstantType>();
+	std::shared_ptr<CharConstantType> CharConstant::_staticTypeInfo = std::make_shared<CharConstantType>();
 	std::shared_ptr<TypeInfo> CharConstantType::Get()
 	{
-		return CharConstant::_typeInfo;
+		return CharConstant::_staticTypeInfo;
 	};
-	std::shared_ptr<StringConstantType> StringConstant::_typeInfo = std::make_shared<StringConstantType>();
+	std::shared_ptr<StringConstantType> StringConstant::_staticTypeInfo = std::make_shared<StringConstantType>();
 	std::shared_ptr<TypeInfo> StringConstantType::Get()
 	{
-		return StringConstant::_typeInfo;
+		return StringConstant::_staticTypeInfo;
 	};
 
 	/* String */

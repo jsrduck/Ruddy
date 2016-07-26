@@ -60,10 +60,12 @@ namespace CodeGenTests {
 		END_TEST_METHOD_ATTRIBUTE()
 		TEST_METHOD(ValidateFunctions)
 		{
-			const char * c_expected = "";
+			const wchar_t * c_expected = L"Hello371112013505005000";
 			std::ifstream inputStream("ValidateFunctions.txt");
-			std::string input((std::istreambuf_iterator<char>(inputStream)), std::istreambuf_iterator<char>());
-			//Assert::AreEqual(c_expected, input.c_str());
+			std::stringstream ss;
+			ss << inputStream.rdbuf() << '\0';
+			std::wstring input((wchar_t*) ss.str().c_str());
+			Assert::AreEqual(c_expected, input.c_str());
 		}
 	};
 }

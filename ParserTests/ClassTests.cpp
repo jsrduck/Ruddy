@@ -214,6 +214,18 @@ namespace ParserTests
 			Assert::IsTrue(bDeclaration->_returnArgs == nullptr);
 		}
 
+		TEST_METHOD(ClassWithSimpleFunctionVoidNoParens)
+		{
+			auto tree = ParseTree("class A { fun B {} }");
+			auto clssA = dynamic_cast<ClassDeclaration*>(tree->_stmt.get());
+			Assert::IsNotNull(clssA);
+			auto bDeclaration = dynamic_cast<FunctionDeclaration*>(clssA->_list->_statement.get());
+			Assert::IsNotNull(bDeclaration);
+			Assert::AreEqual("B", bDeclaration->_name.c_str());
+			Assert::AreEqual((int) Visibility::PUBLIC, (int) bDeclaration->_visibility);
+			Assert::IsTrue(bDeclaration->_returnArgs == nullptr);
+		}
+
 		TEST_METHOD(ClassWithVoidFunctionWithArg)
 		{
 			auto tree = ParseTree("class A { fun B(int a) {} }");

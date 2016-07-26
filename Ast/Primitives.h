@@ -186,7 +186,7 @@ namespace Ast
 			}
 		}
 
-		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return IntegerConstantType::Get();
 		}
@@ -202,7 +202,7 @@ namespace Ast
 				return UInt64TypeInfo::Get();
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		uint8_t AsByte()
 		{
@@ -310,7 +310,7 @@ namespace Ast
 			}
 		}
 
-		static std::shared_ptr<IntegerConstantType> _typeInfo;
+		static std::shared_ptr<IntegerConstantType> _staticTypeInfo;
 
 	private:
 		template<class INTEGERTYPE> INTEGERTYPE GetAs()
@@ -428,12 +428,12 @@ namespace Ast
 			}
 		}
 
-		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			return _typeInfo;
+			return _staticTypeInfo;
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
 		{
@@ -453,7 +453,7 @@ namespace Ast
 			return _asDouble;
 		}
 
-		static std::shared_ptr<FloatingConstantType> _typeInfo;
+		static std::shared_ptr<FloatingConstantType> _staticTypeInfo;
 
 	private:
 		double _asDouble;
@@ -503,9 +503,9 @@ namespace Ast
 			return _value;
 		}
 
-		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			return _typeInfo;
+			return _staticTypeInfo;
 		}
 
 		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
@@ -513,9 +513,9 @@ namespace Ast
 			return BoolTypeInfo::Get();
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
-		static std::shared_ptr<BoolConstantType> _typeInfo;
+		static std::shared_ptr<BoolConstantType> _staticTypeInfo;
 	private:
 		bool _value;
 	};
@@ -612,14 +612,14 @@ namespace Ast
 			return _value;
 		}
 
-		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			return _typeInfo;
+			return _staticTypeInfo;
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
-		static std::shared_ptr<CharConstantType> _typeInfo;
+		static std::shared_ptr<CharConstantType> _staticTypeInfo;
 	private:
 		uint16_t _value;
 	};
@@ -664,9 +664,9 @@ namespace Ast
 		{
 			return _input;
 		}
-		virtual std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			return _typeInfo;
+			return _staticTypeInfo;
 		}
 
 		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
@@ -674,9 +674,9 @@ namespace Ast
 			return StringTypeInfo::Get();
 		}
 
-		virtual llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
-		static std::shared_ptr<StringConstantType> _typeInfo;
+		static std::shared_ptr<StringConstantType> _staticTypeInfo;
 	private:
 		std::string _input;
 	};

@@ -91,6 +91,7 @@ using namespace Ast;
 %type <clss_mem_node> class_member;
 %type <arg_node> argument;
 %type <arg_list> argument_list;
+%type <arg_list> optional_function_argument_list;
 %type <fun_node> function_declaration;
 %type <ctor_node> constructor;
 %type <dtor_node> destructor;
@@ -406,17 +407,21 @@ argument_list:
 		$$ = NULL;
 	  };
 
-function_declaration :
-	  visibility modifier_list TKN_FUNCTION TKN_PAREN_OPEN argument_list TKN_PAREN_CLOSE single_identifier TKN_PAREN_OPEN argument_list TKN_PAREN_CLOSE TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
+optional_function_argument_list : 
+	  TKN_PAREN_OPEN argument_list TKN_PAREN_CLOSE
 	  {
-		$$ = new FunctionDeclaration($1->Get(), $2, $5, $7->Id(), $9, $12);
-		delete $7;
-		delete $1;
+		$$ = $2;
 	  }
-	| visibility modifier_list TKN_FUNCTION single_identifier TKN_PAREN_OPEN argument_list TKN_PAREN_CLOSE TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
+	| /* epsilon */
 	  {
-		$$ = new FunctionDeclaration($1->Get(), $2, NULL, $4->Id(), $6, $9);
-		delete $4;
+		$$ = NULL;
+	  };
+
+function_declaration :
+	  visibility modifier_list TKN_FUNCTION optional_function_argument_list single_identifier optional_function_argument_list TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
+	  {
+		$$ = new FunctionDeclaration($1->Get(), $2, $4, $5->Id(), $6, $8);
+		delete $5;
 		delete $1;
 	  };
 

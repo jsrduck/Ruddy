@@ -51,6 +51,7 @@ namespace Ast
 		virtual bool IsConstant() { return false; }
 		virtual bool IsInteger() { return false; }
 		virtual bool IsFloatingPoint() { return false; }
+		virtual bool IsComposite() { return false; }
 		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo)
 		{
 			throw UnexpectedException();
@@ -159,6 +160,11 @@ namespace Ast
 		{
 			// TODO
 			throw UnexpectedException();
+		}
+
+		virtual bool IsComposite() override
+		{
+			return true;
 		}
 
 		std::shared_ptr<TypeInfo> _thisType;
