@@ -282,5 +282,12 @@ namespace TypeCheckingTests
 			auto table = std::make_shared<SymbolTable>();
 			tree->TypeCheck(table);
 		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypeIsValidArgument)
+		{
+			auto tree = ParseTree("class A { fun(int i, char j) B { return 0,'a'; } fun C(int i, char j) { } fun D() { C(B()); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
 	};
 }

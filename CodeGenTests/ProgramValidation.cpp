@@ -22,9 +22,6 @@ namespace CodeGenTests {
 	TEST_CLASS(ProgramValidation)
 	{
 	public:
-		BEGIN_TEST_METHOD_ATTRIBUTE(ValidatePrimitives)
-			TEST_METHOD_ATTRIBUTE(L"DeploymentItem", L"ValidatePrimitives.txt")
-		END_TEST_METHOD_ATTRIBUTE()
 		TEST_METHOD(ValidatePrimitives)
 		{
 			const wchar_t * c_expected = L"yyyyyyy15-93641yyyyyyyy345534838146-13214748374921474835492147483649002147483649yyyyyy"
@@ -55,13 +52,20 @@ namespace CodeGenTests {
 			Assert::AreEqual(c_expected, input.c_str());
 		}
 
-		BEGIN_TEST_METHOD_ATTRIBUTE(ValidateFunctions)
-			TEST_METHOD_ATTRIBUTE(L"DeploymentItem", L"ValidateFunctions.txt")
-		END_TEST_METHOD_ATTRIBUTE()
 		TEST_METHOD(ValidateFunctions)
 		{
-			const wchar_t * c_expected = L"Hello371112013505005000";
+			const wchar_t * c_expected = L"Hello3711120131010505005000";
 			std::ifstream inputStream("ValidateFunctions.txt");
+			std::stringstream ss;
+			ss << inputStream.rdbuf() << '\0';
+			std::wstring input((wchar_t*) ss.str().c_str());
+			Assert::AreEqual(c_expected, input.c_str());
+		}
+
+		TEST_METHOD(ValidateControlFlow)
+		{
+			const wchar_t * c_expected = L"yyyyyyyyy54321543";
+			std::ifstream inputStream("ValidateControlFlow.txt");
 			std::stringstream ss;
 			ss << inputStream.rdbuf() << '\0';
 			std::wstring input((wchar_t*) ss.str().c_str());

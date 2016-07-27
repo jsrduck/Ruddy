@@ -226,3 +226,4 @@ Ruddy/Example
 CodeGenTests/ValidateFunctions.exe
 CodeGenTests/ValidatePrimitives.exe
 CodeGenTests/ValidateMixedPrimitives.exe
+CodeGenTests/ValidateControlFlow.exe

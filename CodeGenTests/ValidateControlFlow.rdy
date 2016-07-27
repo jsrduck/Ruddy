@@ -1,0 +1,68 @@
+class Program 
+{
+	static fun IfElseStmts
+	{
+		if (true)
+			print("y");
+		print("y");
+		if (false)
+			print("n");
+		if (true)
+			print("y");
+		else
+			print("n");
+		print("y");
+		if (false)
+			print("n");
+		else
+			print("y");
+		print("y");
+		if (false)
+			print("n");
+		else if (false)
+			print("n");
+		else
+			print("y");
+		print("y");
+		if (true)
+		{
+			if (true)
+				print("y");
+		}
+		else
+		{
+			if (true)
+				print("n");
+		}
+	}
+
+	// Prints "54321"
+	static fun WhileStmt
+	{
+		int i = 5;
+		while (i > 0)
+		{
+			print(i--);
+		}
+	}
+
+	// Prints "543"
+	static fun WhileWithBreak
+	{
+		int i = 5;
+		while (i > 0)
+		{
+			print(i--);
+			if (i == 2)
+				break;
+		}
+	}
+
+	static fun(int ret) main
+	{
+		IfElseStmts();
+		WhileStmt();
+		WhileWithBreak();
+		return 0;
+	}
+}

@@ -58,16 +58,8 @@ namespace Ast {
 						throw UnexpectedException();
 					auto asComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(outputArgTypeInfo);
 					auto thisType = asComposite != nullptr ? asComposite->_thisType : outputArgTypeInfo;
-					llvm::Value* val = builder->CreateLoad(outputVal);
 					auto alloc = lhsVar->_thisOne->GetIRValue(symbolTable, builder, context);
-					// Do we need to cast?
-					if (!lhsVar->_thisType->IsAutoType() && thisType != lhsVar->_thisType)
-					{
-						if (!lhsVar->_thisType->IsImplicitlyAssignableFrom(thisType, symbolTable))
-							throw UnexpectedException(); // We should have caught the type mismatch already
-						val = builder->CreateCast(static_cast<llvm::Instruction::CastOps>(thisType->CreateCast(lhsVar->_thisType)), val, lhsVar->_thisType->GetIRType(context));
-					}
-					builder->CreateStore(val, alloc);
+					builder->CreateStore(builder->CreateLoad(outputVal), alloc);
 					lhsVar = lhsVar->_next;
 					outputArgTypeInfo = asComposite != nullptr ? asComposite->_next : nullptr;
 				}
@@ -147,21 +139,54 @@ namespace Ast {
 		{
 			auto argsValue = _expression->CodeGen(symbolTable, builder, context, module, functionType->_inputArgs);
 			args.push_back(argsValue);
+			auto asFunctionCall = std::dynamic_pointer_cast<FunctionCall>(_expression);
+			if (asFunctionCall != nullptr)
+			{
+				// Get the other output args, pass as input params
+				for (auto& outputVal : asFunctionCall->_outputValues)
+				{
+					args.push_back(builder->CreateLoad(outputVal));
+				}
+			}
 		}
 
 		// Are there multiple return types? If so, we need to add the extras as "out" parameters
 		auto outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->OutputArgsType());
 		if (outputAsComposite != nullptr)
 			outputAsComposite = outputAsComposite->_next;
+		std::vector<llvm::AllocaInst*> outputVals;
 		while (outputAsComposite != nullptr && outputAsComposite->_thisType != nullptr)
 		{
 			auto tempVal = outputAsComposite->_thisType->CreateAllocation(outputAsComposite->_name, builder, context);
-			_outputValues.push_back(tempVal);
+			outputVals.push_back(tempVal);
 			args.push_back(tempVal);
 			outputAsComposite = outputAsComposite->_next;
 		}
-		// TODO: Implicit casting
-		return builder->CreateCall(function, args);
+		auto retVal = builder->CreateCall(function, args);
+
+		// After call, cast any output vals that need implicit casting
+		// Do our own casting on the output values here
+		outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->OutputArgsType());
+		if (outputAsComposite != nullptr)
+			outputAsComposite = outputAsComposite->_next;
+		auto expectedType = hint != nullptr && hint->IsComposite() ? std::dynamic_pointer_cast<CompositeTypeInfo>(hint)->_next : nullptr;
+		for(auto& outputVal : outputVals)
+		{
+			auto currentExpectedType = expectedType != nullptr && expectedType->IsComposite() ? std::dynamic_pointer_cast<CompositeTypeInfo>(expectedType)->_thisType : expectedType;
+			auto tempVal = outputVal;
+			if (currentExpectedType != nullptr && !currentExpectedType->IsAutoType() && outputAsComposite->_thisType != currentExpectedType)
+			{
+				if (!currentExpectedType->IsImplicitlyAssignableFrom(outputAsComposite->_thisType, symbolTable))
+					throw UnexpectedException(); // We should have caught the type exception already
+				auto loadInstr = builder->CreateLoad(tempVal);
+				auto castGuy = builder->CreateCast(static_cast<llvm::Instruction::CastOps>(outputAsComposite->_thisType->CreateCast(currentExpectedType)), loadInstr, currentExpectedType->GetIRType(context));
+				tempVal = currentExpectedType->CreateAllocation("", builder, context);
+				builder->CreateStore(castGuy, tempVal);
+			}
+			_outputValues.push_back(tempVal);
+			outputAsComposite = outputAsComposite->_next;
+		}
+		return retVal;
 	}
 
 	llvm::Value* DebugPrintStatement::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
@@ -868,8 +893,17 @@ namespace Ast {
 		{
 			if (hint->IsComposite())
 			{
-				// Composites are a special case. They'll do the casting themselves
-				return val;
+				// Composites are a special case. They'll do the casting themselves for all but
+				// the first type
+				if (!_typeInfo->IsComposite())
+					throw UnexpectedException(); // This should have been cleared up by now
+
+				auto hintType = std::dynamic_pointer_cast<CompositeTypeInfo>(hint)->_thisType;
+				auto actualType = std::dynamic_pointer_cast<CompositeTypeInfo>(_typeInfo)->_thisType;
+				if (!hintType->IsAutoType() && hintType->GetIRType(context) != val->getType())
+				{
+					return builder->CreateCast(static_cast<llvm::Instruction::CastOps>(actualType->CreateCast(hintType)), val, hintType->GetIRType(context));
+				}
 			}
 			// Try to implicitly cast it
 			else if (hint->GetIRType(context) != val->getType())

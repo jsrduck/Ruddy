@@ -83,9 +83,8 @@ class Program
 		int min, int64 max = GetMinMax(1,2,3);
 		print(min); // 1
 		print(max); // 3
-		/*i64 = AddInt64(GetMinMax(10, 100, 1000)); // support this eventually
+		i64 = AddInt64(GetMinMax(10, 100, 1000));
 		print(i64); // 1010
-		*/
 		let ten, let hundred, let thousand = MultOfTen(5);
 		print(ten); // 50
 		print(hundred); // 500
