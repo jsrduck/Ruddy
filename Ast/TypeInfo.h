@@ -114,6 +114,27 @@ namespace Ast
 			}
 		}
 
+		static std::shared_ptr<CompositeTypeInfo> Clone(std::shared_ptr<CompositeTypeInfo> from)
+		{
+			std::shared_ptr<CompositeTypeInfo> retVal = nullptr;
+			auto current = retVal;
+			while (from != nullptr)
+			{
+				auto newGuy = std::make_shared<CompositeTypeInfo>(from->_thisType);
+				if (current != nullptr)
+				{
+					current->_next = newGuy;
+				}
+				current = newGuy;
+				if (retVal == nullptr)
+				{
+					retVal = current;
+				}
+				from = from->_next;
+			}
+			return retVal;
+		}
+
 		CompositeTypeInfo(std::shared_ptr<ArgumentList> argumentList);
 
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override

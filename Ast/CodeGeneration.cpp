@@ -122,6 +122,18 @@ namespace Ast {
 			{
 				auto val = exprList->_left->CodeGen(symbolTable, builder, context, module, argList->_thisType);
 				args.push_back(val);
+
+				// Check if we just codegen'd a function call. If so, we need to add any extra output parameters
+				// to the arglist
+				auto asFunctionCall = std::dynamic_pointer_cast<FunctionCall>(exprList->_left);
+				if (asFunctionCall != nullptr)
+				{
+					for (auto& outputVal : asFunctionCall->_outputValues)
+					{
+						args.push_back(builder->CreateLoad(outputVal));
+					}
+				}
+
 				if (exprList->_right != nullptr)
 				{
 					auto right = exprList->_right;
@@ -130,6 +142,16 @@ namespace Ast {
 					{
 						auto argsValue = right->CodeGen(symbolTable, builder, context, module, argList->_next->_thisType);
 						args.push_back(argsValue);
+
+						// once again, check if we just codegen'd a function call
+						auto rightAsFunctionCall = std::dynamic_pointer_cast<FunctionCall>(right);
+						if (rightAsFunctionCall != nullptr)
+						{
+							for (auto& outputVal : rightAsFunctionCall->_outputValues)
+							{
+								args.push_back(builder->CreateLoad(outputVal));
+							}
+						}
 					}
 				}
 				argList = argList->_next;

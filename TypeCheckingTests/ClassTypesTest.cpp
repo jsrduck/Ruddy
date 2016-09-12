@@ -269,6 +269,16 @@ namespace TypeCheckingTests
 			tree->TypeCheck(table);
 		}
 
+		TEST_METHOD(FunctionCallWrongArgumentTypeFails)
+		{
+			auto tree = ParseTree("class A { fun C(int i, char j) { } fun D() { C(0, \"Hello\"); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
 		TEST_METHOD(FunctionCallMultiReturnTypeSucceeds)
 		{
 			auto tree = ParseTree("class A { fun(int i, char j) B() { return 0,'a'; } fun C() { int k, char l = B(); } }");
@@ -286,6 +296,44 @@ namespace TypeCheckingTests
 		TEST_METHOD(FunctionCallMultiReturnTypeIsValidArgument)
 		{
 			auto tree = ParseTree("class A { fun(int i, char j) B { return 0,'a'; } fun C(int i, char j) { } fun D() { C(B()); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallWrongMultiReturnTypeFails)
+		{
+			auto tree = ParseTree("class A { fun(int i, uint64 j) B { return 0,'a'; } fun C(int i, char j) { } fun D() { C(B()); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypePlusAdditionalArgumentIsValidArgument)
+		{
+			auto tree = ParseTree("class A { fun(int i, char j) B { return 0,'a'; } fun C(int i, char j, int k) { } fun D() { C(B(), 1); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypeAfterAdditionalArgumentIsValidArgument)
+		{
+			auto tree = ParseTree("class A { fun(int i, char j) B { return 0,'a'; } fun C(int i, int j, char k) { } fun D() { C(1, B()); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypeArgumentsAreValidArguments)
+		{
+			auto tree = ParseTree("class A { fun(int i, int j) B { return 0,1; } fun(char i, char j) C { return 'a','b'; } fun() D(int i, int j, char k, char l) { } fun E() { D(B(),C()); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypeArgumentsPlusAdditionalArgumentAreValidArguments)
+		{
+			auto tree = ParseTree("class A { fun(int i, int j) B { return 0,1; } fun(char i, char j) C { return 'a','b'; } fun() D(int i, int j, int m, char k, char l) { } fun E() { D(B(), 1, C()); } }");
 			auto table = std::make_shared<SymbolTable>();
 			tree->TypeCheck(table);
 		}

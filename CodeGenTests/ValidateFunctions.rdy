@@ -72,6 +72,11 @@ class Program
 		return input*10,input*100,input*1000;
 	}
 
+	static fun(int ten, int hundred) MultOfTen2(int input)
+	{
+		return input*10,input*100;
+	}
+
 	static fun(int ret) main()
 	{ 
 		PrintHello(); // "Hello"
@@ -89,6 +94,12 @@ class Program
 		print(ten); // 50
 		print(hundred); // 500
 		print(thousand); // 5000
+		min, max = GetMinMax(MultOfTen2(5), 501);
+		print(min); // 50
+		print(max); // 501
+		min, max = GetMinMax(1, MultOfTen2(4));
+		print(min); // 1
+		print(max); // 400
 		return 0;
 	}
 }

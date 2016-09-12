@@ -54,7 +54,7 @@ namespace CodeGenTests {
 
 		TEST_METHOD(ValidateFunctions)
 		{
-			const wchar_t * c_expected = L"Hello3711120131010505005000";
+			const wchar_t * c_expected = L"Hello3711120131010505005000505011400";
 			std::ifstream inputStream("ValidateFunctions.txt");
 			std::stringstream ss;
 			ss << inputStream.rdbuf() << '\0';

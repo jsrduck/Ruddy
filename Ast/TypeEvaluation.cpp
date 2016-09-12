@@ -38,10 +38,24 @@ namespace Ast {
 	std::shared_ptr<TypeInfo> ExpressionList::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable)
 	{
 		auto rhs = _right->Evaluate(symbolTable);
-		auto rhsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhs);
-		if (rhsComposite == nullptr)
-			rhsComposite = std::make_shared<CompositeTypeInfo>(rhs, nullptr);
-		return std::make_shared<CompositeTypeInfo>(_left->Evaluate(symbolTable), rhsComposite);
+		auto rhsComposite = rhs->IsComposite() ? std::dynamic_pointer_cast<CompositeTypeInfo>(rhs) : std::make_shared<CompositeTypeInfo>(rhs, nullptr);
+		auto lhs = _left->Evaluate(symbolTable);
+		if (lhs->IsComposite())
+		{
+			auto lhsAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(lhs);
+			auto typeInfoToReturn = CompositeTypeInfo::Clone(lhsAsComposite);
+			auto typeInfoIter = typeInfoToReturn;
+			while (typeInfoIter->_next != nullptr)
+			{
+				typeInfoIter = typeInfoIter->_next;
+			}
+			typeInfoIter->_next = rhsComposite;
+			return typeInfoToReturn;
+		}
+		else
+		{
+			return std::make_shared<CompositeTypeInfo>(_left->Evaluate(symbolTable), rhsComposite);
+		}
 	}
 
 	std::shared_ptr<TypeInfo> NewExpression::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable)
@@ -76,6 +90,17 @@ namespace Ast {
 		auto functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(symbol->GetTypeInfo());
 		if (functionTypeInfo == nullptr)
 			throw UnexpectedException();
+		auto argsExpression = _expression ? _expression->Evaluate(symbolTable) : nullptr;
+		if ((argsExpression == nullptr && functionTypeInfo->InputArgsType() != nullptr) || 
+			(argsExpression != nullptr && functionTypeInfo->InputArgsType() == nullptr))
+		{
+			throw TypeMismatchException(functionTypeInfo->InputArgsType(), argsExpression);
+		}
+		else if (functionTypeInfo->InputArgsType() != nullptr &&
+				!functionTypeInfo->InputArgsType()->IsImplicitlyAssignableFrom(argsExpression, symbolTable))
+		{
+			throw TypeMismatchException(functionTypeInfo->InputArgsType(), argsExpression);
+		}
 		return functionTypeInfo->OutputArgsType();
 	}
 
