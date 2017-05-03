@@ -14,16 +14,19 @@ namespace Ast {
 
 	llvm::Value* DeclareVariable::GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
+		FileLocationContext locationContext(_location);
 		return symbolTable->Lookup(_name)->CreateAllocationInstance(_name, builder, context);
 	}
 
 	llvm::Value* AssignFromReference::GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
 	{
+		FileLocationContext locationContext(_location);
 		return symbolTable->Lookup(_ref)->GetIRValue();
 	}
 
 	void AssignFrom::CodeGen(std::shared_ptr<Expression> rhs, std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
+		FileLocationContext locationContext(_location);
 		if (_next != nullptr)
 		{
 			// The rhs must be an expression list or function to support this
@@ -678,8 +681,8 @@ namespace Ast {
 	}
 
 	// A single static constant representing "1" for all the increment/decrement operators
-	static std::shared_ptr<IntegerConstant> s_one = std::make_shared<IntegerConstant>("1");
-	static std::shared_ptr<FloatingConstant> s_oneFloat = std::make_shared<FloatingConstant>("1.0");
+	static std::shared_ptr<IntegerConstant> s_one = std::make_shared<IntegerConstant>("1", FileLocation(-1, -1));
+	static std::shared_ptr<FloatingConstant> s_oneFloat = std::make_shared<FloatingConstant>("1.0", FileLocation(-1, -1));
 
 	llvm::Value* PostIncrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
@@ -910,6 +913,7 @@ namespace Ast {
 
 	llvm::Value* Expression::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
+		FileLocationContext locationContext(_location);
 		auto val = CodeGenInternal(symbolTable, builder, context, module, hint);
 		if (hint != nullptr && !hint->IsConstant())
 		{

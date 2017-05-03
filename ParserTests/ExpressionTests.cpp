@@ -74,6 +74,37 @@ public:
 		auto castOp = dynamic_cast<CastOperation*>(assgn->_rhs.get());
 		Assert::IsNotNull(castOp);
 	}
+
+	TEST_METHOD(StackAllocateStatement)
+	{
+		auto tree = ParseTree("class A { fun B() { C& c(); } }");
+		auto clssA = std::dynamic_pointer_cast<ClassDeclaration>(tree->_stmt);
+		Assert::IsNotNull(clssA.get());
+		auto funB = std::dynamic_pointer_cast<FunctionDeclaration>(clssA->_list->_statement);
+		Assert::IsNotNull(funB.get());
+		auto stmts = std::dynamic_pointer_cast<LineStatements>(funB->_body);
+		Assert::IsNotNull(stmts.get());
+		auto cDeclaration = std::dynamic_pointer_cast<Assignment>(stmts->_statement);
+		Assert::IsNotNull(cDeclaration.get());
+		auto stackAllocation = std::dynamic_pointer_cast<DeclareVariable>(cDeclaration->_lhs->_thisOne);
+		Assert::IsNotNull(stackAllocation.get());
+		Assert::AreEqual("c", stackAllocation->_name.c_str());
+		auto classType = std::dynamic_pointer_cast<UnresolvedClassTypeInfo>(stackAllocation->_typeInfo);
+		Assert::IsNotNull(classType.get());
+		Assert::AreEqual("C", classType->Name().c_str());
+		Assert::AreEqual(true, classType->IsValueType());
+	}
+
+	TEST_METHOD(ConstructorWithInitializerList)
+	{
+		auto tree = ParseTree("class A { B& _b; A() : _b(0) {} }");
+		auto clssA = std::dynamic_pointer_cast<ClassDeclaration>(tree->_stmt);
+		Assert::IsNotNull(clssA.get());
+		auto memberB = std::dynamic_pointer_cast<ClassMemberDeclaration>(clssA->_list->_statement);
+		auto ctor = std::dynamic_pointer_cast<ConstructorDeclaration>(clssA->_list->_next->_statement);
+		Assert::IsNotNull(ctor->_initializerStatement.get());
+		Assert::AreEqual("_b", ctor->_initializerStatement->_list->_thisInitializer->_name.c_str());
+	}
 };
 
 }

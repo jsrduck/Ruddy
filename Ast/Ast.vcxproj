@@ -89,6 +89,7 @@
   <ItemGroup>
     <ClInclude Include="Classes.h" />
     <ClInclude Include="Expressions.h" />
+    <ClInclude Include="FileLocationContext.h" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="Operations.h" />
     <ClInclude Include="Primitives.h" />
@@ -102,6 +103,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CodeGeneration.cpp" />
+    <ClCompile Include="FileLocationContext.cpp" />
     <ClCompile Include="Primitives.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

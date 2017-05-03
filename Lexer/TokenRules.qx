@@ -105,6 +105,7 @@ mode PROGRAM :
 	{CHAR_CONSTANT}        => TKN_CONSTANT_CHAR(Lexeme);
 	"true"                 => TKN_CONSTANT_BOOL_TRUE;
 	"false"                => TKN_CONSTANT_BOOL_FALSE;
+	":"                    => TKN_COLON;
 	";"                    => TKN_SEMICOLON;
 	"{"                    => TKN_BRACKET_OPEN;
 	"}"                    => TKN_BRACKET_CLOSE;

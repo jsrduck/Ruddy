@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FileLocationContext.h"
 #include "Node.h"
 
 #include <memory>
@@ -11,7 +12,10 @@ namespace Ast
 	class Expression : public Node
 	{
 	public:
-		std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable);
+		Expression(FileLocation& location) : _location(location) { }
+		virtual ~Expression() { }
+
+		std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList = false);
 
 		llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr);
 
@@ -20,23 +24,31 @@ namespace Ast
 			return false;
 		}
 		std::shared_ptr<TypeInfo> _typeInfo;
+
 	protected:
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) = 0;
+		FileLocation _location;
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) = 0;
 		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) = 0;
 	};
 
 	class Reference : public Expression
 	{
 	public:
-		Reference(const std::string& id) : _id(id)
+		Reference(const std::string& id, FileLocation& location) : Expression(location), _id(id)
 		{
 		}
 
-		Reference(const std::string& left, const std::string& right) : _id(left + "." + right)
+		Reference(const std::string& id) : Reference(id, FileLocation(-1,-1))
 		{
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		Reference(const std::string& left, const std::string& right, FileLocation& location) : Expression(location), _id(left + "." + right)
+		{
+		}
+
+		virtual ~Reference() { }
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
 		std::string Id()
 		{
@@ -54,13 +66,15 @@ namespace Ast
 	class ExpressionList : public Expression
 	{
 	public:
-		ExpressionList(Expression* left, Expression* right = nullptr) : _left(left), _right(right)
+		ExpressionList(Expression* left, FileLocation& location, Expression* right = nullptr) : Expression(location), _left(left), _right(right)
 		{
 		}
 
+		virtual ~ExpressionList() { }
+
 		virtual std::string ToString() override { return "ExpressionList"; }
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
 		std::shared_ptr<Expression> _left;
 		std::shared_ptr<Expression> _right;
@@ -72,12 +86,15 @@ namespace Ast
 	class DebugPrintStatement : public Expression
 	{
 	public:
-		DebugPrintStatement(Expression* expression) :
+		DebugPrintStatement(Expression* expression, FileLocation& location) :
+			Expression(location),
 			_expression(expression)
 		{
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual ~DebugPrintStatement() { }
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
 		std::shared_ptr<Expression> _expression;
 		std::shared_ptr<TypeInfo> _expressionTypeInfo;

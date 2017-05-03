@@ -89,6 +89,7 @@ namespace Ast
 	class ConstantExpression : public Expression
 	{
 	public:
+		ConstantExpression(FileLocation& location) : Expression(location) { }
 		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() = 0;
 		virtual bool IsConstantExpression() override
 		{
@@ -153,7 +154,7 @@ namespace Ast
 	class IntegerConstant : public ConstantExpression
 	{
 	public:
-		IntegerConstant(const std::string& input, bool negate = false)
+		IntegerConstant(const std::string& input, FileLocation& location, bool negate = false) : ConstantExpression(location)
 		{
 			// Try and fit it in a int64 or a uint64. If it doesn't fit in either, it isn't supported
 			// in Ruddy at the moment
@@ -186,7 +187,9 @@ namespace Ast
 			}
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		IntegerConstant(const std::string& input, bool negate = false) : IntegerConstant(input, FileLocation(-1,-1), negate) { }
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
 			return IntegerConstantType::Get();
 		}
@@ -390,7 +393,7 @@ namespace Ast
 	class FloatingConstant : public ConstantExpression
 	{
 	public:
-		FloatingConstant(const std::string& input, bool negate = false)
+		FloatingConstant(const std::string& input, FileLocation& location, bool negate = false) : ConstantExpression(location)
 		{
 			// try to fit it in a double
 			try
@@ -427,8 +430,9 @@ namespace Ast
 				throw OverflowException();
 			}
 		}
+		FloatingConstant(const std::string& input, bool negate = false) : FloatingConstant(input, FileLocation(-1,-1), negate) { }
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
 			return _staticTypeInfo;
 		}
@@ -494,7 +498,7 @@ namespace Ast
 	class BoolConstant : public ConstantExpression
 	{
 	public:
-		BoolConstant(bool value) : _value(value)
+		BoolConstant(bool value, FileLocation& location) : ConstantExpression(location), _value(value)
 		{
 		}
 
@@ -503,7 +507,7 @@ namespace Ast
 			return _value;
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
 			return _staticTypeInfo;
 		}
@@ -553,7 +557,7 @@ namespace Ast
 	class CharConstant : public ConstantExpression
 	{
 	public:
-		CharConstant(const std::string& input)
+		CharConstant(const std::string& input, FileLocation& location) : ConstantExpression(location)
 		{
 			if (input[0] != '\'' || input[input.size() - 1] != '\'')
 				throw UnexpectedException();
@@ -612,7 +616,7 @@ namespace Ast
 			return _value;
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
 			return _staticTypeInfo;
 		}
@@ -657,14 +661,14 @@ namespace Ast
 	class StringConstant : public ConstantExpression
 	{
 	public:
-		StringConstant(std::string& input) : _input(input)
+		StringConstant(std::string& input, FileLocation& location) : ConstantExpression(location), _input(input)
 		{
 		}
 		std::string Value()
 		{
 			return _input;
 		}
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
 			return _staticTypeInfo;
 		}

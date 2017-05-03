@@ -136,6 +136,87 @@ namespace TypeCheckingTests
 				tree->TypeCheck(table);
 			});
 		}
+
+		TEST_METHOD(AssignFromStackAllocatedClassPasses)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A& a(); A& b = a; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(AutoTypeAssignFromStackAllocatedVariablePasses)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A& a(); let b = a; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(StrongTypeAssignFromSameTypedStackAllocatedVariablePasses)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A& a(); A& b = a; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(AssignReferenceTypeToValueTypeFails)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A a = new A(); A& b = a; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(AssignValueTypeToReferenceTypeFails)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A& a(); A b = a; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(StrongTypeAssignStackAllocatedVariableFromWrongTypedVariableFails)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A& a(); B& b = a; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(StackAllocatedAssignToWrongTypeFails)
+		{
+			auto tree = ParseTree("class A {} class D {} class B { fun C() { let a = new A(); D& d = a; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(StackAllocatedAssignToNonExistingTypeFails)
+		{
+			auto tree = ParseTree("class B { fun C() { A& a(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolNotDefinedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(DeclareStackAllocatedVariableWithNonClassNameFails)
+		{
+			auto tree = ParseTree("class A { fun B() { } fun C() { B& b = A; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolWrongTypeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
 	};
 
 	TEST_CLASS(NamespaceTests)
@@ -269,9 +350,90 @@ namespace TypeCheckingTests
 			tree->TypeCheck(table);
 		}
 
+		TEST_METHOD(FunctionCallWithArgumentsSucceeds)
+		{
+			auto tree = ParseTree("class A { fun C(int i, char j) { } fun D() { C(0, 'x'); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
 		TEST_METHOD(FunctionCallWrongArgumentTypeFails)
 		{
 			auto tree = ParseTree("class A { fun C(int i, char j) { } fun D() { C(0, \"Hello\"); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallValueClassReturnTypeSucceds)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D& d) B() { D& d(); return d; } fun C() { D& d = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallValueClassReturnTypeReturnReferenceTypeFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D& d) B() { return new D(); } fun C() { D& d = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallReferenceClassReturnTypeReturnValueTypeFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D d) B() { D& d(); return d; } fun C() { D d = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallReferenceClassReturnTypeAssignToValueTypeFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D d) B() { return new D(); } fun C() { D& d = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallValueClassReturnTypeAssignToReferenceTypeFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D& d) B() { D& d(); return d; } fun C() { D d = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallWithValueArgumentTypeSucceeds)
+		{
+			auto tree = ParseTree("class D {} class A { fun C(D& d) { D& e = d;} fun B() { D& d(); C(d); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallPassReferenceTypeToValueArgumentTypeFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun C(D& d) {} fun B() {  C(new D()); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallPassValueTypeToReferenceArgumentTypeFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun C(D d) {} fun B() {  D& d(); C(d); } }");
 			auto table = std::make_shared<SymbolTable>();
 			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
 			{
@@ -336,6 +498,304 @@ namespace TypeCheckingTests
 			auto tree = ParseTree("class A { fun(int i, int j) B { return 0,1; } fun(char i, char j) C { return 'a','b'; } fun() D(int i, int j, int m, char k, char l) { } fun E() { D(B(), 1, C()); } }");
 			auto table = std::make_shared<SymbolTable>();
 			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypeArgumentsAreMixOfValueAndReferenceTypesSucceeds)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D& i, D j) B() { D& k(); D l = new D(); return k,l; } fun C() { D& k, D l = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypeArgumentsAreMixOfValueAndReferenceTypesButWrongTypesReturnedFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D& i, D j) B() { D& k(); D l = new D(); return l,k; } fun C() { D& k, D l = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionCallMultiReturnTypeArgumentsAreMixOfValueAndReferenceTypesButAssignedToWrongTypesFails)
+		{
+			auto tree = ParseTree("class D {} class A { fun(D& i, D j) B() { D& k(); D l = new D(); return k,l; } fun C() { D k, D& l = B(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+	};
+
+	TEST_CLASS(ConstructorTests)
+	{
+		TEST_METHOD(CallToDefaultCtorFailsWhenExplicitCtorDeclared)
+		{
+			auto tree = ParseTree("class A { public A(int i) { } } class B { fun C() { A a = new A(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<NoMatchingFunctionSignatureFoundException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(CallToDefaultCtorSucceedsWhenMultipleCtorsDeclared)
+		{
+			auto tree = ParseTree("class A { public A() {} public A(int i) {} } class B { fun C() { A a = new A(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(CallToExplicitCtorSucceedsWhenMultipleCtorsDeclared)
+		{
+			auto tree = ParseTree("class A { public A() {} public A(int i) {} } class B { fun C() { A a = new A(0); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(CallToExplicitCtorFailsWhenNoCtorsDeclared)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A a = new A(0); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<NoMatchingFunctionSignatureFoundException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(CallToCtorThatDoesNotExistFails)
+		{
+			auto tree = ParseTree("class A { A(bool j) {} } class B { fun C() { A a = new A(0); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<NoMatchingFunctionSignatureFoundException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(SameCtorDeclaredTwiceFails)
+		{
+			auto tree = ParseTree("class A { public A(int i) { } public A(int j) { } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolAlreadyDefinedInThisScopeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(AmbiguousCtorsFails)
+		{
+			auto tree = ParseTree("class A { public A(int i) { } public A(int64 j) { } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolAlreadyDefinedInThisScopeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(AmbiguousCtorsFails2)
+		{
+			auto tree = ParseTree("class A { public A(int64 i) { } public A(int j) { } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolAlreadyDefinedInThisScopeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(SameDefaultCtorDeclaredTwiceFails)
+		{
+			auto tree = ParseTree("class A { public A() {} public A() {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolAlreadyDefinedInThisScopeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(StackAllocatedClassSucceeds)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { A& a(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(StackAllocatedClassNonDefaultCtorSucceeds)
+		{
+			auto tree = ParseTree("class A { public A(int i) {} } class B { fun C() { A& a(0); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(StackAllocatedCallToDefaultCtorFailsWhenExplicitCtorDeclared)
+		{
+			auto tree = ParseTree("class A { public A(int i) { } } class B { fun C() { A& a(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<NoMatchingFunctionSignatureFoundException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(StackAllocatedCallToDefaultCtorSucceedsWhenMultipleCtorsDeclared)
+		{
+			auto tree = ParseTree("class A { public A() {} public A(int i) {} } class B { fun C() { A& a(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ReferenceMemberVariableInstantiateSucceeds)
+		{
+			auto tree = ParseTree("class A {} class B { A& _a; B() : _a() {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ReferenceMemberVariableAssignFromNewFails)
+		{
+			auto tree = ParseTree("class A {} class B { A& _a; B() : _a(new A()) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<NoMatchingFunctionSignatureFoundException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(PointerMemberVariableInstantiateFails)
+		{
+			auto tree = ParseTree("class A {} class B { A _a; B() : _a() {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<ExpectedValueTypeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructedWithStaticMemberOfAnotherClassSucceeds)
+		{
+			auto tree = ParseTree("class A { int _i; static int J; A(int i) { _i = i; } } class B { A& _a; B() : _a(A.J) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructWithInitializedVariableSucceeds)
+		{
+			auto tree = ParseTree("class A { int _i; A(int i) { _i = i; } } class B { A& _a; A& _b; B() : _a(0), _b(_a._i) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructWithUninitializedVariableFails)
+		{
+			auto tree = ParseTree("class A { int _i; A(int i) { _i = i; } } class B { A& _a; A& _b; B() : _a(_b._i), _b(0) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<UninitializedVariableReferencedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructWithMemerOfAnotherClassWithSameNameAsUninitializedVariableSucceeds)
+		{
+			auto tree = ParseTree("class A { int _b; A(int i) { _b = i; } } class B { A& _a; A& _b; B(A& a) : _a(a._b), _b(0) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructWithInitializedVariableFunctionCallSucceeds)
+		{
+			auto tree = ParseTree("class A { int _i;  A(int i) { _i = i; } fun(int i) GetInt() { return _i; } } class B { A& _a; A& _b; B() : _a(0), _b(_a.GetInt()) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructWithUninitializedVariableFunctionCallFails)
+		{
+			auto tree = ParseTree("class A { int _i;  A(int i) { _i = i; } fun(int i) GetInt() { return _i; } } class B { A& _a; A& _b; B() : _a(_b.GetInt()), _b(0) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<UninitializedVariableReferencedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructWithInitializedVariableAsPartOfExpressionSucceeds)
+		{
+			auto tree = ParseTree("class A { int _i; A(int i) { _i = i; } } class B { A& _a; A& _b; B() : _a(0), _b(0 + 3 * _a._i) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ReferenceMemberVariableConstructWithUninitializedVariableAsPartOfExpressionFails)
+		{
+			auto tree = ParseTree("class A { int _i; A(int i) { _i = i; } } class B { A& _a; A& _b; B() : _a(0 + 3 * _b._i), _b(0) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<UninitializedVariableReferencedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(DeclareReferenceMemberVariableWithNonClassTypeFails)
+		{
+			auto tree = ParseTree("class A {} class B { fun C() { } C& _c; }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolWrongTypeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(DeclareReferenceMemberAllImplicitCtorsSucceeds)
+		{
+			auto tree = ParseTree("class A {} class B { A& _a; }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(DeclareReferenceMemberWithImplicitCtorInClassWithExplicitCtorSucceeds)
+		{
+			auto tree = ParseTree("class A {} class B { A& _a; B() {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(DeclareReferenceMemberWithExplicitCtorAndInstantiateItSucceeds)
+		{
+			auto tree = ParseTree("class A { int _i; A(int i) { _i = i; } } class B { A& _a; B() : _a(0) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(DeclareReferenceMemberWithExplicitCtorInClassWithNoCtorFails)
+		{
+			auto tree = ParseTree("class A { int _i; A(int i) { _i = i; } } class B { A& _a; }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<ValueTypeMustBeInitializedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(DeclareReferenceMemberWithExplicitCtorInClassWithExplicitCtorThatDoesntCallItFails)
+		{
+			auto tree = ParseTree("class A { int _i; A(int i) { _i = i; } } class B { A& _a; B() {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<ValueTypeMustBeInitializedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(InitializeReferenceMemberTwiceFails)
+		{
+			auto tree = ParseTree("class A {} class B { A& _a; B() : _a(), _a() {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<CannotReinitializeMemberException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
 		}
 	};
 }

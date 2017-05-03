@@ -25,26 +25,35 @@ namespace Ast
 	class Statement : public Node
 	{
 	public:
+		Statement(FileLocation& location) : _location(location) { }
 		virtual ~Statement() { }
-		// Without the llvm types, TypeCheck simply does a type check without generating any code. With the llvm parameters, it will also output generated code as it walks
+		void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr);
+	protected:
+		// Without the llvm types, TypeCheckInternal simply does a type check without generating any code. With the llvm parameters, it will also output generated code as it walks
 		// the abstract syntax tree.
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) = 0;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) = 0;
+	
+	private:
+		FileLocation _location;
 	};
 
 	class GlobalStatement : public Statement, public std::enable_shared_from_this<GlobalStatement>
 	{
 	public:
+		GlobalStatement(FileLocation& location) : Statement(location) { }
+
 		virtual ~GlobalStatement() { }
 	};
 
 	class GlobalStatements : public GlobalStatement
 	{
 	public:
-		GlobalStatements(GlobalStatement* stmt, GlobalStatements* list) :
+		GlobalStatements(GlobalStatement* stmt, GlobalStatements* list, FileLocation& location) :
+			GlobalStatement(location),
 			_stmt(stmt), _next(list)
 		{}
 		
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "GlobalStatements"; }
 		std::shared_ptr<GlobalStatement> _stmt;
@@ -54,10 +63,12 @@ namespace Ast
 	class NamespaceDeclaration : public GlobalStatement
 	{
 	public:
-		NamespaceDeclaration(const std::string& name, GlobalStatements* stmts) : _name(name), _stmts(stmts)
+		NamespaceDeclaration(const std::string& name, GlobalStatements* stmts, FileLocation& location) : 
+			GlobalStatement(location),
+			_name(name), _stmts(stmts)
 		{}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "NamespaceDeclaration"; }
 		const std::string _name;
@@ -67,18 +78,20 @@ namespace Ast
 	class LineStatement : public Statement
 	{
 	public:
+		LineStatement(FileLocation& location) : Statement(location) { }
 		virtual ~LineStatement() {}
 	};
 
 	class LineStatements : public LineStatement
 	{
 	public:
-		LineStatements(LineStatement* statement, LineStatements* list = nullptr) :
+		LineStatements(LineStatement* statement, FileLocation& location, LineStatements* list = nullptr) :
+			LineStatement(location),
 			_statement(statement), _next(list)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "LineStatements"; }
 		std::shared_ptr<LineStatement> _statement;
@@ -88,12 +101,13 @@ namespace Ast
 	class IfStatement : public LineStatement
 	{
 	public:
-		IfStatement(Expression* condition, LineStatement* statement, LineStatement* elseStatement = nullptr) :
+		IfStatement(Expression* condition, LineStatement* statement, FileLocation& location, LineStatement* elseStatement = nullptr) :
+			LineStatement(location),
 			_condition(condition), _statement(statement), _elseStatement(elseStatement)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "IfStatement"; }
 
@@ -105,12 +119,13 @@ namespace Ast
 	class WhileStatement : public LineStatement
 	{
 	public:
-		WhileStatement(Expression* condition, LineStatement* statement) :
+		WhileStatement(Expression* condition, LineStatement* statement, FileLocation& location) :
+			LineStatement(location),
 			_condition(condition), _statement(statement)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "WhileStatement"; }
 
@@ -121,9 +136,9 @@ namespace Ast
 	class BreakStatement : public LineStatement
 	{
 	public:
-		BreakStatement() { }
+		BreakStatement(FileLocation& location) : LineStatement(location) { }
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override
 		{
@@ -134,83 +149,45 @@ namespace Ast
 	class AssignFromSingle
 	{
 	public:
+		AssignFromSingle(FileLocation& location) : _location(location) { }
+		virtual ~AssignFromSingle() { }
 		virtual std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) = 0;
 		virtual void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) = 0;
 		virtual llvm::Value* GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
+	protected:
+		FileLocation _location;
 	};
 
 	class AssignFrom : public Node
 	{
 	public:
-		AssignFrom(AssignFromSingle* thisOne, AssignFrom* next = nullptr) : _thisOne(thisOne), _next(next)
+		AssignFrom(AssignFromSingle* thisOne, FileLocation& location, AssignFrom* next = nullptr) : _thisOne(thisOne), _next(next), _location(location)
 		{
 		}
 
-		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr)
-		{
-			auto rhsTypeInfoAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhsTypeInfo);
-			auto thisRhs = rhsTypeInfoAsComposite != nullptr ? rhsTypeInfoAsComposite->_thisType : rhsTypeInfo;
-			auto rhsExprAsList = std::dynamic_pointer_cast<ExpressionList>(rhsExpr);
-			auto thisRhsExpr = rhsExprAsList != nullptr ? rhsExprAsList->_left : rhsExpr;
-			_thisType = _thisOne->Resolve(symbolTable, thisRhs, thisRhsExpr);
-			if (_next == nullptr)
-				return _thisType;
-			if (rhsTypeInfoAsComposite == nullptr)
-				throw UnexpectedException();
-			_nextType = _next->Resolve(symbolTable, rhsTypeInfoAsComposite->_next, rhsExprAsList ? rhsExprAsList->_right : rhsExpr);
-			auto nextAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(_nextType);
-			if (nextAsComposite == nullptr)
-				nextAsComposite = std::make_shared<CompositeTypeInfo>(_nextType);
-			return std::make_shared<CompositeTypeInfo>(_thisType, nextAsComposite);
-		}
+		AssignFrom(AssignFromSingle* thisOne, AssignFrom* next = nullptr) : AssignFrom(thisOne, FileLocation(-1,-1), next) { }
 
-		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs)
-		{
-			if (_next == nullptr)
-			{
-				auto rhsAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhs);
-				if (rhsAsComposite != nullptr)
-				{
-					// It better be a single type
-					if (rhsAsComposite->_next != nullptr)
-						throw TypeMismatchException(_thisType, rhs);
-					_thisOne->Bind(symbolTable, rhsAsComposite->_thisType);
-				}
-				else
-				{
-					_thisOne->Bind(symbolTable, rhs);
-				}
-			}
-			else
-			{
-				auto rhsAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(rhs);
-				if (rhsAsComposite == nullptr)
-				{
-					auto nextAsComp = std::dynamic_pointer_cast<CompositeTypeInfo>(_nextType);
-					if (nextAsComp == nullptr)
-						nextAsComp = std::make_shared<CompositeTypeInfo>(_nextType);
-					throw TypeMismatchException(std::make_shared<CompositeTypeInfo>(_thisType, nextAsComp), rhs);
-				}
-				_thisOne->Bind(symbolTable, rhsAsComposite->_thisType);
-				_next->Bind(symbolTable, rhsAsComposite->_next);
-			}
-		}
+		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr);
+
+		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs);
 
 		void CodeGen(std::shared_ptr<Expression> rhs, std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module);
 
-	protected:
 		std::shared_ptr<AssignFromSingle> _thisOne;
 		std::shared_ptr<TypeInfo> _thisType;
 		std::shared_ptr<AssignFrom> _next;
 		std::shared_ptr<TypeInfo> _nextType;
+		FileLocation _location;
 	};
 
 	class AssignFromReference : public AssignFromSingle
 	{
 	public: 
-		AssignFromReference(const std::string& ref) : _ref(ref)
+		AssignFromReference(const std::string& ref, FileLocation& location) : AssignFromSingle(location), _ref(ref)
 		{
 		}
+
+		virtual ~AssignFromReference() { }
 
 		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) override;
 
@@ -227,10 +204,17 @@ namespace Ast
 	class DeclareVariable : public AssignFromSingle
 	{
 	public:
-		DeclareVariable(std::shared_ptr<TypeInfo> typeInfo, const std::string& name) 
-			: _typeInfo(typeInfo), _name(name)
+		DeclareVariable(std::shared_ptr<TypeInfo> typeInfo, const std::string& name, FileLocation& location) 
+			: AssignFromSingle(location), _typeInfo(typeInfo), _name(name)
 		{
 		}
+
+		DeclareVariable(std::shared_ptr<TypeInfo> typeInfo, const std::string& name)
+			: DeclareVariable(typeInfo, name, FileLocation(-1,-1))
+		{
+		}
+
+		virtual ~DeclareVariable() { }
 
 		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) override;
 
@@ -245,12 +229,15 @@ namespace Ast
 	class Assignment : public LineStatement
 	{
 	public:
-		Assignment(AssignFrom* lhs, Expression* rhs) :
-			_lhs(lhs), _rhs(rhs)
+		Assignment(AssignFrom* lhs, Expression* rhs, FileLocation& location, bool inInitializerList = false) :
+			LineStatement(location),
+			_lhs(lhs), _rhs(rhs), _inInitializerList(inInitializerList)
 		{ 
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		Assignment(AssignFrom* lhs, Expression* rhs, bool inInitializerList = false) : Assignment(lhs, rhs, FileLocation(-1,-1), inInitializerList) { }
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override
 		{
@@ -261,16 +248,18 @@ namespace Ast
 		std::shared_ptr<TypeInfo> _lhsTypeInfo;
 		std::shared_ptr<Expression> _rhs;
 		std::shared_ptr<TypeInfo> _rhsTypeInfo;
+		bool _inInitializerList;
 	};
 
 	class ScopedStatements : public LineStatement
 	{
 	public:
-		ScopedStatements(LineStatements* statements) : _statements(statements)
+		ScopedStatements(LineStatements* statements, FileLocation& location) : 
+			LineStatement(location), _statements(statements)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "ScopedStatement"; }
 
@@ -280,11 +269,14 @@ namespace Ast
 	class ExpressionAsStatement : public LineStatement
 	{
 	public:
-		ExpressionAsStatement(Expression* expr) : _expr(expr)
+		ExpressionAsStatement(Expression* expr, FileLocation& location) : 
+			LineStatement(location), _expr(expr)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		ExpressionAsStatement(Expression* expr) : ExpressionAsStatement(expr, FileLocation(-1,-1)) { }
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		virtual std::string ToString() override { return "ExpressionAsStatement"; }
 
@@ -294,11 +286,12 @@ namespace Ast
 	class ReturnStatement : public LineStatement
 	{
 	public:
-		ReturnStatement(Expression* idList) : _idList(idList)
+		ReturnStatement(Expression* idList, FileLocation& location) : 
+			LineStatement(location), _idList(idList)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		std::shared_ptr<Expression> _idList;
 		std::shared_ptr<TypeInfo> _returnType;

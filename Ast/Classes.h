@@ -7,6 +7,8 @@ namespace Ast
 {
 	class ClassStatement : public Statement, public std::enable_shared_from_this<ClassStatement>
 	{
+	public:
+		ClassStatement(FileLocation& location) : Statement(location) { }
 	};
 
 	class Modifier : public Node
@@ -18,7 +20,7 @@ namespace Ast
 			STATIC		= 0x1
 		};
 
-		Modifier(Modifiers mods) : _mods(mods)
+		Modifier(Modifiers mods) :  _mods(mods)
 		{
 		}
 
@@ -39,8 +41,9 @@ namespace Ast
 	class ClassMemberDeclaration : public ClassStatement
 	{
 	public:
-		ClassMemberDeclaration(Visibility visibility, Modifier* modifiers, std::shared_ptr<TypeInfo> typeInfo, const std::string& name,
+		ClassMemberDeclaration(Visibility visibility, Modifier* modifiers, std::shared_ptr<TypeInfo> typeInfo, const std::string& name, FileLocation& location,
 			ConstantExpression* defaultValue = nullptr) :
+			ClassStatement(location),
 			_visibility(visibility),
 			_mods(modifiers),
 			_typeInfo(typeInfo),
@@ -48,7 +51,7 @@ namespace Ast
 			_defaultValue(defaultValue)
 		{}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		Visibility _visibility;
 		std::shared_ptr<Modifier> _mods;
@@ -60,7 +63,8 @@ namespace Ast
 	class Argument : public Node
 	{
 	public:
-		Argument(std::shared_ptr<TypeInfo> typeInfo, const std::string& name) : _typeInfo(typeInfo), _name(name)
+		Argument(std::shared_ptr<TypeInfo> typeInfo, const std::string& name) : 
+			_typeInfo(typeInfo), _name(name)
 		{}
 
 		std::shared_ptr<TypeInfo> _typeInfo;
@@ -70,7 +74,7 @@ namespace Ast
 	class ArgumentList : public Node
 	{
 	public:
-		ArgumentList(Argument* argument, ArgumentList* list = nullptr) : _argument(argument), _next(list)
+		ArgumentList(Argument* argument, ArgumentList* list = nullptr) :_argument(argument), _next(list)
 		{
 		}
 
@@ -80,16 +84,56 @@ namespace Ast
 		std::shared_ptr<ArgumentList> _next;
 	};
 
+	class Initializer : public Statement
+	{
+	public:
+		Initializer(const std::string& name, Expression* expression, FileLocation& location) :
+			Statement(location), _name(name), _expr(expression)
+		{
+		}
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr);
+
+		std::string _name;
+		Expression* _expr;
+		std::shared_ptr<Assignment> _stackAssignment;
+	};
+
+	class InitializerList : public Node
+	{
+	public:
+		InitializerList(Initializer* initializer, InitializerList* list = nullptr) : _thisInitializer(initializer), _next(list)
+		{
+		}
+
+		std::shared_ptr<Initializer> _thisInitializer;
+		std::shared_ptr<InitializerList> _next;
+	};
+
+	class InitializerStatement : public Statement
+	{
+	public:
+		InitializerStatement(InitializerList* list, FileLocation& location) :
+			Statement(location), _list(list)
+		{
+		}
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr);
+
+		std::shared_ptr<InitializerList> _list;
+	};
+
 	class FunctionDeclaration : public ClassStatement
 	{
 	public:
 		FunctionDeclaration(Visibility visibility, Modifier* modifiers, ArgumentList* returnArgs, 
-			const std::string& name, ArgumentList* inputArgs, LineStatement* body) :
+			const std::string& name, ArgumentList* inputArgs, LineStatement* body, FileLocation& location) :
+			ClassStatement(location),
 			_visibility(visibility), _mods(modifiers), _returnArgs(returnArgs), _name(name), _inputArgs(inputArgs), _body(body)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		Visibility _visibility; 
 		std::shared_ptr<Modifier> _mods;
@@ -103,32 +147,37 @@ namespace Ast
 	{
 	public:
 		ConstructorDeclaration(Visibility visibility, const std::string& name,
-			ArgumentList* inputArgs, LineStatement* body) : FunctionDeclaration(visibility, new Modifier(Modifier::Modifiers::NONE), nullptr, name, inputArgs, body)
+			ArgumentList* inputArgs, InitializerStatement* initializer, LineStatement* body, FileLocation& location) :
+			FunctionDeclaration(visibility, new Modifier(Modifier::Modifiers::NONE), nullptr, name, inputArgs, body, location),
+			_initializerStatement(initializer)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		std::shared_ptr<InitializerStatement> _initializerStatement;
 	};
 
 	class DestructorDeclaration : public FunctionDeclaration
 	{
 	public:
-		DestructorDeclaration(const std::string& name, LineStatement* body) : FunctionDeclaration(Visibility::PRIVATE, new Modifier(Modifier::Modifiers::NONE), nullptr, name, nullptr, body)
+		DestructorDeclaration(const std::string& name, LineStatement* body, FileLocation& location) :
+			FunctionDeclaration(Visibility::PRIVATE, new Modifier(Modifier::Modifiers::NONE), nullptr, name, nullptr, body, location)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 	};
 
 	class ClassStatementList : public Statement
 	{
 	public:
-		ClassStatementList(ClassStatement* statement, ClassStatementList* list) :
+		ClassStatementList(ClassStatement* statement, ClassStatementList* list, FileLocation& location) :
+			Statement(location),
 			_statement(statement), _next(list)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		std::shared_ptr<ClassStatement> _statement;
 		std::shared_ptr<ClassStatementList> _next;
@@ -137,12 +186,13 @@ namespace Ast
 	class ClassDeclaration : public GlobalStatement
 	{
 	public:
-		ClassDeclaration(Visibility visibility, const std::string& name, ClassStatementList* list) :
+		ClassDeclaration(Visibility visibility, const std::string& name, ClassStatementList* list, FileLocation& location) :
+			GlobalStatement(location),
 			_visibility(visibility), _name(name), _list(list)
 		{
 		}
 
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
 
 		Visibility _visibility;
 		const std::string _name;
@@ -152,12 +202,13 @@ namespace Ast
 	class NewExpression : public Expression
 	{
 	public:
-		NewExpression(const std::string& className, Expression* expression) :
+		NewExpression(const std::string& className, Expression* expression, FileLocation& location) :
+			Expression(location),
 			_className(className), _expression(expression)
 		{
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
 		const std::string _className;
 		std::shared_ptr<Expression> _expression;
@@ -169,15 +220,36 @@ namespace Ast
 		}
 	};
 
+	class StackConstructionExpression : public Expression
+	{
+	public:
+		StackConstructionExpression(const std::string& className, Expression* argumentExpression, FileLocation& location) :
+			Expression(location),
+			_className(className), _argumentExpression(argumentExpression)
+		{
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
+
+		const std::string _className;
+		std::shared_ptr<Expression> _argumentExpression;
+	protected:
+		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
+		{
+			throw UnexpectedException();
+		}
+	};
+
 	class FunctionCall : public Expression
 	{
 	public:
-		FunctionCall(const std::string& name, Expression* expression) :
+		FunctionCall(const std::string& name, Expression* expression, FileLocation& location) :
+			Expression(location),
 			_name(name), _expression(expression)
 		{
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
 		const std::string _name;
 		std::shared_ptr<Expression> _expression;

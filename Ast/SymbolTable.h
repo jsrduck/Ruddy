@@ -18,7 +18,8 @@ namespace Ast
 	class ClassDeclaration;
 	class FunctionDeclaration;
 	class ClassMemberDeclaration;
-	class SymbolTable
+	class Assignment;
+	class SymbolTable : public std::enable_shared_from_this<SymbolTable>
 	{
 	public:
 		SymbolTable();
@@ -93,33 +94,14 @@ namespace Ast
 			Visibility _visibility;
 			llvm::Value* _value = nullptr;
 		};
-
-		std::shared_ptr<SymbolTable::SymbolBinding> BindVariable(const std::string& symbolName, std::shared_ptr<TypeInfo> node);
-		void BindNamespace(const std::string& namespaceName);
-		void BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration);
-		std::shared_ptr<SymbolTable::SymbolBinding> BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
-		void BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable);
-		void BindLoop();
-
-		std::shared_ptr<SymbolBinding> Lookup(const std::string& symbolName);
-
-		std::shared_ptr<SymbolBinding> GetCurrentFunction();
-
-		std::shared_ptr<SymbolBinding> GetCurrentClass();
-
-		std::shared_ptr<SymbolBinding> GetCurrentLoop();
+		
+		std::shared_ptr<SymbolBinding> Lookup(const std::string& symbolName, bool checkIsInitialized = false);
 
 		/* Declare new scope. Caller must call exit after leaving scope. */
 		void Enter();
 
 		/* Exit current scope */
 		void Exit();
-
-	private:
-
-		std::shared_ptr<SymbolTable::SymbolBinding> Lookup(const std::string& underNamespace, const std::string& symbolName);
-		std::shared_ptr<SymbolTable::SymbolBinding> LookupInImplicitNamespaces(const std::string& symbolName);
-		bool IsVisibleFromCurrentContext(std::shared_ptr<SymbolTable::SymbolBinding> binding);
 
 		class ScopeMarker : public SymbolBinding
 		{
@@ -143,6 +125,7 @@ namespace Ast
 
 			std::shared_ptr<TypeInfo> _variableType;
 		};
+		std::shared_ptr<SymbolTable::VariableBinding> BindVariable(const std::string& symbolName, std::shared_ptr<TypeInfo> node);
 
 		class NamespaceBinding : public SymbolBinding
 		{
@@ -155,6 +138,7 @@ namespace Ast
 			bool IsNamespaceBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override { throw UnexpectedException(); }
 		};
+		void BindNamespace(const std::string& namespaceName);
 
 		class FunctionBinding : public SymbolBinding
 		{
@@ -165,32 +149,56 @@ namespace Ast
 			std::shared_ptr<FunctionDeclaration> _functionDeclaration;
 			std::shared_ptr<FunctionTypeInfo> _typeInfo;
 		};
+		std::shared_ptr<FunctionBinding> BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
+		std::shared_ptr<FunctionBinding> GetCurrentFunction();
 
+		class ConstructorBinding : public FunctionBinding
+		{
+		public:
+			ConstructorBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration) :
+				FunctionBinding(name, fullyQualifiedClassName, functionDeclaration)
+			{
+			}
+
+			void AddInitializerBinding(const std::string& memberName, std::shared_ptr<Assignment> assignment);
+			std::unordered_map<std::string, std::shared_ptr<Assignment>> _initializers;
+		};
+		std::shared_ptr<ConstructorBinding> BindConstructor(std::shared_ptr<FunctionDeclaration> functionDeclaration);
+		std::shared_ptr<ConstructorBinding> GetCurrentConstructor();
+		void BindInitializer(const std::string& memberName, std::shared_ptr<Assignment> assignment);
+
+		class ClassBinding;
 		class MemberBinding : public SymbolBinding
 		{
 		public:
-			MemberBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<ClassMemberDeclaration> memberDeclaration);
+			MemberBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<ClassMemberDeclaration> memberDeclaration, std::shared_ptr<ClassBinding> classBinding);
 			bool IsClassMemberBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
 			std::shared_ptr<ClassMemberDeclaration> _memberDeclaration;
 			std::shared_ptr<TypeInfo> _typeInfo;
+			std::shared_ptr<ClassBinding> _classBinding;
 		};
+		void BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable);
 
-		class ClassBinding : public SymbolBinding
+		class ClassBinding : public SymbolBinding, public std::enable_shared_from_this<ClassBinding>
 		{
 		public:
 			ClassBinding(const std::string& name, const std::string& fullyQualifiedNamespaceName, std::shared_ptr<ClassDeclaration> classDeclaration);
 
+			std::shared_ptr<ConstructorBinding> AddConstructorBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable);
 			std::shared_ptr<FunctionBinding> AddFunctionBinding(const std::string& name, std::shared_ptr<FunctionDeclaration> functionDeclaration);
 			std::shared_ptr<MemberBinding> AddMemberVariableBinding(const std::string& name, std::shared_ptr<ClassMemberDeclaration> classMemberDeclaration);
 
 			bool IsClassBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
 			std::shared_ptr<ClassDeclaration> _classDeclaration;
-			std::shared_ptr<ClassTypeInfo> _typeInfo;
+			std::shared_ptr<ClassDeclarationTypeInfo> _typeInfo;
+			std::vector<std::shared_ptr<FunctionBinding>> _ctors;
 			std::unordered_map<std::string, std::shared_ptr<FunctionBinding>> _functions;
 			std::unordered_map<std::string, std::shared_ptr<MemberBinding>> _members;
 		};
+		std::shared_ptr<ClassBinding> BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration);
+		std::shared_ptr<ClassBinding> GetCurrentClass();
 
 		class LoopBinding : public SymbolBinding
 		{
@@ -204,6 +212,13 @@ namespace Ast
 		private:
 			llvm::BasicBlock* _endOfScope;
 		};
+		void BindLoop();
+		std::shared_ptr<LoopBinding> GetCurrentLoop();
+
+	private:
+		std::shared_ptr<SymbolTable::SymbolBinding> Lookup(const std::string& underNamespace, const std::string& symbolName, bool checkIsInitialized);
+		std::shared_ptr<SymbolTable::SymbolBinding> LookupInImplicitNamespaces(const std::string& symbolName, bool checkIsInitialized);
+		bool IsVisibleFromCurrentContext(std::shared_ptr<SymbolTable::SymbolBinding> binding);
 
 		std::unordered_map<std::string, std::shared_ptr<SymbolBinding>> _map;
 		std::stack<std::shared_ptr<SymbolBinding>> _aux_stack;

@@ -9,6 +9,7 @@ namespace Ast
 	class Operation : public Expression
 	{
 	public:
+		Operation(FileLocation& location) : Expression(location) { }
 		virtual std::string OperatorString() = 0;
 		virtual const int OperatorId() = 0;
 		virtual bool IsBinary() = 0;
@@ -25,12 +26,12 @@ namespace Ast
 	class BinaryOperation : public Operation
 	{
 	public:
-		BinaryOperation(Expression* lhs, Expression* rhs) : _lhs(lhs), _rhs(rhs), _resultIsSigned(false) {}
+		BinaryOperation(Expression* lhs, Expression* rhs, FileLocation& location) : Operation(location), _lhs(lhs), _rhs(rhs), _resultIsSigned(false) {}
 		virtual bool IsBinary() override { return true; }
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
-			_rhsTypeInfo = _rhs->Evaluate(symbolTable);
-			_lhsTypeInfo = _lhs->Evaluate(symbolTable);
+			_rhsTypeInfo = _rhs->Evaluate(symbolTable, inInitializer);
+			_lhsTypeInfo = _lhs->Evaluate(symbolTable, inInitializer);
 			if (_rhsTypeInfo->IsConstant() && _lhsTypeInfo->IsConstant())
 			{
 				// They both end up evaluating to constant types, which isn't that helpful.
@@ -65,14 +66,15 @@ namespace Ast
 	class ArithmeticBinaryOperation : public BinaryOperation
 	{
 	public:
-		ArithmeticBinaryOperation(Expression* lhs, Expression* rhs) : BinaryOperation(lhs,rhs) {}
+		ArithmeticBinaryOperation(Expression* lhs, Expression* rhs, FileLocation& location) : BinaryOperation(lhs,rhs, location) {}
 		virtual bool IsArithmetic() override { return true; }
 	};
 
 	class AddOperation : public ArithmeticBinaryOperation
 	{
 	public:
-		AddOperation(Expression* lhs, Expression* rhs) : ArithmeticBinaryOperation(lhs, rhs) {}
+		AddOperation(Expression* lhs, Expression* rhs, FileLocation& location) : ArithmeticBinaryOperation(lhs, rhs, location) {}
+		AddOperation(Expression* lhs, Expression* rhs) : AddOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x1;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "+"; }
@@ -84,7 +86,8 @@ namespace Ast
 	class SubtractOperation : public ArithmeticBinaryOperation
 	{
 	public:
-		SubtractOperation(Expression* lhs, Expression* rhs) : ArithmeticBinaryOperation(lhs, rhs) {}
+		SubtractOperation(Expression* lhs, Expression* rhs, FileLocation& location) : ArithmeticBinaryOperation(lhs, rhs, location) {}
+		SubtractOperation(Expression* lhs, Expression* rhs) : SubtractOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x2;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "-"; }
@@ -96,7 +99,8 @@ namespace Ast
 	class MultiplyOperation : public ArithmeticBinaryOperation
 	{
 	public:
-		MultiplyOperation(Expression* lhs, Expression* rhs) : ArithmeticBinaryOperation(lhs, rhs) {}
+		MultiplyOperation(Expression* lhs, Expression* rhs, FileLocation& location) : ArithmeticBinaryOperation(lhs, rhs, location) {}
+		MultiplyOperation(Expression* lhs, Expression* rhs) : MultiplyOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x4;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "*"; }
@@ -108,7 +112,8 @@ namespace Ast
 	class DivideOperation : public ArithmeticBinaryOperation
 	{
 	public:
-		DivideOperation(Expression* lhs, Expression* rhs) : ArithmeticBinaryOperation(lhs, rhs) {}
+		DivideOperation(Expression* lhs, Expression* rhs, FileLocation& location) : ArithmeticBinaryOperation(lhs, rhs, location) {}
+		DivideOperation(Expression* lhs, Expression* rhs) : DivideOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x8;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "/"; }
@@ -120,7 +125,8 @@ namespace Ast
 	class RemainderOperation : public ArithmeticBinaryOperation
 	{
 	public:
-		RemainderOperation(Expression* lhs, Expression* rhs) : ArithmeticBinaryOperation(lhs, rhs) {}
+		RemainderOperation(Expression* lhs, Expression* rhs, FileLocation& location) : ArithmeticBinaryOperation(lhs, rhs, location) {}
+		RemainderOperation(Expression* lhs, Expression* rhs) : RemainderOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x10;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "%"; }
@@ -134,21 +140,22 @@ namespace Ast
 	class LogicalBinaryOperation : public BinaryOperation
 	{
 	public:
-		LogicalBinaryOperation(Expression* lhs, Expression* rhs) : BinaryOperation(lhs, rhs) {}
+		LogicalBinaryOperation(Expression* lhs, Expression* rhs, FileLocation& location) : BinaryOperation(lhs, rhs, location) {}
 		virtual bool IsLogical() override { return true; }
 	};
 
 	class LogicalBinaryComparisonOperation : public LogicalBinaryOperation
 	{
 	public:
-		LogicalBinaryComparisonOperation(Expression* lhs, Expression* rhs) : LogicalBinaryOperation(lhs, rhs) {}
+		LogicalBinaryComparisonOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryOperation(lhs, rhs, location) {}
 		virtual bool IsComparison() override { return true; }
 	};
 
 	class GreaterThanOrEqualOperation : public LogicalBinaryComparisonOperation
 	{
 	public:
-		GreaterThanOrEqualOperation(Expression* lhs, Expression* rhs) : LogicalBinaryComparisonOperation(lhs, rhs) {}
+		GreaterThanOrEqualOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryComparisonOperation(lhs, rhs, location) {}
+		GreaterThanOrEqualOperation(Expression* lhs, Expression* rhs) : GreaterThanOrEqualOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x20;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return ">="; }
@@ -160,7 +167,8 @@ namespace Ast
 	class LessThanOrEqualOperation : public LogicalBinaryComparisonOperation
 	{
 	public:
-		LessThanOrEqualOperation(Expression* lhs, Expression* rhs) : LogicalBinaryComparisonOperation(lhs, rhs) {}
+		LessThanOrEqualOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryComparisonOperation(lhs, rhs, location) {}
+		LessThanOrEqualOperation(Expression* lhs, Expression* rhs) : LessThanOrEqualOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x40;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "<="; }
@@ -172,7 +180,8 @@ namespace Ast
 	class GreaterThanOperation : public LogicalBinaryComparisonOperation
 	{
 	public:
-		GreaterThanOperation(Expression* lhs, Expression* rhs) : LogicalBinaryComparisonOperation(lhs, rhs) {}
+		GreaterThanOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryComparisonOperation(lhs, rhs, location) {}
+		GreaterThanOperation(Expression* lhs, Expression* rhs) : GreaterThanOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x80;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return ">"; }
@@ -184,7 +193,8 @@ namespace Ast
 	class LessThanOperation : public LogicalBinaryComparisonOperation
 	{
 	public:
-		LessThanOperation(Expression* lhs, Expression* rhs) : LogicalBinaryComparisonOperation(lhs, rhs) {}
+		LessThanOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryComparisonOperation(lhs, rhs, location) {}
+		LessThanOperation(Expression* lhs, Expression* rhs) : LessThanOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x100;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "<"; }
@@ -196,7 +206,8 @@ namespace Ast
 	class EqualToOperation : public LogicalBinaryComparisonOperation
 	{
 	public:
-		EqualToOperation(Expression* lhs, Expression* rhs) : LogicalBinaryComparisonOperation(lhs, rhs) {}
+		EqualToOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryComparisonOperation(lhs, rhs, location) {}
+		EqualToOperation(Expression* lhs, Expression* rhs) : EqualToOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x200;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "=="; }
@@ -208,7 +219,8 @@ namespace Ast
 	class NotEqualToOperation : public LogicalBinaryComparisonOperation
 	{
 	public:
-		NotEqualToOperation(Expression* lhs, Expression* rhs) : LogicalBinaryComparisonOperation(lhs, rhs) {}
+		NotEqualToOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryComparisonOperation(lhs, rhs, location) {}
+		NotEqualToOperation(Expression* lhs, Expression* rhs) : NotEqualToOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x400;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "!="; }
@@ -221,14 +233,15 @@ namespace Ast
 	class LogicalBinaryBooleanOperation : public LogicalBinaryOperation
 	{
 	public:
-		LogicalBinaryBooleanOperation(Expression* lhs, Expression* rhs) : LogicalBinaryOperation(lhs, rhs) {}
+		LogicalBinaryBooleanOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryOperation(lhs, rhs, location) {}
 		virtual bool IsBoolean() { return true; }
 	};
 
 	class LogicalAndOperation : public LogicalBinaryBooleanOperation
 	{
 	public:
-		LogicalAndOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBooleanOperation(lhs, rhs) {}
+		LogicalAndOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryBooleanOperation(lhs, rhs, location) {}
+		LogicalAndOperation(Expression* lhs, Expression* rhs) : LogicalAndOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x800;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "&&"; }
@@ -240,7 +253,8 @@ namespace Ast
 	class LogicalOrOperation : public LogicalBinaryBooleanOperation
 	{
 	public:
-		LogicalOrOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBooleanOperation(lhs, rhs) {}
+		LogicalOrOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryBooleanOperation(lhs, rhs, location) {}
+		LogicalOrOperation(Expression* lhs, Expression* rhs) : LogicalOrOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x1000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "||"; }
@@ -253,14 +267,16 @@ namespace Ast
 	class LogicalBinaryBitwiseOperation : public LogicalBinaryOperation
 	{
 	public:
-		LogicalBinaryBitwiseOperation(Expression* lhs, Expression* rhs) : LogicalBinaryOperation(lhs, rhs) {}
+		LogicalBinaryBitwiseOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryOperation(lhs, rhs, location) {}
+		LogicalBinaryBitwiseOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBitwiseOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		virtual bool IsBitwise() { return true; }
 	};
 
 	class BitwiseAndOperation : public LogicalBinaryBitwiseOperation
 	{
 	public:
-		BitwiseAndOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBitwiseOperation(lhs, rhs) {}
+		BitwiseAndOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryBitwiseOperation(lhs, rhs, location) {}
+		BitwiseAndOperation(Expression* lhs, Expression* rhs) : BitwiseAndOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x2000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "&"; }
@@ -272,7 +288,8 @@ namespace Ast
 	class BitwiseOrOperation : public LogicalBinaryBitwiseOperation
 	{
 	public:
-		BitwiseOrOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBitwiseOperation(lhs, rhs) {}
+		BitwiseOrOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryBitwiseOperation(lhs, rhs, location) {}
+		BitwiseOrOperation(Expression* lhs, Expression* rhs) : BitwiseOrOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x4000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "|"; }
@@ -284,7 +301,8 @@ namespace Ast
 	class BitwiseXorOperation : public LogicalBinaryBitwiseOperation
 	{
 	public:
-		BitwiseXorOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBitwiseOperation(lhs, rhs) {}
+		BitwiseXorOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryBitwiseOperation(lhs, rhs, location) {}
+		BitwiseXorOperation(Expression* lhs, Expression* rhs) : BitwiseXorOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x8000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "^"; }
@@ -296,7 +314,8 @@ namespace Ast
 	class BitwiseShiftLeftOperation : public LogicalBinaryBitwiseOperation
 	{
 	public:
-		BitwiseShiftLeftOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBitwiseOperation(lhs, rhs) {}
+		BitwiseShiftLeftOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryBitwiseOperation(lhs, rhs, location) {}
+		BitwiseShiftLeftOperation(Expression* lhs, Expression* rhs) : BitwiseShiftLeftOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x10000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "<<"; }
@@ -309,7 +328,8 @@ namespace Ast
 	class BitwiseShiftRightOperation : public LogicalBinaryBitwiseOperation
 	{
 	public:
-		BitwiseShiftRightOperation(Expression* lhs, Expression* rhs) : LogicalBinaryBitwiseOperation(lhs, rhs) {}
+		BitwiseShiftRightOperation(Expression* lhs, Expression* rhs, FileLocation& location) : LogicalBinaryBitwiseOperation(lhs, rhs, location) {}
+		BitwiseShiftRightOperation(Expression* lhs, Expression* rhs) : BitwiseShiftRightOperation(lhs, rhs, FileLocation(-1,-1)) { }
 		static const int Id = 0x20000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "|"; }
@@ -322,12 +342,12 @@ namespace Ast
 	class UnaryOperation : public Operation
 	{
 	public:
-		UnaryOperation(Expression* expr) : _expr(expr) {}
+		UnaryOperation(Expression* expr, FileLocation& location) : Operation(location), _expr(expr) {}
 		virtual bool IsBinary() override { return false; }
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
-			_typeInfo = _expr->Evaluate(symbolTable);
+			_typeInfo = _expr->Evaluate(symbolTable, inInitializer);
 			if (_typeInfo->IsConstant())
 			{
 				_typeInfo = std::dynamic_pointer_cast<ConstantExpression>(_expr)->BestFitTypeInfo();
@@ -346,26 +366,27 @@ namespace Ast
 	class PrefixOperation : public UnaryOperation
 	{
 	public:
-		PrefixOperation(Expression* expr) : UnaryOperation(expr) {}
+		PrefixOperation(Expression* expr, FileLocation& location) : UnaryOperation(expr, location) {}
 	};
 
 	class PostOperation : public UnaryOperation
 	{
 	public:
-		PostOperation(Expression* expr) : UnaryOperation(expr) {}
+		PostOperation(Expression* expr, FileLocation& location) : UnaryOperation(expr, location) {}
 	};
 
 	class ArithmeticPostUnaryOperation : public PostOperation
 	{
 	public:
-		ArithmeticPostUnaryOperation(Expression* expr) : PostOperation(expr) {}
+		ArithmeticPostUnaryOperation(Expression* expr, FileLocation& location) : PostOperation(expr, location) {}
 		virtual bool IsArithmetic() override { return true; }
 	};
 
 	class PostIncrementOperation : public ArithmeticPostUnaryOperation
 	{
 	public:
-		PostIncrementOperation(Expression* expr) : ArithmeticPostUnaryOperation(expr) {}
+		PostIncrementOperation(Expression* expr, FileLocation& location) : ArithmeticPostUnaryOperation(expr, location) {}
+		PostIncrementOperation(Expression* expr) : PostIncrementOperation(expr, FileLocation(-1,-1)) { }
 		static const int Id = 0x40000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "++"; }
@@ -377,7 +398,8 @@ namespace Ast
 	class PostDecrementOperation : public ArithmeticPostUnaryOperation
 	{
 	public:
-		PostDecrementOperation(Expression* expr) : ArithmeticPostUnaryOperation(expr) {}
+		PostDecrementOperation(Expression* expr, FileLocation& location) : ArithmeticPostUnaryOperation(expr, location) {}
+		PostDecrementOperation(Expression* expr) : PostDecrementOperation(expr, FileLocation(-1,-1)) { }
 		static const int Id = 0x80000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "--"; }
@@ -389,14 +411,15 @@ namespace Ast
 	class ArithmeticPreUnaryOperation : public PrefixOperation
 	{
 	public:
-		ArithmeticPreUnaryOperation(Expression* expr) : PrefixOperation(expr) {}
+		ArithmeticPreUnaryOperation(Expression* expr, FileLocation& location) : PrefixOperation(expr, location) {}
 		virtual bool IsArithmetic() override { return true; }
 	};
 
 	class PreIncrementOperation : public ArithmeticPreUnaryOperation
 	{
 	public:
-		PreIncrementOperation(Expression* expr) : ArithmeticPreUnaryOperation(expr) {}
+		PreIncrementOperation(Expression* expr, FileLocation& location) : ArithmeticPreUnaryOperation(expr, location) {}
+		PreIncrementOperation(Expression* expr) : PreIncrementOperation(expr, FileLocation(-1,-1)) { }
 		static const int Id = 0x400000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "++"; }
@@ -408,7 +431,8 @@ namespace Ast
 	class PreDecrementOperation : public ArithmeticPreUnaryOperation
 	{
 	public:
-		PreDecrementOperation(Expression* expr) : ArithmeticPreUnaryOperation(expr) {}
+		PreDecrementOperation(Expression* expr, FileLocation& location) : ArithmeticPreUnaryOperation(expr, location) {}
+		PreDecrementOperation(Expression* expr) : PreDecrementOperation(expr, FileLocation(-1, -1)) { }
 		static const int Id = 0x800000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "--"; }
@@ -420,14 +444,14 @@ namespace Ast
 	class LogicalPreUnaryOperation : public PrefixOperation
 	{
 	public:
-		LogicalPreUnaryOperation(Expression* expr) : PrefixOperation(expr) {}
+		LogicalPreUnaryOperation(Expression* expr, FileLocation& location) : PrefixOperation(expr, location) {}
 		virtual bool IsLogical() override { return true; }
 	};
 
 	class NegateOperation : public LogicalPreUnaryOperation
 	{
 	public:
-		NegateOperation(Expression* expr) : LogicalPreUnaryOperation(expr) {}
+		NegateOperation(Expression* expr, FileLocation& location) : LogicalPreUnaryOperation(expr, location) {}
 		virtual bool IsBoolean() { return false; }
 		static const int Id = 0x100000;
 		virtual const int OperatorId() override { return Id; }
@@ -440,14 +464,15 @@ namespace Ast
 	class BitwisePreUnaryOperation : public LogicalPreUnaryOperation
 	{
 	public:
-		BitwisePreUnaryOperation(Expression* expr) : LogicalPreUnaryOperation(expr) {}
+		BitwisePreUnaryOperation(Expression* expr, FileLocation& location) : LogicalPreUnaryOperation(expr, location) {}
 		virtual bool IsBitwise() { return true; }
 	};
 
 	class ComplementOperation : public BitwisePreUnaryOperation
 	{
 	public:
-		ComplementOperation(Expression* expr) : BitwisePreUnaryOperation(expr) {}
+		ComplementOperation(Expression* expr, FileLocation& location) : BitwisePreUnaryOperation(expr, location) {}
+		ComplementOperation(Expression* expr) : ComplementOperation(expr, FileLocation(-1,-1)) { }
 		static const int Id = 0x200000;
 		virtual const int OperatorId() override { return Id; }
 		virtual std::string OperatorString() override { return "~"; }
@@ -459,7 +484,8 @@ namespace Ast
 	class CastOperation : public Operation
 	{
 	public:
-		CastOperation(std::shared_ptr<TypeInfo> typeInfo, Expression* expression) : _castTo(typeInfo), _expression(expression)
+		CastOperation(std::shared_ptr<TypeInfo> typeInfo, Expression* expression, FileLocation& location) : 
+			Operation(location), _castTo(typeInfo), _expression(expression)
 		{
 		}
 
@@ -480,10 +506,10 @@ namespace Ast
 			return false;
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable) override
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
 		{
 			// TODO: What about types that can't be cast at all?
-			_castFrom = _expression->Evaluate(symbolTable);
+			_castFrom = _expression->Evaluate(symbolTable, inInitializer);
 			return _castTo;
 		}
 

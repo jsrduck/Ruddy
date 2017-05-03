@@ -7,25 +7,60 @@
 #include "Statements.h"
 
 #include <assert.h>
+#include <sstream>
+#include <ostream>
+
 using namespace std;
 
 namespace Ast
 {
+	Exception::Exception() : _location(FileLocationContext::CurrentLocation())
+	{
+	}
+
+	std::string Exception::Message()
+	{
+		stringstream ss("");
+		ss << "Ruddy Compiler Error(" << _location.LineNumber << "," << _location.ColumnNumber << "): " << _message;
+		return ss.str();
+	}
+
+	UnexpectedException::UnexpectedException()
+	{
+		stringstream ss("");
+		ss << "Unexpected compiler exception: please tell the developer that he sucks." << endl;
+		_message = ss.str();
+	}
+
 	TypeMismatchException::TypeMismatchException(std::shared_ptr<TypeInfo> expected, std::shared_ptr<TypeInfo> actual)
 	{
-		error = std::string("Type MismatchException: expected type \"");
-		error.append(expected ? expected->Name() : "void");
-		error.append("\" found type \"");
-		error.append(actual ? actual->Name() : "void");
-		error.append("\"");
+		_message = std::string("Type MismatchException: expected type \"");
+		_message.append(expected ? expected->Name() : "void");
+		_message.append("\" found type \"");
+		_message.append(actual ? actual->Name() : "void");
+		_message.append("\"");
 	}
 
 	TypeAlreadyExistsException::TypeAlreadyExistsException(std::shared_ptr<TypeInfo> type)
 	{
-		error = std::string("Type doubly defined, already exists: \"");
-		error.append(type->Name());
-		error.append("\"");
+		_message = std::string("Type doubly defined, already exists: \"");
+		_message.append(type->Name());
+		_message.append("\"");
 	}
+
+	NoMatchingFunctionSignatureFoundException::NoMatchingFunctionSignatureFoundException(std::shared_ptr<TypeInfo> type)
+	{
+		_message = std::string("No function override found with signature \"");
+		_message.append(type ? type->Name() : "void");
+		_message.append("\"");
+	}
+
+	OperationNotDefinedException::OperationNotDefinedException(std::string& operatorName, std::shared_ptr<TypeInfo> type)
+	{
+		_message = "Operation \"" + operatorName + "\" not defined on type \"" + type->Name() + "\"";
+	}
+
+	/* TypeInfo */
 
 	std::shared_ptr<TypeInfo> TypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
 	{
@@ -34,7 +69,7 @@ namespace Ast
 			assert(rhs);
 			if (rhs == nullptr)
 			{
-				throw OperationNotDefinedException(operation->OperatorString());
+				throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 			}
 
 			if (operation->IsArithmetic())
@@ -50,7 +85,7 @@ namespace Ast
 					{
 						return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
 					}
-					else throw OperationNotDefinedException(operation->OperatorString());
+					else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 				}
 				else if (IsImplicitlyAssignableFrom(rhs, symbolTable))
 				{
@@ -63,7 +98,7 @@ namespace Ast
 					{
 						return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 					}
-					else throw OperationNotDefinedException(operation->OperatorString());
+					else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 				}
 				else if (IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 				{
@@ -73,7 +108,7 @@ namespace Ast
 				{
 					return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
 				}
-				else throw OperationNotDefinedException(operation->OperatorString());
+				else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 			}
 			else if (operation->IsLogical())
 			{
@@ -92,7 +127,7 @@ namespace Ast
 						{
 							return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
 						}
-						else throw OperationNotDefinedException(operation->OperatorString());
+						else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 					}
 					else if (IsImplicitlyAssignableFrom(rhs, symbolTable))
 					{
@@ -105,7 +140,7 @@ namespace Ast
 						{
 							return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 						}
-						else throw OperationNotDefinedException(operation->OperatorString());
+						else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 					}
 					else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 					{
@@ -115,7 +150,7 @@ namespace Ast
 					{
 						return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 					}
-					else throw OperationNotDefinedException(operation->OperatorString());
+					else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 				}
 				else if (operation->IsBoolean())
 				{
@@ -127,9 +162,9 @@ namespace Ast
 							implicitCastTypeOut = BoolTypeInfo::Get();
 							return BoolTypeInfo::Get();
 						}
-						else throw OperationNotDefinedException(operation->OperatorString());
+						else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 					}
-					else throw OperationNotDefinedException(operation->OperatorString());
+					else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 				}
 				else
 				{
@@ -152,11 +187,11 @@ namespace Ast
 							{
 								return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 							}
-							else throw OperationNotDefinedException(operation->OperatorString());
+							else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 						}
 						else
 						{
-							throw OperationNotDefinedException(operation->OperatorString());
+							throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 						}
 					}
 					else
@@ -164,7 +199,7 @@ namespace Ast
 						// Bitwise AND, OR and XOR
 						if (BoolTypeInfo::Get()->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
 						{
-							throw OperationNotDefinedException(operation->OperatorString()); // To avoid hard-to-find bugs
+							throw OperationNotDefinedException(operation->OperatorString(), shared_from_this()); // To avoid hard-to-find bugs
 						}
 						else if (rhs->IsImplicitlyAssignableFrom(shared_from_this(), symbolTable))
 						{
@@ -177,7 +212,7 @@ namespace Ast
 							{
 								return EvaluateOperation(implicitCastTypeOut, operation, implicitCastTypeOut, symbolTable);
 							}
-							else throw OperationNotDefinedException(operation->OperatorString());
+							else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 						}
 						else if (IsImplicitlyAssignableFrom(rhs, symbolTable))
 						{
@@ -190,7 +225,7 @@ namespace Ast
 							{
 								return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 							}
-							else throw OperationNotDefinedException(operation->OperatorString());
+							else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 						}
 						else if (rhs->IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(operation, implicitCastTypeOut))
 						{
@@ -200,7 +235,7 @@ namespace Ast
 						{
 							return implicitCastTypeOut->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 						}
-						else throw OperationNotDefinedException(operation->OperatorString());
+						else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 					}
 				}
 			}
@@ -210,7 +245,7 @@ namespace Ast
 			assert(!rhs);
 			if (rhs != nullptr)
 			{
-				throw OperationNotDefinedException(operation->OperatorString());
+				throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 			}
 
 			if (operation->IsArithmetic())
@@ -224,7 +259,7 @@ namespace Ast
 				{
 					return implicitCastTypeOut;
 				}
-				else throw OperationNotDefinedException(operation->OperatorString());
+				else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 			}
 			else if (operation->IsLogical())
 			{
@@ -232,7 +267,7 @@ namespace Ast
 				{
 					if (shared_from_this() != BoolTypeInfo::Get())
 					{
-						throw OperationNotDefinedException(operation->OperatorString());
+						throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 					}
 					else if (BoolTypeInfo::Get()->SupportsOperator(operation))
 					{
@@ -243,7 +278,7 @@ namespace Ast
 					{
 						return implicitCastTypeOut;
 					}
-					else throw OperationNotDefinedException(operation->OperatorString());
+					else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 				}
 				else
 				{
@@ -257,7 +292,7 @@ namespace Ast
 					{
 						return implicitCastTypeOut;
 					}
-					else throw OperationNotDefinedException(operation->OperatorString());
+					else throw OperationNotDefinedException(operation->OperatorString(), shared_from_this());
 				}
 			}
 			else if (dynamic_cast<CastOperation*>(operation) != nullptr)
@@ -268,11 +303,13 @@ namespace Ast
 		throw UnexpectedException();
 	}
 
-	ClassTypeInfo::ClassTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration) : _name(classDeclaration->_name)
+	/* ClassDeclarationTypeInfo */
+
+	ClassDeclarationTypeInfo::ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration) : _name(classDeclaration->_name)
 	{
 	}
 
-	bool ClassTypeInfo::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable)
+	bool ClassDeclarationTypeInfo::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		auto otherAsUnresolvedClassType = std::dynamic_pointer_cast<UnresolvedClassTypeInfo>(other);
 		if (otherAsUnresolvedClassType != nullptr)
@@ -282,10 +319,10 @@ namespace Ast
 		}
 
 		// No inheritence yet. Just test that it's the same class through a pointer comparison.
-		auto otherAsClassType = std::dynamic_pointer_cast<ClassTypeInfo>(other);
-		if (otherAsClassType != nullptr)
+		auto othserAsClassDeclType = std::dynamic_pointer_cast<ClassDeclarationTypeInfo>(other);
+		if (othserAsClassDeclType != nullptr)
 		{
-			return otherAsClassType.get() == this;
+			return othserAsClassDeclType.get() == this;
 		}
 
 		auto otherAsCompositeType = std::dynamic_pointer_cast<CompositeTypeInfo>(other);
@@ -296,46 +333,51 @@ namespace Ast
 		throw UnexpectedException();
 	}
 
-	std::shared_ptr<TypeInfo> ClassTypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
+	std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		// This would depend on operator overloading
 		return nullptr;
 	}
 
-	bool ClassTypeInfo::SupportsOperator(Operation* operation)
+	bool ClassDeclarationTypeInfo::SupportsOperator(Operation* operation)
 	{
 		// Not until operator overloading is implemented
 		return false;
 	}
 
+	/* ClassTypeInfo */
+
+	bool ClassTypeInfo::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable)
+	{
+		if (other->IsClassType())
+		{
+			auto otherAsClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(other);
+			if (otherAsClassType == nullptr)
+			{
+				throw UnexpectedException();
+			}
+			return otherAsClassType->IsValueType() == _valueType &&
+				_classDeclTypeInfo->IsImplicitlyAssignableFrom(otherAsClassType->ClassDeclarationTypeInfo(symbolTable), symbolTable);
+		}
+		else
+		{
+			return _classDeclTypeInfo->IsImplicitlyAssignableFrom(other, symbolTable);
+		}
+	}
+
+	/* UnresolvedClassTypeInfo */
+
 	bool UnresolvedClassTypeInfo::IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable)
 	{
-		auto classSymbol = symbolTable->Lookup(Name());
-		if (classSymbol == nullptr)
-		{
-			throw SymbolNotDefinedException(Name());
-		}
-		if (!classSymbol->IsClassBinding())
-		{
-			throw SymbolWrongTypeException(classSymbol->GetName());
-		}
-		return classSymbol->GetTypeInfo()->IsLegalTypeForAssignment(symbolTable);
+		EnsureResolved(symbolTable);
+		return _resolvedType->IsLegalTypeForAssignment(symbolTable);
 	}
 
 	bool UnresolvedClassTypeInfo::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		// Try and find the class in the current context
-		auto classSymbol = symbolTable->Lookup(_name);
-		if (classSymbol == nullptr)
-		{
-			throw SymbolNotDefinedException(_name);
-		}
-		if (!classSymbol->IsClassBinding())
-		{
-			throw SymbolWrongTypeException(_name);
-		}
-		auto resolvedType = classSymbol->GetTypeInfo();
-		return resolvedType->IsImplicitlyAssignableFrom(other, symbolTable);
+		EnsureResolved(symbolTable);
+		return _resolvedType->IsImplicitlyAssignableFrom(other, symbolTable);
 	}
 
 	std::shared_ptr<TypeInfo> UnresolvedClassTypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
@@ -350,6 +392,25 @@ namespace Ast
 		return false;
 	}
 
+	void UnresolvedClassTypeInfo::EnsureResolved(std::shared_ptr<SymbolTable> symbolTable)
+	{
+		if (_resolvedType == nullptr)
+		{
+			auto classSymbol = symbolTable->Lookup(_name);
+			if (classSymbol == nullptr)
+			{
+				throw SymbolNotDefinedException(_name);
+			}
+			if (!classSymbol->IsClassBinding())
+			{
+				throw SymbolWrongTypeException(_name);
+			}
+			_resolvedType = std::make_shared<ClassTypeInfo>(classSymbol->GetTypeInfo(), _valueType);
+		}
+	}
+
+	/* CompositeTypeInfo */
+
 	CompositeTypeInfo::CompositeTypeInfo(std::shared_ptr<ArgumentList> argumentList)
 	{
 		_thisType = argumentList->_argument->_typeInfo;
@@ -361,6 +422,8 @@ namespace Ast
 			_name.append(_next->Name());
 		}
 	}
+
+	/* FunctionTypeInfo */
 
 	FunctionTypeInfo::FunctionTypeInfo(std::shared_ptr<FunctionDeclaration> functionDeclaration) : _inputArgs(nullptr), _outputArgs(nullptr)
 	{

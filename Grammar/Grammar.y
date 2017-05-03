@@ -16,6 +16,7 @@
 #define YYDEBUG 1
 
 union YYSTYPE;
+struct YYLTYPE;
 
 namespace quex
 {
@@ -32,8 +33,8 @@ namespace quex
 	class GeneratedLexer;
 }
 
-int yylex(YYSTYPE *yylval, quex::GeneratedLexer *qlex);
-void yyerror(quex::GeneratedLexer *qlex, Ast::GlobalStatements** stmts, const std::string& m);
+int yylex(YYSTYPE *yylval, YYLTYPE * locType, quex::GeneratedLexer *qlex);
+void yyerror(YYLTYPE * locType, quex::GeneratedLexer *qlex, Ast::GlobalStatements** stmts, const std::string& m);
 
 using namespace Ast;
 
@@ -78,6 +79,9 @@ using namespace Ast;
 	Ast::TypeAndIdentifier* type_and_id;
 	Ast::AssignFrom* assign_from_node;
 	Ast::AssignFromSingle* assign_single_node;
+	Ast::Initializer* initer;
+	Ast::InitializerList* init_list;
+	Ast::InitializerStatement* init_stmt;
 };
 
 %type <vis_node> visibility;
@@ -88,6 +92,8 @@ using namespace Ast;
 %type <ref_node> single_identifier;
 %type <type_node> type;
 %type <type_node> primitive_type;
+%type <type_node> class_type
+%type <type_node> value_class_type
 %type <clss_mem_node> class_member;
 %type <arg_node> argument;
 %type <arg_list> argument_list;
@@ -125,6 +131,9 @@ using namespace Ast;
 %type <ln_stmt_node> valid_expression_as_statement;
 %type <mod_node> modifier;
 %type <mod_node> modifier_list;
+%type <initer> initializer;
+%type <init_list> initializer_list;
+%type <init_stmt> initializer_statement;
 
 /*Bison declarations*/
 
@@ -181,6 +190,7 @@ using namespace Ast;
 
 /* Reserved characters */
 %token TKN_SEMICOLON
+%token TKN_COLON
 %token TKN_BRACKET_OPEN;
 %token TKN_BRACKET_CLOSE;
 %token TKN_PAREN_OPEN;
@@ -254,7 +264,7 @@ global_statement :
 global_statements :
 	  global_statement global_statements 
 	  {
-		$$ = new GlobalStatements($1, $2);
+		$$ = new GlobalStatements($1, $2, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| /*epsilon*/
 	  {
@@ -264,21 +274,21 @@ global_statements :
 namespace_declaration :
 	  TKN_NAMESPACE single_identifier TKN_BRACKET_OPEN global_statements TKN_BRACKET_CLOSE
 	  {
-		$$ = new NamespaceDeclaration($2->Id(), $4);
+		$$ = new NamespaceDeclaration($2->Id(), $4, FileLocation(@2.first_line, @2.first_column));
 		delete $2;
 	  };
 
 single_identifier :
 	  TKN_IDENTIFIER
 	  {
-		$$ = new Reference(*$<id>1);
+		$$ = new Reference(*$<id>1, FileLocation(@1.first_line, @1.first_column));
 		delete $<id>1;
 	  };
 
 reference : 
 	  single_identifier TKN_PERIOD reference
 	  {
-		$$ = new Reference($1->Id(), $3->Id());
+		$$ = new Reference($1->Id(), $3->Id(), FileLocation(@1.first_line, @1.first_column));
 		delete $1;
 		delete $3;
 	  }
@@ -289,12 +299,23 @@ type :
 	  {
 		$$ = new TypeSpecifier();
 	  }
-	| reference
-	  {
-		$$ = new TypeSpecifier($1->Id());
-		delete $1;
-	  }
+	| class_type
+	| value_class_type
 	| primitive_type;
+
+class_type : 
+	  reference
+	  {
+		$$ = new TypeSpecifier($1->Id(), false /*valueType*/);
+		delete $1;
+	  };
+
+value_class_type : 
+	  reference TKN_BITWISE_OPERATOR_AND
+	  {
+		$$ = new TypeSpecifier($1->Id(), true /*valueType*/);
+		delete $1;
+	  };
 
 primitive_type:
 	  TKN_TYPE_INT
@@ -372,14 +393,14 @@ modifier_list:
 class_member:
 	  visibility modifier_list type single_identifier TKN_SEMICOLON
 	  {
-		$$ = new ClassMemberDeclaration($1->Get(), $2, $3->GetTypeInfo(), $4->Id());
+		$$ = new ClassMemberDeclaration($1->Get(), $2, $3->GetTypeInfo(), $4->Id(), FileLocation(@4.first_line, @4.first_column));
 		delete $4;
 		delete $3;
 		delete $1;
 	  }
 	| visibility modifier_list type single_identifier TKN_OPERATOR_ASSIGN_TO literal TKN_SEMICOLON
 	  {
-		$$ = new ClassMemberDeclaration($1->Get(), $2, $3->GetTypeInfo(), $4->Id(), $6);
+		$$ = new ClassMemberDeclaration($1->Get(), $2, $3->GetTypeInfo(), $4->Id(), FileLocation(@4.first_line, @4.first_column), $6);
 		delete $4;
 		delete $3;
 		delete $1;
@@ -420,15 +441,42 @@ optional_function_argument_list :
 function_declaration :
 	  visibility modifier_list TKN_FUNCTION optional_function_argument_list single_identifier optional_function_argument_list TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
 	  {
-		$$ = new FunctionDeclaration($1->Get(), $2, $4, $5->Id(), $6, $8);
+		$$ = new FunctionDeclaration($1->Get(), $2, $4, $5->Id(), $6, $8, FileLocation(@5.first_line, @5.first_column));
 		delete $5;
 		delete $1;
 	  };
 
-constructor:
-	  visibility single_identifier TKN_PAREN_OPEN argument_list TKN_PAREN_CLOSE TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
+initializer:
+	  single_identifier TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new ConstructorDeclaration($1->Get(), $2->Id(), $4, $7);
+		$$ = new Initializer($1->Id(), $3, FileLocation(@1.first_line, @1.first_column));
+		delete $1;
+	  };
+
+initializer_list:
+	  initializer TKN_COMMA initializer_list
+	  {
+		$$ = new InitializerList($1, $3);
+	  }
+	| initializer
+	  {
+		$$ = new InitializerList($1);
+	  };
+
+initializer_statement:
+	  TKN_COLON initializer_list
+	  {
+		$$ = new InitializerStatement($2, FileLocation(@2.first_line, @2.first_column));
+	  }
+	| /* epsilon */
+	  {
+		$$ = NULL;
+	  };
+
+constructor:
+	  visibility single_identifier TKN_PAREN_OPEN argument_list TKN_PAREN_CLOSE initializer_statement TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
+	  {
+		$$ = new ConstructorDeclaration($1->Get(), $2->Id(), $4, $6, $8, FileLocation(@2.first_line, @2.first_column));
 		delete $2;
 		delete $1;
 	  };
@@ -436,14 +484,14 @@ constructor:
 destructor:
 	  TKN_BITWISE_OPERATOR_COMPLEMENT single_identifier TKN_PAREN_OPEN TKN_PAREN_CLOSE TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
 	  {
-		$$ = new DestructorDeclaration($2->Id(), $6);
+		$$ = new DestructorDeclaration($2->Id(), $6, FileLocation(@2.first_line, @2.first_column));
 		delete $2;
 	  };
 
 class_statement_list:
 	  class_statement class_statement_list
 	  {
-		$$ = new ClassStatementList($1, $2);
+		$$ = new ClassStatementList($1, $2, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| /*epsilon*/
 	  {
@@ -459,7 +507,7 @@ class_statement :
 class_declaration :
 	  visibility TKN_CLASS single_identifier TKN_BRACKET_OPEN class_statement_list TKN_BRACKET_CLOSE
 	  {
-		$$ = new ClassDeclaration($1->Get(), $3->Id(), $5);
+		$$ = new ClassDeclaration($1->Get(), $3->Id(), $5, FileLocation(@3.first_line, @3.first_column));
 		delete $3;
 		delete $1;
 	  };
@@ -467,58 +515,67 @@ class_declaration :
 if_statement : 
 	  TKN_IF TKN_PAREN_OPEN expression TKN_PAREN_CLOSE line_statement
 	  {
-		$$ = new IfStatement($3, $5);
+		$$ = new IfStatement($3, $5, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| TKN_IF TKN_PAREN_OPEN expression TKN_PAREN_CLOSE line_statement TKN_ELSE line_statement
 	  {
-		$$ = new IfStatement($3, $5, $7);
+		$$ = new IfStatement($3, $5, FileLocation(@1.first_line, @1.first_column), $7);
 	  };
 
 while_statement : 
 	  TKN_WHILE TKN_PAREN_OPEN expression TKN_PAREN_CLOSE line_statement
 	  {
-		$$ = new WhileStatement($3, $5);
+		$$ = new WhileStatement($3, $5, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 break_statement :
 	  TKN_BREAK TKN_SEMICOLON
 	  {
-		$$ = new BreakStatement();
-	  }
+		$$ = new BreakStatement(FileLocation(@1.first_line, @1.first_column));
+	  };
 
 assign_from:
 	  assign_from_single TKN_COMMA assign_from
 	  {
-		$$ = new AssignFrom($1, $3);
+		$$ = new AssignFrom($1, FileLocation(@1.first_line, @1.first_column), $3);
 	  }
 	| assign_from_single
 	  {
-		$$ = new AssignFrom($1);
+		$$ = new AssignFrom($1, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 assign_from_single:
 	  type single_identifier
 	  {
-		$$ = new DeclareVariable($1->GetTypeInfo(), $2->Id());
+		$$ = new DeclareVariable($1->GetTypeInfo(), $2->Id(), FileLocation(@1.first_line, @1.first_column));
 		delete $1;
 		delete $2;
 	  }
 	| reference
 	  {
-		$$ = new AssignFromReference($1->Id());
+		$$ = new AssignFromReference($1->Id(), FileLocation(@1.first_line, @1.first_column));
 		delete $1;
 	  };
 
 assignment:
 	  assign_from TKN_OPERATOR_ASSIGN_TO argument_expression TKN_SEMICOLON
 	  {
-		$$ = new Assignment($1, $3);
+		$$ = new Assignment($1, $3, FileLocation(@1.first_line, @1.first_column));
+	  }
+	| value_class_type single_identifier TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE TKN_SEMICOLON
+	  {
+		$$ = new Assignment(
+			new AssignFrom(new DeclareVariable($1->GetTypeInfo(), $2->Id(), FileLocation(@1.first_line, @1.first_column)), FileLocation(@1.first_line, @1.first_column)), 
+			new StackConstructionExpression($1->GetTypeInfo()->Name(), $4, FileLocation(@2.first_line, @2.first_column)), 
+			FileLocation(@1.first_line, @1.first_column));
+		delete $1;
+		delete $2;
 	  };
 
 line_statements : 
 	  line_statement line_statements
 	  {
-		$$ = new LineStatements($1, $2);
+		$$ = new LineStatements($1, FileLocation(@1.first_line, @1.first_column), $2);
 	  }
 	| /*epsilon*/
 	  {
@@ -528,13 +585,13 @@ line_statements :
 scoped_statement_list :
 	  TKN_BRACKET_OPEN line_statements TKN_BRACKET_CLOSE
 	  {
-		$$ = new ScopedStatements($2);
+		$$ = new ScopedStatements($2, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 return_statement :
 	  TKN_RETURN argument_expression TKN_SEMICOLON
 	  {
-		$$ = new ReturnStatement($2);
+		$$ = new ReturnStatement($2, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 line_statement: 
@@ -549,142 +606,142 @@ line_statement:
 binary_arith_expression:
 	  expression TKN_ARITHMETIC_OPERATOR_PLUS expression
 	  {
-		$$ = new AddOperation($1, $3);
+		$$ = new AddOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_ARITHMETIC_OPERATOR_MINUS expression
 	  {
-		$$ = new SubtractOperation($1, $3);
+		$$ = new SubtractOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_ARITHMETIC_OPERATOR_TIMES expression
 	  {
-		$$ = new MultiplyOperation($1, $3);
+		$$ = new MultiplyOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_ARITHMETIC_OPERATOR_DIVIDE expression
 	  {
-		$$ = new DivideOperation($1, $3);
+		$$ = new DivideOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_ARITHMETIC_OPERATOR_REMAINDER expression
 	  {
-		$$ = new RemainderOperation($1, $3);
+		$$ = new RemainderOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_BITWISE_SHIFT_LEFT_OPERATOR expression
 	  {
-		$$ = new BitwiseShiftLeftOperation($1, $3);
+		$$ = new BitwiseShiftLeftOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_BITWISE_SHIFT_RIGHT_OPERATOR expression
 	  {
-		$$ = new BitwiseShiftRightOperation($1, $3);
+		$$ = new BitwiseShiftRightOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_BITWISE_OPERATOR_AND expression
 	  {
-		$$ = new BitwiseAndOperation($1, $3);
+		$$ = new BitwiseAndOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_BITWISE_OPERATOR_OR expression
 	  {
-		$$ = new BitwiseOrOperation($1, $3);
+		$$ = new BitwiseOrOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_BITWISE_OPERATOR_XOR expression
 	  {
-		$$ = new BitwiseXorOperation($1, $3);
+		$$ = new BitwiseXorOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  };
 
 unary_arith_expression:
 	  single_identifier TKN_ARITHMETIC_OPERATOR_INCREMENT
 	  {
-		$$ = new PostIncrementOperation($1);
+		$$ = new PostIncrementOperation($1, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| TKN_ARITHMETIC_OPERATOR_INCREMENT single_identifier
 	  {
-		$$ = new PreIncrementOperation($2);
+		$$ = new PreIncrementOperation($2, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| single_identifier TKN_ARITHMETIC_OPERATOR_DECREMENT
 	  {
-		$$ = new PostDecrementOperation($1);
+		$$ = new PostDecrementOperation($1, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| TKN_ARITHMETIC_OPERATOR_DECREMENT single_identifier 
 	  {
-		$$ = new PreDecrementOperation($2);
+		$$ = new PreDecrementOperation($2, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| TKN_BITWISE_OPERATOR_COMPLEMENT expression
 	  {
-		$$ = new ComplementOperation($2);
+		$$ = new ComplementOperation($2, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| TKN_PAREN_OPEN type TKN_PAREN_CLOSE expression
 	  {
-		$$ = new CastOperation($2->GetTypeInfo(), $4);
+		$$ = new CastOperation($2->GetTypeInfo(), $4, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 valid_expression_as_statement:
 	  unary_arith_expression TKN_SEMICOLON
 	  {
-		$$ = new ExpressionAsStatement($1);
+		$$ = new ExpressionAsStatement($1, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| print_statement TKN_SEMICOLON
 	  {
-		$$ = new ExpressionAsStatement($1);
+		$$ = new ExpressionAsStatement($1, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| function_call TKN_SEMICOLON
 	  {
-		$$ = new ExpressionAsStatement($1);
+		$$ = new ExpressionAsStatement($1, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 binary_comparison_expression:
 	  expression TKN_COMPARISON_OPERATOR_GREATER_THAN expression
 	  {
-		$$ = new GreaterThanOperation($1, $3);
+		$$ = new GreaterThanOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_COMPARISON_OPERATOR_LESS_THAN expression
 	  {
-		$$ = new LessThanOperation($1, $3);
+		$$ = new LessThanOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_COMPARISON_OPERATOR_EQUAL_TO expression
 	  {
-		$$ = new EqualToOperation($1, $3);
+		$$ = new EqualToOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_COMPARISON_OPERATOR_NOT_EQUAL_TO expression
 	  {
-		$$ = new NotEqualToOperation($1, $3);
+		$$ = new NotEqualToOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL_TO expression
 	  {
-		$$ = new GreaterThanOrEqualOperation($1, $3);
+		$$ = new GreaterThanOrEqualOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL_TO expression
 	  {
-		$$ = new LessThanOrEqualOperation($1, $3);
+		$$ = new LessThanOrEqualOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  };
 
 logical_expression:
 	  expression TKN_LOGICAL_OPERATOR_AND expression
 	  {
-		$$ = new LogicalAndOperation($1, $3);
+		$$ = new LogicalAndOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| expression TKN_LOGICAL_OPERATOR_OR expression
 	  {
-		$$ = new LogicalOrOperation($1, $3);
+		$$ = new LogicalOrOperation($1, $3, FileLocation(@2.first_line, @2.first_column));
 	  }
 	| TKN_LOGICAL_OPERATOR_NEGATE expression
 	  {
-		$$ = new NegateOperation($2);
+		$$ = new NegateOperation($2, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 new_expression:
 	  TKN_NEW reference TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new NewExpression($2->Id(), $4);
+		$$ = new NewExpression($2->Id(), $4, FileLocation(@1.first_line, @1.first_column));
 		delete $2;
 	  };
 
 print_statement:
 	  TKN_PRINT TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new DebugPrintStatement($3);
+		$$ = new DebugPrintStatement($3, FileLocation(@1.first_line, @1.first_column));
 	  }
 
 function_call:
 	  reference TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new FunctionCall($1->Id(), $3);
+		$$ = new FunctionCall($1->Id(), $3, FileLocation(@1.first_line, @1.first_column));
 		delete $1;
 	  };
 
@@ -697,53 +754,53 @@ literal:
 number_literal:
 	  TKN_ARITHMETIC_OPERATOR_MINUS TKN_CONSTANT_INT
 	  {
-		$$ = new IntegerConstant(*$<id>2, true /*negate*/);
+		$$ = new IntegerConstant(*$<id>2, FileLocation(@1.first_line, @1.first_column), true /*negate*/);
 		delete $<id>2;
 	  }
 	| TKN_ARITHMETIC_OPERATOR_MINUS TKN_CONSTANT_FLOAT
 	  {
-		$$ = new FloatingConstant(*$<id>2,  true /*negate*/);
+		$$ = new FloatingConstant(*$<id>2, FileLocation(@1.first_line, @1.first_column),  true /*negate*/);
 		delete $<id>2;
 	  }
 	| TKN_CONSTANT_INT
 	  {
-		$$ = new IntegerConstant(*$<id>1);
+		$$ = new IntegerConstant(*$<id>1, FileLocation(@1.first_line, @1.first_column));
 		delete $<id>1;
 	  }
 	| TKN_CONSTANT_FLOAT
 	  {
-		$$ = new FloatingConstant(*$<id>1);
+		$$ = new FloatingConstant(*$<id>1, FileLocation(@1.first_line, @1.first_column));
 		delete $<id>1;
 	  };
 
 bool_literal:
 	  TKN_CONSTANT_BOOL_TRUE
 	  {
-		$$ = new BoolConstant(true);
+		$$ = new BoolConstant(true, FileLocation(@1.first_line, @1.first_column));
 	  }
 	| TKN_CONSTANT_BOOL_FALSE
 	  {
-		$$ = new BoolConstant(false);
+		$$ = new BoolConstant(false, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 char_literal:
 	  TKN_CONSTANT_CHAR
 	  {
-		$$ = new CharConstant(*$<id>1);
+		$$ = new CharConstant(*$<id>1, FileLocation(@1.first_line, @1.first_column));
 		delete $<id>1;
 	  };
 	  
 string_literal:
 	  TKN_CONSTANT_STRING
 	  {
-		$$ = new StringConstant(*$<id>1);
+		$$ = new StringConstant(*$<id>1, FileLocation(@1.first_line, @1.first_column));
 		delete $<id>1;
 	  };
 
 argument_expression:
 	expression TKN_COMMA argument_expression
 	  {
-		$$ = new ExpressionList($1, $3);
+		$$ = new ExpressionList($1, FileLocation(@1.first_line, @1.first_column), $3);
 	  }
 	| expression
 	| /*epsilon*/

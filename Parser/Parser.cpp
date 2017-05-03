@@ -6,7 +6,7 @@
 
 int yyparse(quex::GeneratedLexer*, Ast::GlobalStatements**);
 
-int yylex(YYSTYPE *yylval, quex::GeneratedLexer *qlex)
+int yylex(YYSTYPE *yylval, YYLTYPE * locType, quex::GeneratedLexer *qlex)
 {
 	quex::Token* token;
 	qlex->receive(&token);
@@ -22,11 +22,12 @@ int yylex(YYSTYPE *yylval, quex::GeneratedLexer *qlex)
 		default:
 			break;
 	}
-
+	locType->first_line = qlex->line_number();
+	locType->first_column = qlex->column_number();
 	return (int)token->type_id();
 }
 
-void yyerror(quex::GeneratedLexer *qlex, Ast::GlobalStatements**, const std::string& m)
+void yyerror(YYLTYPE * locType, quex::GeneratedLexer *qlex, Ast::GlobalStatements**, const std::string& m)
 {
 	std::stringstream str;
 	str << "Parsing error at " << qlex->line_number()

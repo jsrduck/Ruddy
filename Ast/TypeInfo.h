@@ -52,6 +52,7 @@ namespace Ast
 		virtual bool IsInteger() { return false; }
 		virtual bool IsFloatingPoint() { return false; }
 		virtual bool IsComposite() { return false; }
+		virtual bool IsClassType() { return false; }
 		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo)
 		{
 			throw UnexpectedException();
@@ -227,15 +228,31 @@ namespace Ast
 		std::string _name;
 	};
 
-	class ClassDeclaration;
-	class ClassTypeInfo : public TypeInfo
+	class BaseClassTypeInfo : public TypeInfo
 	{
 	public:
-		ClassTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration);
+		bool IsClassType() override
+		{
+			return true;
+		}
+
+		virtual std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) = 0;
+
+		virtual bool IsValueType() = 0;
+	};
+
+	// Represents the TypeInfo for a class's declaration, which is equally valid for value or reference instantiations.
+	// This TypeInfo is used for basic type compatibility without regards to value or reference types. It's not a legal
+	// assignment type, and thus expressions may not evaluate to this kind of TypeInfo (they return the ClassTypeInfo instead)
+	class ClassDeclaration;
+	class ClassDeclarationTypeInfo : public TypeInfo
+	{
+	public:
+		ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration);
 
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
-			return true;
+			return false;
 		}
 
 		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
@@ -265,11 +282,70 @@ namespace Ast
 		std::string _name;
 	};
 
-	class Reference;
-	class UnresolvedClassTypeInfo : public TypeInfo
+	// Represents the TypeInfo of a class (not a primitive), along with value/reference type. The passed in type is
+	// the ClassDeclarationTypeInfo, although this isn't enforced.
+	class ClassTypeInfo : public BaseClassTypeInfo
 	{
 	public:
-		UnresolvedClassTypeInfo(const std::string& name) : _name(name)
+		ClassTypeInfo(std::shared_ptr<TypeInfo> classDeclTypeInfo, bool valueType) : 
+			_classDeclTypeInfo(classDeclTypeInfo), _valueType(valueType)
+		{
+		}
+
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			return true;
+		}
+
+		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual const std::string& Name() override
+		{
+			return _classDeclTypeInfo->Name();
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override
+		{
+			return _classDeclTypeInfo->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
+		}
+
+		virtual bool SupportsOperator(Operation* operation) override
+		{
+			return _classDeclTypeInfo->SupportsOperator(operation);
+		}
+
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
+		{
+			// TODO
+			throw UnexpectedException();
+		}
+
+		bool IsValueType() override
+		{
+			return _valueType;
+		}
+
+		std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> /*symbolTable*/) override
+		{
+			return _classDeclTypeInfo;
+		}
+
+	private:
+		std::shared_ptr<TypeInfo> _classDeclTypeInfo;
+		bool _valueType;
+	};
+
+	class Reference;
+	class UnresolvedClassTypeInfo : public BaseClassTypeInfo
+	{
+	public:
+		UnresolvedClassTypeInfo(const std::string& name, bool valueType) : _name(name), _valueType(valueType)
 		{
 		}
 
@@ -303,8 +379,23 @@ namespace Ast
 			throw UnexpectedException();
 		}
 
+		void EnsureResolved(std::shared_ptr<SymbolTable> symbolTable); 
+		
+		bool IsValueType() override
+		{
+			return _valueType;
+		}
+
+		std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			EnsureResolved(symbolTable);
+			return _resolvedType->ClassDeclarationTypeInfo(symbolTable);
+		}
+
 	private:
 		std::string _name;
+		bool _valueType;
+		std::shared_ptr<ClassTypeInfo> _resolvedType;
 	};
 
 	// Used in the grammar, as a step towards resolving towards an actual type.
@@ -317,7 +408,7 @@ namespace Ast
 		{
 		}
 
-		TypeSpecifier(const std::string& name) : _resolvedType(new UnresolvedClassTypeInfo(name))
+		TypeSpecifier(const std::string& name, bool valueType) : _resolvedType(new UnresolvedClassTypeInfo(name, valueType))
 		{
 		}
 

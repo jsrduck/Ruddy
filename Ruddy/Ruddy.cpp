@@ -5,6 +5,7 @@
 #include <Grammar.h>
 #include <Statements.h>
 #include <Parser.h>
+#include <TypeExceptions.h>
 
 #include <string>
 #include <memory>
@@ -83,10 +84,14 @@ int _tmain(int argc, _TCHAR* argv[])
 		module->print(*stream.get(), nullptr);
 		stream->close();
 	}
+	catch (Ast::Exception& e)
+	{
+		std::cout << e.Message();
+		return -1;
+	}
 	catch (std::exception& e)
 	{
-		std::cout << e.what();
-		return -1;
+		std::cout << "Unhandled exception, bad Ruddy, bad: " << e.what();
 	}
 	
 	return 0;

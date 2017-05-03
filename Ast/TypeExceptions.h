@@ -1,169 +1,170 @@
 #pragma once
+#include "FileLocationContext.h"
+#include "Node.h"
 
 namespace Ast {
-	class TypeException : public std::exception
+
+	class Exception : public std::exception
 	{
+	public:
+		Exception();
+		std::string Message();
+
+	protected:
+		std::string _message;
+		FileLocation _location;
 	};
 
-	class UnexpectedException : public std::exception
+	class UnexpectedException : public Exception
 	{
-		const char* what() const override
-		{
-			return "Unexpected compiler exception: please tell the developer that he sucks.";
-		}
+	public:
+		UnexpectedException();
+
+	private:
+		std::string _callstack;
 	};
 
 	class TypeInfo;
-	class TypeMismatchException : public TypeException
+	class TypeMismatchException : public Exception
 	{
 	public: 
 		TypeMismatchException(std::shared_ptr<TypeInfo> expected, std::shared_ptr<TypeInfo> actual);
-
-		const char* what() const override
-		{
-			return error.c_str();
-		}
-	private:
-		std::string error;
 	};
 
-	class TypeAlreadyExistsException : public std::exception
+	class TypeAlreadyExistsException : public Exception
 	{
 	public:
 		TypeAlreadyExistsException(std::shared_ptr<TypeInfo> type);
-
-		const char* what() const override
-		{
-			return error.c_str();
-		}
-	private:
-		std::string error;
 	};
 
-	class OperationNotDefinedException : public std::exception
+	class NoMatchingFunctionSignatureFoundException : public Exception
 	{
 	public:
-		OperationNotDefinedException(std::string& operatorName) : _operatorName(operatorName)
-		{
-		}
-	private:
-		std::string _operatorName;
+		NoMatchingFunctionSignatureFoundException(std::shared_ptr<TypeInfo> type);
 	};
 
-	class FunctionMustBeDeclaredInClassScopeException : public std::exception
+	class OperationNotDefinedException : public Exception
 	{
 	public:
-		FunctionMustBeDeclaredInClassScopeException(const std::string& functionName) : _functionName(functionName)
-		{
-		}
-
-		const char* what() const override
-		{
-			return ("Functions must be declared inside class scope: " + _functionName).c_str();
-		}
-	private:
-		std::string _functionName;
+		OperationNotDefinedException(std::string& operatorName, std::shared_ptr<TypeInfo> type);
 	};
 
-	class ReturnStatementMustBeDeclaredInFunctionScopeException : public std::exception
-	{
-		const char* what() const override
-		{
-			return "Return statements must be declared inside function scope";
-		}
-	};
-
-	class VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException : public std::exception
+	class FunctionMustBeDeclaredInClassScopeException : public Exception
 	{
 	public:
-		VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException(const std::string& varName) : _varName(varName)
+		FunctionMustBeDeclaredInClassScopeException(const std::string& functionName) : Exception()
 		{
+			_message = "Function can only be declared inside class scope: " + functionName;
 		}
-		const char* what() const override
-		{
-			return ("Variables must be declared inside class or function scope: " + _varName).c_str();
-		}
-	private:
-		std::string _varName;
 	};
 
-	class VariablesMustBeInitializedException : public std::exception
+	class ReturnStatementMustBeDeclaredInFunctionScopeException : public Exception
 	{
 	public:
-		VariablesMustBeInitializedException(const std::string& varName) : _varName(varName)
+		ReturnStatementMustBeDeclaredInFunctionScopeException()
 		{
+			_message = "Return statements must be declared inside function scope";
 		}
-		const char* what() const override
-		{
-			return ("Variables must be initialized: " + _varName).c_str();
-		}
-	private:
-		std::string _varName;
 	};
 
-	class SymbolNotAccessableException : public std::exception
+	class VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException : public Exception
 	{
 	public:
-		SymbolNotAccessableException(const std::string& symbolName) : _symbolName(symbolName)
+		VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException(const std::string& varName)
 		{
+			_message = "Variables must be declared inside class or function scope: " + varName;
 		}
-		const char* what() const override
-		{
-			return ("Symbol " + _symbolName + " not accessable from this location.").c_str();
-		}
-	private:
-	private:
-		std::string _symbolName;
 	};
 
-	class SymbolAlreadyDefinedInThisScopeException : public std::exception
+	class VariablesMustBeInitializedException : public Exception
 	{
 	public:
-		SymbolAlreadyDefinedInThisScopeException(const std::string& symbolName) : _symbolName(symbolName)
+		VariablesMustBeInitializedException(const std::string& varName)
 		{
+			_message = "Variables must be initialized: " + varName;
 		}
-		const char* what() const override
-		{
-			return _symbolName.c_str();
-		}
-	private:
-		std::string _symbolName;
 	};
 
-	class SymbolNotDefinedException : public std::exception
+	class SymbolNotAccessableException : public Exception
 	{
 	public:
-		SymbolNotDefinedException(const std::string& symbolName) : _symbolName(symbolName)
+		SymbolNotAccessableException(const std::string& symbolName)
 		{
+			_message = "Symbol \"" + symbolName + "\" not accessable from this location.";
 		}
-		const char* what() const override
-		{
-			return _symbolName.c_str();
-		}
-	private:
-		std::string _symbolName;
 	};
 
-	class SymbolWrongTypeException : public std::exception
+	class SymbolAlreadyDefinedInThisScopeException : public Exception
 	{
 	public:
-		SymbolWrongTypeException(const std::string& symbolName) : _symbolName(symbolName)
+		SymbolAlreadyDefinedInThisScopeException(const std::string& symbolName)
 		{
+			_message = "Symbol \"" + symbolName + "\" already defined in this scope";
 		}
-		const char* what() const override
-		{
-			return _symbolName.c_str();
-		}
-	private:
-		std::string _symbolName;
 	};
 
-	class BreakInWrongPlaceException : public std::exception
+	class SymbolNotDefinedException : public Exception
 	{
 	public:
-		const char* what() const override
+		SymbolNotDefinedException(const std::string& symbolName)
 		{
-			return "break must be declared inside loop scope";
+			_message = "Symbol \"" + symbolName + "\" not defined";
+		}
+	};
+
+	class SymbolWrongTypeException : public Exception
+	{
+	public:
+		SymbolWrongTypeException(const std::string& symbolName)
+		{
+			_message = "Symbol \"" + symbolName + "\" exists, but is the wrong type here.";
+		}
+	};
+
+	class BreakInWrongPlaceException : public Exception
+	{
+	public:
+		BreakInWrongPlaceException()
+		{
+			_message = "Break statement can only be declared inside loop scope";
+		}
+	};
+
+	class ExpectedValueTypeException : public Exception
+	{
+	public:
+		ExpectedValueTypeException(const std::string& symbolName)
+		{
+			_message = "Expected symbol with a value type, found reference type instead: " + symbolName;
+		}
+	};
+
+	class CannotReinitializeMemberException : public Exception
+	{
+	public:
+		CannotReinitializeMemberException(const std::string& symbolName)
+		{
+			_message = "Member variable already initiailzed: " + symbolName;
+		}
+	};
+
+	class UninitializedVariableReferencedException : public Exception
+	{
+	public:
+		UninitializedVariableReferencedException(const std::string& symbolName)
+		{
+			_message = "Must initialize reference variable before referencing it: " + symbolName;
+		}
+	};
+
+	class ValueTypeMustBeInitializedException : public Exception
+	{
+	public:
+		ValueTypeMustBeInitializedException(const std::string& symbolName)
+		{
+			_message =
+				"Class has reference-value member with no default constructor - it must be explicitly initialized in the initializer list: " 
+				+ symbolName;
 		}
 	};
 }
