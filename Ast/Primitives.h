@@ -7,25 +7,6 @@
 
 namespace Ast
 {
-
-	class OverflowException : public std::exception
-	{
-	};
-
-	class UnknownControlCharacterException : public std::exception
-	{
-	public:
-		UnknownControlCharacterException(const std::string& charString) : _charString(charString)
-		{
-		}
-		const char* what() const override
-		{
-			return _charString.c_str();
-		}
-	private:
-		const std::string _charString;
-	};
-
 	class PrimitiveTypeInfo : public TypeInfo
 	{
 		virtual bool IsPrimitiveType() override

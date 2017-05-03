@@ -24,6 +24,24 @@ namespace Ast {
 		std::string _callstack;
 	};
 
+	class OverflowException : public Exception
+	{
+	public:
+		OverflowException()
+		{
+			_message = "Overflow exception";
+		}
+	};
+
+	class UnknownControlCharacterException : public Exception
+	{
+	public:
+		UnknownControlCharacterException(const std::string& charString)
+		{
+			_message = "Unknown control character: " + charString;
+		}
+	};
+
 	class TypeInfo;
 	class TypeMismatchException : public Exception
 	{
@@ -165,6 +183,15 @@ namespace Ast {
 			_message =
 				"Class has reference-value member with no default constructor - it must be explicitly initialized in the initializer list: " 
 				+ symbolName;
+		}
+	};
+
+	class NotSupportedByAutoTypeException : public Exception
+	{
+	public:
+		NotSupportedByAutoTypeException()
+		{
+			_message = "Operation not supported for auto type";
 		}
 	};
 }

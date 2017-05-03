@@ -51,10 +51,10 @@
     <ClInclude Include="Primitives.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TypeExceptions.h">
+    <ClInclude Include="FileLocationContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FileLocationContext.h">
+    <ClInclude Include="Exceptions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -78,6 +78,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FileLocationContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Exceptions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

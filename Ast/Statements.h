@@ -7,7 +7,7 @@
 #include "Primitives.h"
 #include "SymbolTable.h"
 #include "Expressions.h"
-#include "TypeExceptions.h"
+#include "Exceptions.h"
 
 namespace Ast
 {

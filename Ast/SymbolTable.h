@@ -1,7 +1,7 @@
 #pragma once
 
 #include "TypeInfo.h"
-#include "TypeExceptions.h"
+#include "Exceptions.h"
 #include <memory>
 #include <unordered_map>
 #include <stack>

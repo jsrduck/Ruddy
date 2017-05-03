@@ -3,7 +3,7 @@
 #include <Primitives.h>
 #include <Operations.h>
 #include <Classes.h>
-#include "TypeExceptions.h"
+#include "Exceptions.h"
 #include "Utils.h"
 #include <vector>
 

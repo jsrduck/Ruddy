@@ -2,7 +2,7 @@
 #include <memory>
 #include <string>
 #include "Node.h"
-#include "TypeExceptions.h"
+#include "Exceptions.h"
 
 namespace llvm {
 	class ConstantFolder;
@@ -57,10 +57,6 @@ namespace Ast
 		{
 			throw UnexpectedException();
 		}
-	};
-
-	class NotSupportedByAutoTypeException : public std::exception
-	{
 	};
 
 	class AutoTypeInfo : public TypeInfo

@@ -5,7 +5,7 @@
 #include <Grammar.h>
 #include <Statements.h>
 #include <Parser.h>
-#include <TypeExceptions.h>
+#include <Exceptions.h>
 
 #include <string>
 #include <memory>
