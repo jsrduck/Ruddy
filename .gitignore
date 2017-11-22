@@ -230,3 +230,5 @@ CodeGenTests/ValidateControlFlow.exe
 *.db
 *.opendb
 packages/**
+*.db-shm
+*.db-wal

@@ -43,6 +43,5 @@
     <None Include="Ruddy-vs14-x86.bat">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="Example.rdy" />
   </ItemGroup>
 </Project>

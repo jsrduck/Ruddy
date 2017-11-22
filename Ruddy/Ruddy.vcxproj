@@ -14,7 +14,7 @@
     <ProjectGuid>{145B67E1-9BC0-4F45-A73F-2F5AEC1B8072}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Ruddy</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

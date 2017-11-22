@@ -38,6 +38,8 @@
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="ValidateFunctions.rdy" />
-    <CustomBuild Include="ValidateFunctions.txt" />
+    <CustomBuild Include="ValidatePrimitives.rdy" />
+    <CustomBuild Include="ValidateMixedPrimitives.rdy" />
+    <CustomBuild Include="ValidateControlFlow.rdy" />
   </ItemGroup>
 </Project>
