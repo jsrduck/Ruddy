@@ -229,3 +229,4 @@ CodeGenTests/ValidateMixedPrimitives.exe
 CodeGenTests/ValidateControlFlow.exe
 *.db
 *.opendb
+packages/**

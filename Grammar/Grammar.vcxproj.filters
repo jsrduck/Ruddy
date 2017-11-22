@@ -42,4 +42,7 @@
   <ItemGroup>
     <CustomBuild Include="Grammar.y" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
 </Project>
