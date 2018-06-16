@@ -43,20 +43,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="GeneratedLexer">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="GeneratedLexer-configuration">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="GeneratedLexer-token">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="GeneratedLexer-token_ids">
-      <Filter>Source Files</Filter>
-    </None>
+    <CustomBuild Include="TokenRules.qx" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="TokenRules.qx" />
+    <None Include="GeneratedLexer" />
+    <None Include="GeneratedLexer-configuration" />
+    <None Include="GeneratedLexer-token" />
+    <None Include="GeneratedLexer-token_ids" />
   </ItemGroup>
 </Project>

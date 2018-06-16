@@ -111,7 +111,10 @@
       <AdditionalDependencies>llvmcore.lib;llvmsupport.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
-      <Command>call ValidatePrimitives.exe &gt; $(TargetDir)ValidatePrimitives.txt &amp;&amp; call ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt &amp;&amp; call ValidateMixedPrimitives.exe &gt; $(TargetDir)ValidateMixedPrimitives.txt &amp;&amp; call ValidateControlFlow.exe &gt; $(TargetDir)ValidateControlFlow.txt</Command>
+      <Command>ValidatePrimitives.exe &gt; $(TargetDir)ValidatePrimitives.txt
+ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt
+ValidateMixedPrimitives.exe &gt; $(TargetDir)ValidateMixedPrimitives.txt
+ValidateControlFlow.exe &gt; $(TargetDir)ValidateControlFlow.txt</Command>
       <Message>Running test exes</Message>
       <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe;ValidateMixedPrimitives.rdy;ValidateMixedPrimitives.exe;ValidateControlFlow.rdy;ValidateControlFlow.exe</Inputs>
       <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt;ValidateMixedPrimitives.txt;ValidateControlFlow.txt</Outputs>

@@ -41,14 +41,20 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ExecutablePath>$(QUEX_PATH);$(ExecutablePath)</ExecutablePath>
+    <RegistryView>RegistryView.Registry32</RegistryView>
+    <RegistryView Condition="$(Platform) == 'x64'">RegistryView.Registry64</RegistryView>
+    <PythonDir>$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Python\PythonCore\2.7\InstallPath', null, null, $(RegistryView)))</PythonDir>
+    <ExecutablePath>$(QUEX_PATH);$(ExecutablePath);$(PythonDir)</ExecutablePath>
     <CustomBuildBeforeTargets>
     </CustomBuildBeforeTargets>
     <IncludePath>$(QUEX_PATH);..\Ast;..\Grammar;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <RegistryView>RegistryView.Registry32</RegistryView>
+    <RegistryView Condition="$(Platform) == 'x64'">RegistryView.Registry64</RegistryView>
+    <PythonDir>$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Python\PythonCore\2.7\InstallPath', null, null, $(RegistryView)))</PythonDir>
     <IncludePath>$(QUEX_PATH);..\Ast;..\Grammar;$(IncludePath)</IncludePath>
-    <ExecutablePath>$(QUEX_PATH);$(ExecutablePath)</ExecutablePath>
+    <ExecutablePath>$(QUEX_PATH);$(ExecutablePath);$(PythonDir)</ExecutablePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -72,6 +78,21 @@
       <Inputs>
       </Inputs>
     </CustomBuildStep>
+    <CustomBuild>
+      <Command>quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0</Command>
+    </CustomBuild>
+    <CustomBuild>
+      <Message>Generating lexical analyzer...</Message>
+    </CustomBuild>
+    <CustomBuild>
+      <Outputs>GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
+    </CustomBuild>
+    <CustomBuild>
+      <AdditionalInputs>TokenRules.qx</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild>
+      <LinkObjects>false</LinkObjects>
+    </CustomBuild>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -89,6 +110,21 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <CustomBuild>
+      <Command>quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0</Command>
+    </CustomBuild>
+    <CustomBuild>
+      <Message>Generating lexical analyzer...</Message>
+    </CustomBuild>
+    <CustomBuild>
+      <Outputs>GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
+    </CustomBuild>
+    <CustomBuild>
+      <AdditionalInputs>TokenRules.qx</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild>
+      <LinkObjects>false</LinkObjects>
+    </CustomBuild>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
