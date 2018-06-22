@@ -40,8 +40,8 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Ruddy-vs14-x86.bat">
+    <CustomBuild Include="Ruddy-vs14-x86.bat">
       <Filter>Source Files</Filter>
-    </None>
+    </CustomBuild>
   </ItemGroup>
 </Project>

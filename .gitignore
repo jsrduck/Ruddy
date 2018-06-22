@@ -232,3 +232,4 @@ CodeGenTests/ValidateControlFlow.exe
 packages/**
 *.db-shm
 *.db-wal
+*.s

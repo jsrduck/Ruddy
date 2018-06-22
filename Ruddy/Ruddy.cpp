@@ -37,12 +37,12 @@ void TestGrammar()
 	}
 }
 
-void AddExternOsFunctions(llvm::Module* module)
+void AddExternOsFunctions(llvm::Module* module, llvm::LLVMContext& context)
 {
 	// printf
 	std::vector<llvm::Type*> printfArgTypes;
-	printfArgTypes.push_back(llvm::Type::getInt16PtrTy(llvm::getGlobalContext()));
-	auto printfFunctionType = llvm::FunctionType::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()), printfArgTypes, true /*isVarArg*/);
+	printfArgTypes.push_back(llvm::Type::getInt16PtrTy(context));
+	auto printfFunctionType = llvm::FunctionType::get(llvm::Type::getInt32Ty(context), printfArgTypes, true /*isVarArg*/);
 	auto printfFunction = llvm::Function::Create(printfFunctionType, llvm::Function::ExternalLinkage, "_os_printf", module);
 }
 
@@ -65,13 +65,14 @@ int _tmain(int argc, _TCHAR* argv[])
 		auto symbolTable = std::make_shared<Ast::SymbolTable>();
 
 		// Code generation
-		llvm::IRBuilder<> builder(llvm::getGlobalContext());
-		auto module = new llvm::Module("Module", llvm::getGlobalContext());
+		llvm::LLVMContext* TheContext = new llvm::LLVMContext();
+		llvm::IRBuilder<> builder(*TheContext);
+		llvm::Module* module = new llvm::Module("Module", *TheContext);
 		// Generate extern statements for os code. In the future, this will be
 		// replaced by import statements so we're not generating everything
-		AddExternOsFunctions(module);
+		AddExternOsFunctions(module, *TheContext);
 		// Generate code from the input
-		tree->TypeCheck(symbolTable, &builder, &llvm::getGlobalContext(), module);
+		tree->TypeCheck(symbolTable, &builder, TheContext, module);
 
 		// Now save it to a file
 		std::wstring fileName = argv[1];
@@ -92,6 +93,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	catch (std::exception& e)
 	{
 		std::cout << "Unhandled exception, bad Ruddy, bad: " << e.what();
+		return -1;
 	}
 	
 	return 0;

@@ -7,11 +7,10 @@
 namespace llvm {
 	class ConstantFolder;
 
-	template <bool preserveNames = true>
 	class IRBuilderDefaultInserter;
 
-	template<bool preserveNames = true, typename T = ConstantFolder,
-		typename Inserter = IRBuilderDefaultInserter<preserveNames> >
+	template <typename T = ConstantFolder,
+		typename Inserter = IRBuilderDefaultInserter>
 	class IRBuilder;
 
 	class Value;
