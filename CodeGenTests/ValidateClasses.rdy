@@ -1,0 +1,330 @@
+// Explicit c'tor
+class Foo
+{
+	int64 j;
+	int i;
+
+	public Foo()
+	{
+		i = 3;
+		j = 7;
+	}
+}
+
+// Implicit c'tor
+class Bar
+{
+	uint i;
+	float j;
+}
+
+// Explicit c'tor with args
+class Baz
+{
+	uint i;
+	float j;
+	char k;
+
+	public Baz(uint a, float b, char c)
+	{
+		i = a;
+		j = b;
+		k = c;
+	}
+}
+
+// Contains stack-allocated class member variable and implicit c'tor
+class FooBar
+{
+	Bar& bar;
+}
+
+// Contains stack-allocated class member variable and explicit c'tor with both explicit and implicit initializers
+class FooBar2
+{
+	Baz& baz;
+	FooBar& fooBar;
+
+	FooBar2(uint a, float b, char c) : baz(a, b, c)
+	{
+		fooBar.bar.i = 13;
+	}
+}
+
+// Passes stack allocated classes as input and outputs
+class FooBaz
+{
+	Bar& bar;
+	
+	FooBaz(Bar& b)
+	{
+		bar = b;
+	}
+
+	fun(Bar& out) DoubleAllFields(Bar& in)
+	{
+		Bar& out();
+		out.i = in.i * 2;
+		out.j = in.j * 2.0;
+		return out;
+	}
+
+	fun(Foo& f1, Foo& f2, Foo& f3, Foo& f4) MultiOutput(Foo& input, Foo& otherInput)
+	{
+		Foo& f1();
+		Foo& f2();
+		Foo& f3();
+		Foo& f4();
+
+		f1.i = input.i;
+		f1.j = input.j;
+
+		f2.i = input.i * 2;
+		f2.j = input.j * 2;
+		
+		f3.i = input.i * 3;
+		f3.j = input.j * 3;
+		
+		f4.i = input.i * otherInput.i;
+		f4.j = input.j * otherInput.j;
+
+		return f1, f2, f3, f4;
+	}
+}
+
+class PrintOnDestruct
+{
+	int _toPrint;
+	PrintOnDestruct(int toPrint)
+	{
+		_toPrint = toPrint;
+	}
+	
+	~PrintOnDestruct()
+	{
+		print(_toPrint);
+	}
+}
+
+class HasPrintOnDestruct
+{
+	PrintOnDestruct& m_pod;
+	PrintOnDestruct& m_pod2;
+
+	HasPrintOnDestruct(int toPrint) : m_pod(toPrint), m_pod2(toPrint+1)
+	{
+	}
+}
+
+
+class HasPrintOnDestruct2
+{
+	HasPrintOnDestruct& m_hpod;
+
+	HasPrintOnDestruct2(int toPrint) : m_hpod(toPrint)
+	{
+	}
+	
+	~HasPrintOnDestruct2()
+	{
+		print("x");
+	}
+}
+
+class HasLocalVarsInFunctionCall
+{
+	HasLocalVarsInFunctionCall()
+	{
+		PrintOnDestruct& printInCtor(9);
+	}
+	
+	static fun(int ret) DoubleMeIfOdd(int in)
+	{
+		PrintOnDestruct& printNoMatterWhat(in);
+		if (in%2 == 0)
+		{
+			PrintOnDestruct& printWhenEven(0);
+			return in;
+		}
+		PrintOnDestruct& printWhenOdd(1);
+		return in*2;
+	}
+	
+	static fun(PrintOnDestruct& out) CopyByValue(PrintOnDestruct& in)
+	{
+		//in._toPrint++; //TODO WHy doesn't this work?
+		return in;
+	}
+}
+
+class Program 
+{
+	static fun(int ret) main()
+	{
+		Foo& foo();
+		print(foo.i); // 3
+		print(foo.j); // 7
+		foo.j = 11;
+		print(foo.i); // 3
+		print(foo.j); // 11
+
+		Bar& bar();
+		print(bar.i); // 0
+		print(bar.j); // 0
+
+		Baz& baz(21,23.5,'y');
+		print(baz.i); // 21
+		print(baz.j); // 23.5
+		print(baz.k); // 'y'
+
+		FooBar& fooBar();
+		print(fooBar.bar.i); // 0
+		print(fooBar.bar.j); // 0
+
+		FooBar2& fooBar2(27, 29.75, 'x');
+		print(fooBar2.baz.i); // 27
+		print(fooBar2.baz.j); // 29.75
+		print(fooBar2.baz.k); // 'x'
+		print(fooBar2.fooBar.bar.i); // 13
+		print(fooBar2.fooBar.bar.j); // 0
+		fooBar2.fooBar.bar.i = 1;
+		fooBar2.fooBar.bar.j = 2.9;
+		print(fooBar2.fooBar.bar.i); // 1
+		print(fooBar2.fooBar.bar.j); // 2.9
+
+		// Value-type assignment (memcpy)
+		FooBar2& fooBar2Copy = fooBar2;
+		print(fooBar2Copy.baz.i); // 27
+		print(fooBar2Copy.baz.j); // 29.75
+		print(fooBar2Copy.baz.k); // 'x'
+		print(fooBar2Copy.fooBar.bar.i); // 1
+		print(fooBar2Copy.fooBar.bar.j); // 2.9
+		fooBar2Copy.fooBar.bar.i = 37;
+		fooBar2Copy.fooBar.bar.j = 3.14;
+		print(fooBar2Copy.fooBar.bar.i); // 37
+		print(fooBar2Copy.fooBar.bar.j); // 3.14
+		print(fooBar2.fooBar.bar.i); // 1
+		print(fooBar2.fooBar.bar.j); // 2.9
+		
+		foo.j = 0x100000000;
+		Foo& f3 = foo;
+		print(f3.i); // 3
+		print(f3.j); // 4294967296
+
+		bar.i = 11;
+		bar.j = 17.39;
+		FooBaz& fooBaz(bar);
+		print(fooBaz.bar.i); // 11
+		print(fooBaz.bar.j); // 17.39
+
+		Bar& barDouble = fooBaz.DoubleAllFields(bar);
+		print(barDouble.i); // 22
+		print(barDouble.j); // 34.78
+
+		foo.j = 24;
+		Foo& f1, Foo& f2, f3, Foo& f4 = fooBaz.MultiOutput(foo, f3);
+		print(f1.i); // 3
+		print(f1.j); // 24
+		print(f2.i); // 6
+		print(f2.j); // 48
+		print(f3.i); // 9
+		print(f3.j); // 72
+		print(f4.i); // 9
+		print(f4.j); // 103079215104
+		
+		// D'tors
+		// Should print 123456789
+		{
+			PrintOnDestruct& pod(1);
+		}
+		
+		if (1 < 2)
+		{
+			PrintOnDestruct& pod(2);
+		}
+		
+		if (1 < 2)
+		{
+			PrintOnDestruct& pod(3);
+		}
+		else
+		{
+			PrintOnDestruct& pod(-1);
+		}
+
+		if (1 > 2)
+		{
+			PrintOnDestruct& pod(-1);
+		}
+		else
+		{
+			PrintOnDestruct& pod(4);
+		}
+		
+		int i = 4;
+		while (++i < 8)
+		{
+			PrintOnDestruct& pod(i);
+		}
+
+		while (i < 10)
+		{
+			PrintOnDestruct& pod(i+1);
+			if (i == 8)
+			{
+				PrintOnDestruct& podInIf(i);
+				break;
+			}
+			PrintOnDestruct& pod2(-1);
+			i++;
+		}
+
+		// Should print 12345206107
+		i = 0;
+		while (i++ < 10)
+		{
+			PrintOnDestruct& pod(i);
+			if (i > 5)
+			{
+				PrintOnDestruct& podInIf(0);
+				if (i == 7)
+				{
+					PrintOnDestruct& podInSecondIf(1);
+					break;
+				}
+				else
+				{
+					PrintOnDestruct& podInThirdIf(2);
+				}
+			}
+		}
+		
+		// D'tor of stack allocated member variables
+		{
+			HasPrintOnDestruct& hpod(2); // 32
+		}
+		
+		{
+			HasPrintOnDestruct2& hpod(3); //x43
+		}
+		
+		// D'tors in function call
+		print(HasLocalVarsInFunctionCall.DoubleMeIfOdd(6)); // 066
+		print(HasLocalVarsInFunctionCall.DoubleMeIfOdd(7)); // 1714
+
+		{
+			// Should print:
+			// Value created here on stack
+			// Local value copied to function body
+			// Local value copied to stack on return
+
+			PrintOnDestruct& manyCopies(5);
+			let thirdCopy = HasLocalVarsInFunctionCall.CopyByValue(manyCopies);
+		}
+
+		// Ctor should print
+		HasLocalVarsInFunctionCall& print9FromCtor(); // 9
+
+		return 0;
+	}
+}

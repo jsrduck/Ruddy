@@ -6,6 +6,8 @@
 #include "Classes.h"
 #include "Statements.h"
 
+#include <llvm\IR\Constants.h>
+
 #include <assert.h>
 
 using namespace std;
@@ -255,9 +257,10 @@ namespace Ast
 		throw UnexpectedException();
 	}
 
+	
 	/* ClassDeclarationTypeInfo */
 
-	ClassDeclarationTypeInfo::ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration) : _name(classDeclaration->_name)
+	ClassDeclarationTypeInfo::ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration, std::string& fullyQualifiedName) : _name(classDeclaration->_name), _fullyQualifiedName(fullyQualifiedName), _type(nullptr)
 	{
 	}
 
@@ -309,12 +312,17 @@ namespace Ast
 				throw UnexpectedException();
 			}
 			return otherAsClassType->IsValueType() == _valueType &&
-				_classDeclTypeInfo->IsImplicitlyAssignableFrom(otherAsClassType->ClassDeclarationTypeInfo(symbolTable), symbolTable);
+				_classDeclTypeInfo->IsImplicitlyAssignableFrom(otherAsClassType->GetClassDeclarationTypeInfo(symbolTable), symbolTable);
 		}
 		else
 		{
 			return _classDeclTypeInfo->IsImplicitlyAssignableFrom(other, symbolTable);
 		}
+	}
+
+	llvm::Value* ClassTypeInfo::GetDefaultValue(llvm::LLVMContext* context)
+	{
+		return llvm::ConstantPointerNull::get(this->GetIRType(context)->getPointerTo());
 	}
 
 	/* UnresolvedClassTypeInfo */
@@ -335,6 +343,7 @@ namespace Ast
 	std::shared_ptr<TypeInfo> UnresolvedClassTypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		// This would depend on operator overloading
+		EnsureResolved(symbolTable);
 		return nullptr;
 	}
 
@@ -377,9 +386,9 @@ namespace Ast
 
 	/* FunctionTypeInfo */
 
-	FunctionTypeInfo::FunctionTypeInfo(std::shared_ptr<FunctionDeclaration> functionDeclaration) : _inputArgs(nullptr), _outputArgs(nullptr)
+	FunctionTypeInfo::FunctionTypeInfo(std::shared_ptr<FunctionDeclaration> functionDeclaration) : _inputArgs(nullptr), _outputArgs(nullptr), _mods(functionDeclaration->_mods)
 	{
-		_name = functionDeclaration->_name;
+		_name = functionDeclaration->Name();
 
 		if (functionDeclaration->_inputArgs != nullptr)
 		{

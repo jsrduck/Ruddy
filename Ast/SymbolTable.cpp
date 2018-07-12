@@ -26,6 +26,15 @@ namespace Ast
 			throw SymbolAlreadyDefinedInThisScopeException(symbolName);
 		} // TODO: Check for class/namespace/member collisions in current namespace
 		auto binding = std::make_shared<VariableBinding>(symbolName, type);
+		if (type->IsClassType())
+		{
+			auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(type);
+			if (classTypeInfo->IsValueType())
+			{
+				auto classBinding = std::dynamic_pointer_cast<SymbolTable::ClassBinding>(Lookup(classTypeInfo->FullyQualifiedName(shared_from_this())));
+				binding->_onExit = classBinding->_dtor->CreateCall(binding, FileLocationContext::CurrentLocation());
+			}
+		}
 		_map[symbolName] = binding;
 		_aux_stack.push(binding);
 		return binding;
@@ -82,7 +91,7 @@ namespace Ast
 		return ctorBinding;
 	}
 
-	void SymbolTable::BindInitializer(const std::string& memberName, std::shared_ptr<Assignment> assignment)
+	void SymbolTable::BindInitializer(const std::string& memberName, std::shared_ptr<StackConstructionExpression> assignment)
 	{
 		if (_currentFunction.size() == 0 || _currentClass.size() == 0)
 		{
@@ -114,7 +123,7 @@ namespace Ast
 		return binding;
 	}
 
-	void SymbolTable::BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable)
+	std::shared_ptr<Ast::SymbolTable::MemberBinding> SymbolTable::BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable)
 	{
 		if (_currentFunction.size() > 0)
 		{
@@ -132,13 +141,15 @@ namespace Ast
 		}
 		_map[binding->GetFullyQualifiedName()] = binding;
 		_aux_stack.push(binding);
+		return binding;
 	}
 
-	void SymbolTable::BindLoop()
+	std::shared_ptr<Ast::SymbolTable::LoopBinding> SymbolTable::BindLoop()
 	{
 		auto binding = std::make_shared<LoopBinding>();
 		_aux_stack.push(binding);
 		_currentLoop.push(binding);
+		return binding;
 	}
 
 	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::Lookup(const std::string& symbolName, bool checkIsInitialized)
@@ -151,18 +162,61 @@ namespace Ast
 			auto prefixSymbol = Lookup(symbolName.substr(0, lastPrefixDelimitter), checkIsInitialized);
 			if (prefixSymbol == nullptr)
 				return nullptr;
+			auto resolvedPrefixSymbol = prefixSymbol;
 			if (prefixSymbol->IsVariableBinding() || prefixSymbol->IsClassMemberBinding())
 			{
 				// We need the symbol for the class name
-				prefixSymbol = Lookup(prefixSymbol->GetTypeInfo()->Name(), checkIsInitialized);
+				resolvedPrefixSymbol = Lookup(prefixSymbol->GetTypeInfo()->Name(), checkIsInitialized);
 			}
 			else if (prefixSymbol->IsFunctionBinding())
 			{
 				return nullptr; // Functions don't have submembers to reference
 			}
-			return Lookup(prefixSymbol->GetFullyQualifiedName(), symbolName.substr(lastPrefixDelimitter+1), checkIsInitialized);
+			auto retVal = Lookup(resolvedPrefixSymbol->GetFullyQualifiedName(), symbolName.substr(lastPrefixDelimitter+1), checkIsInitialized);
+			if (retVal->IsClassMemberBinding())
+			{
+				auto asClassMember = std::dynamic_pointer_cast<MemberBinding>(retVal);
+				if (!asClassMember->_memberDeclaration->_mods->IsStatic())
+				{
+					return std::make_shared<MemberInstanceBinding>(asClassMember, prefixSymbol);
+					// TODO: Static?
+				}
+			}
+			else if (retVal->IsFunctionBinding() && (prefixSymbol->IsVariableBinding() || prefixSymbol->IsClassMemberBinding()))
+			{
+				auto asFunctionBinding = std::dynamic_pointer_cast<FunctionBinding>(retVal);
+				if (!asFunctionBinding->_functionDeclaration->_mods->IsStatic())
+				{
+					return std::make_shared<FunctionInstanceBinding>(asFunctionBinding, prefixSymbol);
+				}
+			}
+			return retVal;
 		}
-		return LookupInImplicitNamespaces(symbolName, checkIsInitialized);
+
+		auto retVal = LookupInImplicitNamespaces(symbolName, checkIsInitialized);
+		if (retVal != nullptr && retVal->IsClassMemberBinding())
+		{
+			auto asClassMember = std::dynamic_pointer_cast<MemberBinding>(retVal);
+			if (!asClassMember->_memberDeclaration->_mods->IsStatic())
+			{
+				// Must be a binding to "this"
+				auto thisSymbol = Lookup("this");
+				if (thisSymbol)
+					return std::make_shared<MemberInstanceBinding>(asClassMember, thisSymbol);
+			}
+		}
+		else if (retVal != nullptr && retVal->IsFunctionBinding())
+		{
+			auto asMethod = std::dynamic_pointer_cast<FunctionBinding>(retVal);
+			if (asMethod != nullptr && !asMethod->_functionDeclaration->_mods->IsStatic())
+			{
+				// Must be a binding to "this"
+				auto thisSymbol = Lookup("this");
+				if (thisSymbol)
+					return std::make_shared<FunctionInstanceBinding>(asMethod, thisSymbol);
+			}
+		}
+		return retVal;
 	}
 
 	std::shared_ptr<SymbolTable::SymbolBinding> SymbolTable::LookupInImplicitNamespaces(const std::string& symbolName, bool checkIsInitialized)
@@ -271,15 +325,18 @@ namespace Ast
 		_aux_stack.push(std::make_shared<ScopeMarker>());
 	}
 
-	void SymbolTable::Exit()
+	std::vector<std::shared_ptr<FunctionCall>> SymbolTable::Exit()
 	{
 		std::shared_ptr<SymbolBinding> binding;
+		std::vector<std::shared_ptr<FunctionCall>> dtors;
 		do
 		{
 			if (_aux_stack.size() == 0)
 				throw UnexpectedException();
 			binding = _aux_stack.top();
 			_aux_stack.pop();
+			if (binding->_onExit != nullptr)
+				dtors.push_back(binding->_onExit);
 			if (binding->IsVariableBinding())
 			{
 				_map.erase(binding->GetFullyQualifiedName());
@@ -303,6 +360,69 @@ namespace Ast
 				_currentLoop.pop();
 			}
 		} while (!binding->IsScopeMarker());
+		return dtors;
+	}
+
+	std::vector<std::shared_ptr<FunctionCall>> SymbolTable::BreakFromCurrentLoop()
+	{
+		std::shared_ptr<SymbolBinding> binding;
+		std::vector<std::shared_ptr<FunctionCall>> dtors;
+		std::stack<std::shared_ptr<SymbolBinding>> replacementStack;
+		bool leftScopeMarker = false;
+		do
+		{
+			if (_aux_stack.size() == 0)
+				break;
+			binding = _aux_stack.top();
+			_aux_stack.pop();
+			if (!leftScopeMarker)
+				leftScopeMarker = binding->IsScopeMarker() || binding->IsFunctionBinding() || binding->IsLoopBinding();
+			if (leftScopeMarker)
+				replacementStack.push(binding);
+			else
+				_map.erase(binding->GetFullyQualifiedName());
+			if (binding->_onExit != nullptr)
+				dtors.push_back(binding->_onExit);
+		} while (!binding->IsLoopBinding());
+
+		while (replacementStack.size() > 0)
+		{
+			binding = replacementStack.top();
+			replacementStack.pop();
+			_aux_stack.push(binding);
+		}
+		return dtors;
+	}
+
+	std::vector<std::shared_ptr<FunctionCall>> Ast::SymbolTable::ReturnFromCurrentFunction()
+	{
+		std::shared_ptr<SymbolBinding> binding;
+		std::vector<std::shared_ptr<FunctionCall>> dtors;
+		std::stack<std::shared_ptr<SymbolBinding>> replacementStack;
+		bool leftScopeMarker = false;
+		do
+		{
+			if (_aux_stack.size() == 0)
+				break;
+			binding = _aux_stack.top();
+			_aux_stack.pop();
+			if (!leftScopeMarker)
+				leftScopeMarker = binding->IsScopeMarker() || binding->IsFunctionBinding() || binding->IsLoopBinding();
+			if (leftScopeMarker)
+				replacementStack.push(binding);
+			else
+				_map.erase(binding->GetFullyQualifiedName());
+			if (binding->_onExit != nullptr)
+				dtors.push_back(binding->_onExit);
+		} while (!binding->IsFunctionBinding());
+
+		while (replacementStack.size() > 0)
+		{
+			binding = replacementStack.top();
+			replacementStack.pop();
+			_aux_stack.push(binding);
+		}
+		return dtors;
 	}
 
 	std::shared_ptr<SymbolTable::ConstructorBinding> SymbolTable::ClassBinding::AddConstructorBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable)
@@ -330,7 +450,7 @@ namespace Ast
 		return binding;
 	}
 
-	void SymbolTable::ConstructorBinding::AddInitializerBinding(const std::string& memberName, std::shared_ptr<Assignment> assignment)
+	void SymbolTable::ConstructorBinding::AddInitializerBinding(const std::string& memberName, std::shared_ptr<StackConstructionExpression> assignment)
 	{
 		if (_initializers.count(memberName) > 0)
 		{
@@ -350,14 +470,22 @@ namespace Ast
 		return binding;
 	}
 
+	size_t Ast::SymbolTable::ClassBinding::NumMembers()
+	{
+		return _members.size();
+	}
+
 	std::shared_ptr<SymbolTable::MemberBinding> SymbolTable::ClassBinding::AddMemberVariableBinding(const std::string& name, std::shared_ptr<ClassMemberDeclaration> classMemberDeclaration)
 	{
 		auto binding = std::make_shared<SymbolTable::MemberBinding>(name, GetFullyQualifiedName(), classMemberDeclaration, shared_from_this());
-		if (_members.count(name) > 0)
+		if (std::any_of(_members.begin(), _members.end(), [&](std::shared_ptr<Ast::SymbolTable::MemberBinding> binding)
+		{
+			return binding->GetName().compare(name) == 0;
+		}))
 		{
 			throw SymbolAlreadyDefinedInThisScopeException(name);
 		}
-		_members[name] = binding;
+		_members.push_back(binding);
 		return binding;
 	}
 
@@ -378,7 +506,7 @@ namespace Ast
 		: SymbolBinding(name, fullyQualifiedNamespaceName.empty() ? name : fullyQualifiedNamespaceName + "." + name, classDeclaration->_visibility),
 		  _classDeclaration(classDeclaration)
 	{
-		_typeInfo = std::make_shared<ClassDeclarationTypeInfo>(classDeclaration);
+		_typeInfo = std::make_shared<ClassDeclarationTypeInfo>(classDeclaration, GetFullyQualifiedName());
 	}
 
 	std::shared_ptr<TypeInfo> SymbolTable::ClassBinding::GetTypeInfo()
@@ -388,9 +516,24 @@ namespace Ast
 
 	SymbolTable::MemberBinding::MemberBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<ClassMemberDeclaration> memberDeclaration, std::shared_ptr<ClassBinding> classBinding)
 		: SymbolBinding(name, fullyQualifiedClassName.empty() ? name : fullyQualifiedClassName + "." + name, memberDeclaration->_visibility),
-		_memberDeclaration(memberDeclaration), _classBinding(classBinding)
+		_memberDeclaration(memberDeclaration), _classBinding(classBinding), _index(classBinding->NumMembers())
 	{
 		_typeInfo = memberDeclaration->_typeInfo;
+	}
+
+	SymbolTable::MemberBinding::MemberBinding(std::shared_ptr<MemberBinding> other)
+		: SymbolBinding(other->GetName(), other->GetFullyQualifiedName(), other->GetVisibility()),
+		_memberDeclaration(other->_memberDeclaration), _classBinding(other->_classBinding), _index(other->_index)
+	{
+		_typeInfo = other->_typeInfo;
+	}
+
+	llvm::Value * SymbolTable::MemberInstanceBinding::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		std::vector<llvm::Value*> idxVec;
+		idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true)));
+		idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, _index, true)));
+		return builder->CreateGEP(_reference->GetIRValue(builder, context, module), idxVec);
 	}
 
 	std::shared_ptr<TypeInfo> SymbolTable::MemberBinding::GetTypeInfo()

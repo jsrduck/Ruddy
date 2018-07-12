@@ -123,6 +123,7 @@ using namespace Ast;
 %type <expr> new_expression;
 %type <expr> function_call;
 %type <expr> print_statement;
+%type <expr> stack_construction;
 %type <prim_node> number_literal;
 %type <prim_node> bool_literal;
 %type <prim_node> char_literal;
@@ -561,15 +562,6 @@ assignment:
 	  assign_from TKN_OPERATOR_ASSIGN_TO argument_expression TKN_SEMICOLON
 	  {
 		$$ = new Assignment($1, $3, FileLocation(@1.first_line, @1.first_column));
-	  }
-	| value_class_type single_identifier TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE TKN_SEMICOLON
-	  {
-		$$ = new Assignment(
-			new AssignFrom(new DeclareVariable($1->GetTypeInfo(), $2->Id(), FileLocation(@1.first_line, @1.first_column)), FileLocation(@1.first_line, @1.first_column)), 
-			new StackConstructionExpression($1->GetTypeInfo()->Name(), $4, FileLocation(@2.first_line, @2.first_column)), 
-			FileLocation(@1.first_line, @1.first_column));
-		delete $1;
-		delete $2;
 	  };
 
 line_statements : 
@@ -683,6 +675,10 @@ valid_expression_as_statement:
 	| function_call TKN_SEMICOLON
 	  {
 		$$ = new ExpressionAsStatement($1, FileLocation(@1.first_line, @1.first_column));
+	  }
+	| stack_construction TKN_SEMICOLON
+	  {
+		$$ = new ExpressionAsStatement($1, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 binary_comparison_expression:
@@ -743,6 +739,14 @@ function_call:
 	  {
 		$$ = new FunctionCall($1->Id(), $3, FileLocation(@1.first_line, @1.first_column));
 		delete $1;
+	  };
+
+stack_construction:
+	  value_class_type single_identifier TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
+	  {
+		$$ = new StackConstructionExpression($1->GetTypeInfo()->Name(), $2->Id(), $4, FileLocation(@2.first_line, @2.first_column));
+		delete $1;
+		delete $2;
 	  };
 
 literal:

@@ -49,6 +49,12 @@ namespace Ast
 		throw UnexpectedException();
 	}
 
+	llvm::Value* StringTypeInfo::GetDefaultValue(llvm::LLVMContext* context)
+	{
+		return llvm::ConstantPointerNull::get(this->GetIRType(context)->getPointerTo());
+	}
+
+	/* IntegerTypeInfo */
 	int IntegerTypeInfo::CreateCast(std::shared_ptr<TypeInfo> castTo)
 	{
 		if (castTo->IsInteger())
@@ -80,6 +86,12 @@ namespace Ast
 		}
 	}
 
+	llvm::Value* IntegerTypeInfo::GetDefaultValue(llvm::LLVMContext* context)
+	{
+		return CreateValue(context, 0); // All int types default to zero
+	}
+
+	/* FloatingTypeInfo */
 	int FloatingTypeInfo::CreateCast(std::shared_ptr<TypeInfo> castTo)
 	{
 		llvm::Instruction::CastOps ops;
@@ -102,6 +114,11 @@ namespace Ast
 		{
 			throw UnexpectedException();
 		}
+	}
+
+	llvm::Value* FloatingTypeInfo::GetDefaultValue(llvm::LLVMContext* context)
+	{
+		return llvm::ConstantFP::get(this->GetIRType(context), 0.0);
 	}
 
 	/* Int32 */
@@ -248,6 +265,10 @@ namespace Ast
 			return llvm::Type::getInt1PtrTy(*context);
 		else
 			return llvm::Type::getInt1Ty(*context);
+	}
+	llvm::Value* BoolTypeInfo::GetDefaultValue(llvm::LLVMContext* context)
+	{
+		return llvm::ConstantInt::get(llvm::Type::getInt1Ty(*context), llvm::APInt(1, 0, false));
 	}
 
 	/* Byte */

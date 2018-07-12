@@ -27,11 +27,17 @@ namespace Ast
 	public:
 		Statement(FileLocation& location) : _location(location) { }
 		virtual ~Statement() { }
-		void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr);
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable);
+		void CodeGen(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module);
+		FileLocation Location()
+		{
+			return _location;
+		}
 	protected:
 		// Without the llvm types, TypeCheckInternal simply does a type check without generating any code. With the llvm parameters, it will also output generated code as it walks
 		// the abstract syntax tree.
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) = 0;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) = 0;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
 	
 	private:
 		FileLocation _location;
@@ -53,7 +59,8 @@ namespace Ast
 			_stmt(stmt), _next(list)
 		{}
 		
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "GlobalStatements"; }
 		std::shared_ptr<GlobalStatement> _stmt;
@@ -68,7 +75,8 @@ namespace Ast
 			_name(name), _stmts(stmts)
 		{}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "NamespaceDeclaration"; }
 		const std::string _name;
@@ -91,7 +99,8 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "LineStatements"; }
 		std::shared_ptr<LineStatement> _statement;
@@ -107,13 +116,16 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "IfStatement"; }
 
 		std::shared_ptr<Expression> _condition; 
 		std::shared_ptr<LineStatement> _statement; 
 		std::shared_ptr<LineStatement> _elseStatement;
+		std::vector<std::shared_ptr<FunctionCall>> _ifStatementEndScopeDtors;
+		std::vector<std::shared_ptr<FunctionCall>> _elseStatementEndScopeDtors;
 	};
 
 	class WhileStatement : public LineStatement
@@ -125,12 +137,15 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "WhileStatement"; }
 
 		std::shared_ptr<Expression> _condition;
 		std::shared_ptr<LineStatement> _statement;
+		std::shared_ptr<Ast::SymbolTable::LoopBinding> _currentLoopBinding;
+		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
 	class BreakStatement : public LineStatement
@@ -138,12 +153,15 @@ namespace Ast
 	public:
 		BreakStatement(FileLocation& location) : LineStatement(location) { }
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override
 		{
 			return "BreakStatement";
 		}
+		std::shared_ptr<Ast::SymbolTable::LoopBinding> _currentLoopBinding;
+		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
 	class AssignFromSingle
@@ -153,9 +171,10 @@ namespace Ast
 		virtual ~AssignFromSingle() { }
 		virtual std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) = 0;
 		virtual void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) = 0;
-		virtual llvm::Value* GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
 	protected:
 		FileLocation _location;
+		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _symbolBinding;
 	};
 
 	class AssignFrom : public Node
@@ -171,7 +190,7 @@ namespace Ast
 
 		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs);
 
-		void CodeGen(std::shared_ptr<Expression> rhs, std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module);
+		void CodeGen(std::shared_ptr<Expression> rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module);
 
 		std::shared_ptr<AssignFromSingle> _thisOne;
 		std::shared_ptr<TypeInfo> _thisType;
@@ -196,7 +215,7 @@ namespace Ast
 			// Not necessary, it's already been bound to a type
 		}
 
-		virtual llvm::Value* GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		const std::string _ref;
 	};
@@ -220,7 +239,7 @@ namespace Ast
 
 		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) override;
 
-		virtual llvm::Value* GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::shared_ptr<TypeInfo> _typeInfo;
 		const std::string _name;
@@ -237,7 +256,8 @@ namespace Ast
 
 		Assignment(AssignFrom* lhs, Expression* rhs, bool inInitializerList = false) : Assignment(lhs, rhs, FileLocation(-1,-1), inInitializerList) { }
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override
 		{
@@ -259,11 +279,13 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "ScopedStatement"; }
 
 		std::shared_ptr<LineStatements> _statements;
+		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
 	class ExpressionAsStatement : public LineStatement
@@ -276,7 +298,8 @@ namespace Ast
 
 		ExpressionAsStatement(Expression* expr) : ExpressionAsStatement(expr, FileLocation(-1,-1)) { }
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "ExpressionAsStatement"; }
 
@@ -291,9 +314,14 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
+		llvm::Value* GetValueToReturn(llvm::Value* value, std::shared_ptr<Ast::TypeInfo> typeInfo, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module);
 
 		std::shared_ptr<Expression> _idList;
 		std::shared_ptr<TypeInfo> _returnType;
+		std::shared_ptr<Ast::SymbolTable::FunctionBinding> _functionBinding;
+		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 }

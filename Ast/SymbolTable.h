@@ -4,7 +4,9 @@
 #include "Exceptions.h"
 #include <memory>
 #include <unordered_map>
+#include <map>
 #include <stack>
+#include <functional>
 
 namespace Ast
 {
@@ -19,6 +21,9 @@ namespace Ast
 	class FunctionDeclaration;
 	class ClassMemberDeclaration;
 	class Assignment;
+	class StackConstructionExpression;
+	class DestructorDeclaration;
+	class FunctionCall;
 	class SymbolTable : public std::enable_shared_from_this<SymbolTable>
 	{
 	public:
@@ -69,7 +74,7 @@ namespace Ast
 				_value = value;
 			}
 
-			virtual llvm::Value* GetIRValue()
+			virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 			{
 				return _value;
 			}
@@ -87,6 +92,7 @@ namespace Ast
 
 			Visibility GetVisibility() { return _visibility; }
 
+			std::shared_ptr<FunctionCall> _onExit;
 		protected:
 			std::string _name;
 			std::string _fullyQualifiedName;
@@ -101,7 +107,9 @@ namespace Ast
 		void Enter();
 
 		/* Exit current scope */
-		void Exit();
+		std::vector<std::shared_ptr<FunctionCall>> Exit();
+		std::vector<std::shared_ptr<FunctionCall>> BreakFromCurrentLoop();
+		std::vector<std::shared_ptr<FunctionCall>> ReturnFromCurrentFunction();
 
 		class ScopeMarker : public SymbolBinding
 		{
@@ -152,6 +160,20 @@ namespace Ast
 		std::shared_ptr<FunctionBinding> BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
 		std::shared_ptr<FunctionBinding> GetCurrentFunction();
 
+		class FunctionInstanceBinding : public FunctionBinding
+		{
+		public:
+			FunctionInstanceBinding(std::shared_ptr<FunctionBinding> functionBinding, std::shared_ptr<SymbolBinding> reference) :
+				FunctionBinding(functionBinding->GetName(), functionBinding->GetParentNamespaceName(), functionBinding->_functionDeclaration),
+				_functionBinding(functionBinding),
+				_reference(reference)
+			{
+			}
+
+			std::shared_ptr<FunctionBinding> _functionBinding;
+			std::shared_ptr<SymbolBinding> _reference;
+		};
+
 		class ConstructorBinding : public FunctionBinding
 		{
 		public:
@@ -160,12 +182,12 @@ namespace Ast
 			{
 			}
 
-			void AddInitializerBinding(const std::string& memberName, std::shared_ptr<Assignment> assignment);
-			std::unordered_map<std::string, std::shared_ptr<Assignment>> _initializers;
+			void AddInitializerBinding(const std::string& memberName, std::shared_ptr<StackConstructionExpression> assignment);
+			std::unordered_map<std::string, std::shared_ptr<StackConstructionExpression>> _initializers;
 		};
 		std::shared_ptr<ConstructorBinding> BindConstructor(std::shared_ptr<FunctionDeclaration> functionDeclaration);
 		std::shared_ptr<ConstructorBinding> GetCurrentConstructor();
-		void BindInitializer(const std::string& memberName, std::shared_ptr<Assignment> assignment);
+		void BindInitializer(const std::string& memberName, std::shared_ptr<StackConstructionExpression> assignment);
 
 		class ClassBinding;
 		class MemberBinding : public SymbolBinding
@@ -174,11 +196,35 @@ namespace Ast
 			MemberBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<ClassMemberDeclaration> memberDeclaration, std::shared_ptr<ClassBinding> classBinding);
 			bool IsClassMemberBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
+			int Index() { return _index; }
+
 			std::shared_ptr<ClassMemberDeclaration> _memberDeclaration;
 			std::shared_ptr<TypeInfo> _typeInfo;
 			std::shared_ptr<ClassBinding> _classBinding;
+		protected:
+			MemberBinding(std::shared_ptr<MemberBinding> memberBinding);
+			int _index = 0;
 		};
-		void BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable);
+		std::shared_ptr<MemberBinding> BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable);
+
+		class MemberInstanceBinding : public MemberBinding
+		{
+		public:
+			MemberInstanceBinding(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<SymbolBinding> reference) : 
+				MemberBinding(memberBinding),
+				_reference(reference)
+			{
+			}
+
+			llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+			bool IsReferenceToThisPointer()
+			{
+				return _reference->IsFunctionBinding();
+			}
+
+		protected:
+			std::shared_ptr<SymbolBinding> _reference;
+		};
 
 		class ClassBinding : public SymbolBinding, public std::enable_shared_from_this<ClassBinding>
 		{
@@ -188,14 +234,21 @@ namespace Ast
 			std::shared_ptr<ConstructorBinding> AddConstructorBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable);
 			std::shared_ptr<FunctionBinding> AddFunctionBinding(const std::string& name, std::shared_ptr<FunctionDeclaration> functionDeclaration);
 			std::shared_ptr<MemberBinding> AddMemberVariableBinding(const std::string& name, std::shared_ptr<ClassMemberDeclaration> classMemberDeclaration);
+			void BindType(llvm::Type* type)
+			{
+				_typeInfo->BindType(type);
+			}
 
 			bool IsClassBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
+			size_t NumMembers();
+
 			std::shared_ptr<ClassDeclaration> _classDeclaration;
 			std::shared_ptr<ClassDeclarationTypeInfo> _typeInfo;
 			std::vector<std::shared_ptr<FunctionBinding>> _ctors;
+			std::shared_ptr<DestructorDeclaration> _dtor;
 			std::unordered_map<std::string, std::shared_ptr<FunctionBinding>> _functions;
-			std::unordered_map<std::string, std::shared_ptr<MemberBinding>> _members;
+			std::vector<std::shared_ptr<MemberBinding>> _members;
 		};
 		std::shared_ptr<ClassBinding> BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration);
 		std::shared_ptr<ClassBinding> GetCurrentClass();
@@ -212,7 +265,7 @@ namespace Ast
 		private:
 			llvm::BasicBlock* _endOfScope;
 		};
-		void BindLoop();
+		std::shared_ptr<LoopBinding> BindLoop();
 		std::shared_ptr<LoopBinding> GetCurrentLoop();
 
 	private:

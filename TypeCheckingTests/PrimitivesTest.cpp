@@ -1537,7 +1537,8 @@ namespace TypeCheckingTests
 
 			auto theClass = dynamic_pointer_cast<ClassDeclaration>(tree->_stmt);
 			Assert::IsTrue(theClass != nullptr);
-			auto declaration = dynamic_pointer_cast<FunctionDeclaration>(theClass->_list->_statement);
+			auto statementList = SkipCtorsAndDtors(theClass);
+			auto declaration = dynamic_pointer_cast<FunctionDeclaration>(statementList->_statement);
 			auto lineStmts = dynamic_pointer_cast<LineStatements>(declaration->_body);
 			auto stmt1 = dynamic_pointer_cast<Assignment>(lineStmts->_statement);
 			auto stmt2 = dynamic_pointer_cast<Assignment>(lineStmts->_next->_statement);

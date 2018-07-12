@@ -13,11 +13,12 @@ namespace Ast
 	{
 	public:
 		Expression(FileLocation& location) : _location(location) { }
+		Expression(std::shared_ptr<TypeInfo> typeInfo, FileLocation& location) : _typeInfo(typeInfo), _location(location) { }
 		virtual ~Expression() { }
 
 		std::shared_ptr<TypeInfo> Evaluate(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList = false);
 
-		llvm::Value* CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr);
+		llvm::Value* CodeGen(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr);
 
 		virtual bool IsConstantExpression()
 		{
@@ -25,10 +26,16 @@ namespace Ast
 		}
 		std::shared_ptr<TypeInfo> _typeInfo;
 
+		std::shared_ptr<Ast::SymbolTable::SymbolBinding> SymbolBinding()
+		{
+			return _symbolBinding;
+		}
+
 	protected:
 		FileLocation _location;
 		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) = 0;
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) = 0;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) = 0;
+		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _symbolBinding;
 	};
 
 	class Reference : public Expression
@@ -56,11 +63,10 @@ namespace Ast
 		}
 
 	protected:
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 	private:
 		const std::string _id;
-		std::shared_ptr<SymbolTable::SymbolBinding> _symbol;
 	};
 
 	class ExpressionList : public Expression
@@ -80,7 +86,7 @@ namespace Ast
 		std::shared_ptr<Expression> _right;
 
 	protected:
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 	};
 
 	class DebugPrintStatement : public Expression
@@ -100,7 +106,7 @@ namespace Ast
 		std::shared_ptr<TypeInfo> _expressionTypeInfo;
 
 	protected:
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 	};
 
 }

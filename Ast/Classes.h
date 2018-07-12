@@ -3,39 +3,20 @@
 #include "Statements.h"
 #include "Expressions.h"
 
+namespace llvm {
+class FunctionType;
+class Function;
+}
+
 namespace Ast
 {
 	class ClassStatement : public Statement, public std::enable_shared_from_this<ClassStatement>
 	{
 	public:
 		ClassStatement(FileLocation& location) : Statement(location) { }
-	};
-
-	class Modifier : public Node
-	{
-	public:
-		enum class Modifiers
-		{
-			NONE		= 0x0,
-			STATIC		= 0x1
-		};
-
-		Modifier(Modifiers mods) :  _mods(mods)
-		{
-		}
-
-		Modifiers Get()
-		{
-			return _mods;
-		}
-
-		bool IsStatic()
-		{
-			return (int)_mods & (int)Modifiers::STATIC;
-		}
-
-	private:
-		Modifiers _mods;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+	protected:
+		std::shared_ptr<Ast::SymbolTable::ClassBinding> _classBinding;
 	};
 
 	class ClassMemberDeclaration : public ClassStatement
@@ -51,7 +32,8 @@ namespace Ast
 			_defaultValue(defaultValue)
 		{}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		Visibility _visibility;
 		std::shared_ptr<Modifier> _mods;
@@ -78,6 +60,10 @@ namespace Ast
 		{
 		}
 
+		ArgumentList(std::shared_ptr<Argument> arg, std::shared_ptr<ArgumentList> next) : _argument(arg), _next(next)
+		{
+		}
+
 		void AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput = false);
 
 		std::shared_ptr<Argument> _argument;
@@ -92,17 +78,23 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr);
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable);
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::string _name;
 		Expression* _expr;
-		std::shared_ptr<Assignment> _stackAssignment;
+		std::shared_ptr<Ast::SymbolTable::MemberInstanceBinding> _memberBinding;
+		std::shared_ptr<StackConstructionExpression> _stackAssignment;
 	};
 
 	class InitializerList : public Node
 	{
 	public:
 		InitializerList(Initializer* initializer, InitializerList* list = nullptr) : _thisInitializer(initializer), _next(list)
+		{
+		}
+
+		InitializerList(std::shared_ptr<Initializer> initializer, std::shared_ptr<InitializerList> list) : _thisInitializer(initializer), _next(list)
 		{
 		}
 
@@ -118,7 +110,8 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr);
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable);
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::shared_ptr<InitializerList> _list;
 	};
@@ -133,14 +126,27 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		virtual std::string Name()
+		{
+			return _name;
+		}
 
 		Visibility _visibility; 
 		std::shared_ptr<Modifier> _mods;
-		std::shared_ptr<ArgumentList> _returnArgs;
 		const std::string _name;
+		std::shared_ptr<ArgumentList> _returnArgs;
 		std::shared_ptr<ArgumentList> _inputArgs; 
 		std::shared_ptr<LineStatement> _body;
+	protected:
+		void TypeCheckArgumentList(std::shared_ptr<Ast::SymbolTable::FunctionBinding> binding, std::shared_ptr<SymbolTable> symbolTable);
+		void CodeGenEnter(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, llvm::FunctionType** ft, llvm::Function** function);
+		void CodeGenLeave(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, llvm::FunctionType* ft, llvm::Function* function);
+		std::shared_ptr<Ast::SymbolTable::FunctionBinding> _functionBinding;
+		std::vector<std::shared_ptr<SymbolTable::SymbolBinding>> _argBindings;
+		std::shared_ptr<SymbolTable::SymbolBinding> _thisPtrBinding;
+		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
 	class ConstructorDeclaration : public FunctionDeclaration
@@ -153,7 +159,8 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 		std::shared_ptr<InitializerStatement> _initializerStatement;
 	};
 
@@ -165,7 +172,20 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual std::string Name()
+		{
+			return "~" + _name;
+		}
+
+		std::shared_ptr<FunctionCall> CreateCall(std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location)
+		{
+			return std::make_shared<FunctionCall>(std::dynamic_pointer_cast<FunctionTypeInfo>(_functionBinding->GetTypeInfo()), nullptr /*expression*/, _functionBinding, varBinding, location);
+		}
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		void AppendDtor(std::shared_ptr<FunctionCall> dtor);
+		//virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 	};
 
 	class ClassStatementList : public Statement
@@ -177,7 +197,14 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		ClassStatementList(std::shared_ptr<ClassStatement> statement, std::shared_ptr<ClassStatementList> list, FileLocation& location) :
+			Statement(location),
+			_statement(statement), _next(list)
+		{
+		}
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::shared_ptr<ClassStatement> _statement;
 		std::shared_ptr<ClassStatementList> _next;
@@ -192,11 +219,13 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder = nullptr, llvm::LLVMContext* context = nullptr, llvm::Module * module = nullptr) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		Visibility _visibility;
 		const std::string _name;
 		std::shared_ptr<ClassStatementList> _list;
+		std::shared_ptr<Ast::SymbolTable::ClassBinding> _classBinding;
 	};
 
 	class NewExpression : public Expression
@@ -214,27 +243,7 @@ namespace Ast
 		std::shared_ptr<Expression> _expression;
 
 	protected:
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
-	};
-
-	class StackConstructionExpression : public Expression
-	{
-	public:
-		StackConstructionExpression(const std::string& className, Expression* argumentExpression, FileLocation& location) :
-			Expression(location),
-			_className(className), _argumentExpression(argumentExpression)
-		{
-		}
-
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
-
-		const std::string _className;
-		std::shared_ptr<Expression> _argumentExpression;
-	protected:
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
 		{
 			throw UnexpectedException();
 		}
@@ -249,12 +258,54 @@ namespace Ast
 		{
 		}
 
+		FunctionCall(std::shared_ptr<FunctionTypeInfo> info, std::shared_ptr<Expression> expression, std::shared_ptr<Ast::SymbolTable::SymbolBinding> binding, std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location) :
+			Expression(info, location),
+			_functionTypeInfo(info),
+			_expression(expression),
+			_name(info->Name()),
+			_varBinding(varBinding)
+		{
+			_symbolBinding = binding;
+		}
+
 		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
 		const std::string _name;
+		std::shared_ptr<FunctionTypeInfo> _functionTypeInfo;
 		std::shared_ptr<Expression> _expression;
 		std::vector<llvm::AllocaInst*> _outputValues;
 	protected:
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
+		std::shared_ptr<TypeInfo> _argsExprTypeInfo;
+		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _varBinding;
+	};
+
+	class StackConstructionExpression : public Expression
+	{
+	public:
+		StackConstructionExpression(const std::string& className, const std::string& variableName, Expression* argumentExpression, FileLocation& location) :
+			Expression(location),
+			_className(className), _argumentExpression(argumentExpression), _varName(variableName)
+		{
+		}
+
+		StackConstructionExpression(std::shared_ptr<Ast::SymbolTable::MemberInstanceBinding> varBinding, Expression* argumentExp, FileLocation& location) :
+			Expression(location),
+			_className(varBinding->GetTypeInfo()->Name()),
+			_varName(varBinding->GetName()),
+			_argumentExpression(argumentExp),
+			_varBinding(varBinding)
+		{
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
+
+		const std::string _className;
+		const std::string _varName;
+		std::shared_ptr<Expression> _argumentExpression;
+	protected:
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
+		std::shared_ptr<FunctionCall> _ctorCall;
+		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _varBinding;
 	};
 }

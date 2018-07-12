@@ -80,19 +80,17 @@ public:
 		auto tree = ParseTree("class A { fun B() { C& c(); } }");
 		auto clssA = std::dynamic_pointer_cast<ClassDeclaration>(tree->_stmt);
 		Assert::IsNotNull(clssA.get());
-		auto funB = std::dynamic_pointer_cast<FunctionDeclaration>(clssA->_list->_statement);
+		auto list = SkipCtorsAndDtors(clssA);
+		auto funB = std::dynamic_pointer_cast<FunctionDeclaration>(list->_statement);
 		Assert::IsNotNull(funB.get());
 		auto stmts = std::dynamic_pointer_cast<LineStatements>(funB->_body);
 		Assert::IsNotNull(stmts.get());
-		auto cDeclaration = std::dynamic_pointer_cast<Assignment>(stmts->_statement);
-		Assert::IsNotNull(cDeclaration.get());
-		auto stackAllocation = std::dynamic_pointer_cast<DeclareVariable>(cDeclaration->_lhs->_thisOne);
+		auto exprStatement = std::dynamic_pointer_cast<ExpressionAsStatement>(stmts->_statement);
+		Assert::IsNotNull(exprStatement.get());
+		auto stackAllocation = std::dynamic_pointer_cast<StackConstructionExpression>(exprStatement->_expr);
 		Assert::IsNotNull(stackAllocation.get());
-		Assert::AreEqual("c", stackAllocation->_name.c_str());
-		auto classType = std::dynamic_pointer_cast<UnresolvedClassTypeInfo>(stackAllocation->_typeInfo);
-		Assert::IsNotNull(classType.get());
-		Assert::AreEqual("C", classType->Name().c_str());
-		Assert::AreEqual(true, classType->IsValueType());
+		Assert::AreEqual("c", stackAllocation->_varName.c_str());
+		Assert::AreEqual("C", stackAllocation->_className.c_str());
 	}
 
 	TEST_METHOD(ConstructorWithInitializerList)

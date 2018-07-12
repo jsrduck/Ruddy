@@ -52,7 +52,14 @@ namespace Ast
 		virtual bool IsFloatingPoint() { return false; }
 		virtual bool IsComposite() { return false; }
 		virtual bool IsClassType() { return false; }
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) = 0;
+
 		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo)
+		{
+			throw UnexpectedException();
+		}
+
+		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context)
 		{
 			throw UnexpectedException();
 		}
@@ -86,6 +93,11 @@ namespace Ast
 		{
 			// TODO
 			throw UnexpectedException();
+		}
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			return true; // Auto is always the same type!
 		}
 
 		// Operator logic
@@ -184,6 +196,19 @@ namespace Ast
 			return true;
 		}
 
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			auto otherAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(other);
+			if (otherAsComposite != nullptr)
+			{
+				return _thisType->IsSameType(otherAsComposite->_thisType) && _next->IsSameType(otherAsComposite->_next);
+			}
+			else
+			{
+				return _next == nullptr && _thisType->IsSameType(other);
+			}
+		}
+
 		std::shared_ptr<TypeInfo> _thisType;
 		std::shared_ptr<CompositeTypeInfo> _next;
 		std::string _name;
@@ -216,11 +241,27 @@ namespace Ast
 			throw UnexpectedException();
 		}
 
+		bool IsMethod()
+		{
+			return !_mods->IsStatic();
+		}
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			auto otherAsFunction = std::dynamic_pointer_cast<FunctionTypeInfo>(other);
+			if (otherAsFunction == nullptr)
+				return false;
+
+			// TODO: Is it enough for a function to have a matching signature to be the same type?
+			return InputArgsType()->IsSameType(otherAsFunction->InputArgsType()) && OutputArgsType()->IsSameType(otherAsFunction->OutputArgsType());
+		}
+
 		std::shared_ptr<TypeInfo> InputArgsType() { return _inputArgs; }
 		std::shared_ptr<TypeInfo> OutputArgsType() { return _outputArgs; }
 		std::shared_ptr<TypeInfo> _inputArgs;
 		std::shared_ptr<TypeInfo> _outputArgs;
 		std::string _name;
+		std::shared_ptr<Ast::Modifier> _mods;
 	};
 
 	class BaseClassTypeInfo : public TypeInfo
@@ -231,9 +272,11 @@ namespace Ast
 			return true;
 		}
 
-		virtual std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) = 0;
+		virtual std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) = 0;
 
 		virtual bool IsValueType() = 0;
+
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) = 0;
 	};
 
 	// Represents the TypeInfo for a class's declaration, which is equally valid for value or reference instantiations.
@@ -243,7 +286,7 @@ namespace Ast
 	class ClassDeclarationTypeInfo : public TypeInfo
 	{
 	public:
-		ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration);
+		ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration, std::string& fullyQualifiedName);
 
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
@@ -255,6 +298,11 @@ namespace Ast
 		virtual const std::string& Name() override
 		{
 			return _name;
+		}
+
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr)
+		{
+			return _fullyQualifiedName;
 		}
 
 		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
@@ -269,12 +317,28 @@ namespace Ast
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
 		{
-			// TODO
-			throw UnexpectedException();
+			if (_type == nullptr)
+				throw UnexpectedException();
+			return _type;
+		}
+
+		void BindType(llvm::Type* type)
+		{
+			_type = type;
+		}
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			auto otherAsClass = std::dynamic_pointer_cast<BaseClassTypeInfo>(other);
+			if (otherAsClass == nullptr)
+				return false;
+			return FullyQualifiedName().compare(otherAsClass->FullyQualifiedName()) == 0;
 		}
 
 	private:
+		llvm::Type* _type;
 		std::string _name;
+		std::string _fullyQualifiedName;
 	};
 
 	// Represents the TypeInfo of a class (not a primitive), along with value/reference type. The passed in type is
@@ -309,16 +373,11 @@ namespace Ast
 			return _classDeclTypeInfo->SupportsOperator(operation);
 		}
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
-		{
-			// TODO
-			throw UnexpectedException();
-		}
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
 		{
-			// TODO
-			throw UnexpectedException();
+			return _classDeclTypeInfo->GetIRType(context, asOutput);
 		}
 
 		bool IsValueType() override
@@ -326,9 +385,21 @@ namespace Ast
 			return _valueType;
 		}
 
-		std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> /*symbolTable*/) override
+		std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> /*symbolTable*/) override
 		{
 			return _classDeclTypeInfo;
+		}
+
+		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) override;
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			return _classDeclTypeInfo->IsSameType(other);
+		}
+
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) override
+		{
+			return std::dynamic_pointer_cast<ClassDeclarationTypeInfo>(_classDeclTypeInfo)->FullyQualifiedName(symbolTable);
 		}
 
 	private:
@@ -353,6 +424,16 @@ namespace Ast
 			return _name;
 		}
 
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) override
+		{
+			if (NeedsResolution())
+				if (symbolTable != nullptr)
+					EnsureResolved(symbolTable);
+				else
+					throw UnexpectedException();
+			return _resolvedType->FullyQualifiedName();
+		}
+
 		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
 		virtual bool SupportsOperator(Operation* operation) override;
@@ -364,14 +445,16 @@ namespace Ast
 
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
 		{
-			// TODO
-			throw UnexpectedException();
+			if (_resolvedType == nullptr)
+				throw UnexpectedException();
+			return _resolvedType->CreateAllocation(name, builder, context);
 		}
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
 		{
-			// TODO
-			throw UnexpectedException();
+			if (_resolvedType == nullptr)
+				throw UnexpectedException();
+			return _resolvedType->GetIRType(context, asOutput);
 		}
 
 		void EnsureResolved(std::shared_ptr<SymbolTable> symbolTable); 
@@ -381,10 +464,15 @@ namespace Ast
 			return _valueType;
 		}
 
-		std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) override
+		std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			EnsureResolved(symbolTable);
-			return _resolvedType->ClassDeclarationTypeInfo(symbolTable);
+			return _resolvedType->GetClassDeclarationTypeInfo(symbolTable);
+		}
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			return _resolvedType->IsSameType(other);
 		}
 
 	private:

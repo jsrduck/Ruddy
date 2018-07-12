@@ -21,6 +21,9 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CodeGenUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -41,5 +44,6 @@
     <CustomBuild Include="ValidatePrimitives.rdy" />
     <CustomBuild Include="ValidateMixedPrimitives.rdy" />
     <CustomBuild Include="ValidateControlFlow.rdy" />
+    <CustomBuild Include="ValidateClasses.rdy" />
   </ItemGroup>
 </Project>

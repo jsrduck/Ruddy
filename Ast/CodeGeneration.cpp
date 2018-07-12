@@ -8,23 +8,45 @@
 #include <llvm\IR\IRBuilder.h>
 #include <llvm\IR\Verifier.h>
 
-//static llvm::IRBuilder<> Builder(*context);
-
 namespace Ast {
 
-	llvm::Value* DeclareVariable::GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+	llvm::Value* CreateAssignment(std::shared_ptr<Ast::TypeInfo> expectedType, llvm::Value* lhs, llvm::Value* rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
-		FileLocationContext locationContext(_location);
-		return symbolTable->Lookup(_name)->CreateAllocationInstance(_name, builder, context);
+		if (rhs->getType()->isPointerTy())
+		{
+			if (std::dynamic_pointer_cast<BaseClassTypeInfo>(expectedType)->IsValueType())
+			{
+				auto asAllocInst = static_cast<llvm::AllocaInst*>(lhs);
+				if (asAllocInst == nullptr)
+					throw UnexpectedException();
+				auto llvmStructType = asAllocInst->getType()->getElementType();
+				auto size = module->getDataLayout().getTypeAllocSize(expectedType->GetIRType(context)); // TODO: Why doesn't this work if structs aren't packed? It's supposed to return the size including padding...
+				builder->CreateMemCpy(lhs, rhs, size, 0);
+			}
+			else
+			{
+				throw UnexpectedException(); // Not implemented yet
+			}
+		}
+		else
+		{
+			builder->CreateStore(rhs, lhs);
+		}
 	}
 
-	llvm::Value* AssignFromReference::GetIRValue(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+	llvm::Value* DeclareVariable::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		FileLocationContext locationContext(_location);
-		return symbolTable->Lookup(_ref)->GetIRValue();
+		return _symbolBinding->CreateAllocationInstance(_name, builder, context);
 	}
 
-	void AssignFrom::CodeGen(std::shared_ptr<Expression> rhs, std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
+	llvm::Value* AssignFromReference::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
+	{
+		FileLocationContext locationContext(_location);
+		return _symbolBinding->GetIRValue(builder, context, module);
+	}
+
+	void AssignFrom::CodeGen(std::shared_ptr<Expression> rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		FileLocationContext locationContext(_location);
 		if (_next != nullptr)
@@ -34,10 +56,10 @@ namespace Ast {
 			auto rhsAsFunction = std::dynamic_pointer_cast<FunctionCall>(rhs);
 			if (rhsAsList != nullptr)
 			{
-				auto rhValue = rhsAsList->_left->CodeGen(symbolTable, builder, context, module, _thisType);
-				auto alloc = _thisOne->GetIRValue(symbolTable, builder, context);
-				builder->CreateStore(rhValue, alloc);
-				_next->CodeGen(rhsAsList->_right, symbolTable, builder, context, module);
+				auto rhValue = rhsAsList->_left->CodeGen(builder, context, module, _thisType);
+				auto alloc = _thisOne->GetIRValue(builder, context, module);
+				CreateAssignment(_thisType, alloc, rhValue, builder, context, module);
+				_next->CodeGen(rhsAsList->_right, builder, context, module);
 			}
 			else if (rhsAsFunction != nullptr)
 			{
@@ -50,7 +72,7 @@ namespace Ast {
 					compTypeExpected = std::make_shared<CompositeTypeInfo>(_thisType, nextAsComp);
 				else
 					compTypeExpected->_next = nextAsComp;
-				auto functionCall = (llvm::CallInst*)rhsAsFunction->CodeGen(symbolTable, builder, context, module, compTypeExpected);
+				auto functionCall = (llvm::CallInst*)rhsAsFunction->CodeGen(builder, context, module, compTypeExpected);
 
 				// Store each output value in a value from the lhs
 				auto lhsVar = _next;
@@ -61,15 +83,15 @@ namespace Ast {
 						throw UnexpectedException();
 					auto asComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(outputArgTypeInfo);
 					auto thisType = asComposite != nullptr ? asComposite->_thisType : outputArgTypeInfo;
-					auto alloc = lhsVar->_thisOne->GetIRValue(symbolTable, builder, context);
-					builder->CreateStore(builder->CreateLoad(outputVal), alloc);
+					auto alloc = lhsVar->_thisOne->GetIRValue(builder, context, module);
+					CreateAssignment(_thisType, alloc, builder->CreateLoad(outputVal), builder, context, module);
 					lhsVar = lhsVar->_next;
 					outputArgTypeInfo = asComposite != nullptr ? asComposite->_next : nullptr;
 				}
 
 				// Store the first guy that we do return
-				auto alloc = _thisOne->GetIRValue(symbolTable, builder, context);
-				builder->CreateStore(functionCall, alloc);
+				auto alloc = _thisOne->GetIRValue(builder, context, module);
+				CreateAssignment(_thisType, alloc, functionCall, builder, context, module);
 			}
 			else
 			{
@@ -78,9 +100,9 @@ namespace Ast {
 		}
 		else
 		{
-			auto rhValue = rhs->CodeGen(symbolTable, builder, context, module, _thisType->IsAutoType() ? nullptr : _thisType);
-			auto alloc = _thisOne->GetIRValue(symbolTable, builder, context);
-			builder->CreateStore(rhValue, alloc);
+			auto rhValue = rhs->CodeGen(builder, context, module, _thisType->IsAutoType() ? nullptr : _thisType);
+			auto alloc = _thisOne->GetIRValue(builder, context, module);
+			CreateAssignment(_thisType, alloc, rhValue, builder, context, module);
 		}
 	}
 
@@ -88,42 +110,38 @@ namespace Ast {
 	{
 		if (_argument != nullptr)
 		{
-			inputVector.push_back(_argument->_typeInfo->GetIRType(context, asOutput));
+			auto irType = _argument->_typeInfo->GetIRType(context, asOutput);
+			if (irType->isStructTy())
+				irType = irType->getPointerTo();
+			inputVector.push_back(irType);
 		}
 		if (_next != nullptr)
 			_next->AddIRTypesToVector(inputVector, context, asOutput);
 	}
 
-	llvm::Value* FunctionCall::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* FunctionCall::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto functionBinding = symbolTable->Lookup(_name);
-		auto functionType = std::dynamic_pointer_cast<FunctionTypeInfo>(functionBinding->GetTypeInfo());
-		if (functionType == nullptr)
+		if (_functionTypeInfo == nullptr)
 			throw UnexpectedException();
-		if (_expression == nullptr)
-		{
-			if (functionType->InputArgsType() != nullptr)
-			{
-				throw TypeMismatchException(functionType->InputArgsType(), nullptr);
-			}
-		}
-		else
-		{
-			auto evaluatedType = _expression->Evaluate(symbolTable);
-			if (!functionType->InputArgsType()->IsImplicitlyAssignableFrom(evaluatedType, symbolTable))
-			{
-				throw TypeMismatchException(functionType->InputArgsType(), evaluatedType);
-			}
-		}
-		auto function = module->getFunction(_name);
+		auto function = module->getFunction(_symbolBinding->GetFullyQualifiedName());
+		if (function == nullptr)
+			throw UnexpectedException();
 		std::vector<llvm::Value*> args;
+
+		if (_functionTypeInfo->IsMethod())
+		{
+			// Push "this" ptr on first
+			auto val = _varBinding->GetIRValue(builder, context, module);
+			args.push_back(val);
+		}
+
 		auto exprList = _expression ? std::dynamic_pointer_cast<ExpressionList>(_expression) : nullptr;
 		if (exprList != nullptr)
 		{
-			auto argList = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->_inputArgs);
+			auto argList = std::dynamic_pointer_cast<CompositeTypeInfo>(_functionTypeInfo->_inputArgs);
 			while (exprList != nullptr)
 			{
-				auto val = exprList->_left->CodeGen(symbolTable, builder, context, module, argList->_thisType);
+				auto val = exprList->_left->CodeGen(builder, context, module, argList->_thisType);
 				args.push_back(val);
 
 				// Check if we just codegen'd a function call. If so, we need to add any extra output parameters
@@ -143,7 +161,7 @@ namespace Ast {
 					exprList = std::dynamic_pointer_cast<ExpressionList>(right);
 					if (exprList == nullptr)
 					{
-						auto argsValue = right->CodeGen(symbolTable, builder, context, module, argList->_next->_thisType);
+						auto argsValue = right->CodeGen(builder, context, module, argList->_next->_thisType);
 						args.push_back(argsValue);
 
 						// once again, check if we just codegen'd a function call
@@ -162,7 +180,7 @@ namespace Ast {
 		}
 		else if (_expression != nullptr)
 		{
-			auto argsValue = _expression->CodeGen(symbolTable, builder, context, module, functionType->_inputArgs);
+			auto argsValue = _expression->CodeGen(builder, context, module, _functionTypeInfo->_inputArgs);
 			args.push_back(argsValue);
 			auto asFunctionCall = std::dynamic_pointer_cast<FunctionCall>(_expression);
 			if (asFunctionCall != nullptr)
@@ -176,7 +194,7 @@ namespace Ast {
 		}
 
 		// Are there multiple return types? If so, we need to add the extras as "out" parameters
-		auto outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->OutputArgsType());
+		auto outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(_functionTypeInfo->OutputArgsType());
 		if (outputAsComposite != nullptr)
 			outputAsComposite = outputAsComposite->_next;
 		std::vector<llvm::AllocaInst*> outputVals;
@@ -191,7 +209,7 @@ namespace Ast {
 
 		// After call, cast any output vals that need implicit casting
 		// Do our own casting on the output values here
-		outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionType->OutputArgsType());
+		outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(_functionTypeInfo->OutputArgsType());
 		if (outputAsComposite != nullptr)
 			outputAsComposite = outputAsComposite->_next;
 		auto expectedType = hint != nullptr && hint->IsComposite() ? std::dynamic_pointer_cast<CompositeTypeInfo>(hint)->_next : nullptr;
@@ -199,10 +217,8 @@ namespace Ast {
 		{
 			auto currentExpectedType = expectedType != nullptr && expectedType->IsComposite() ? std::dynamic_pointer_cast<CompositeTypeInfo>(expectedType)->_thisType : expectedType;
 			auto tempVal = outputVal;
-			if (currentExpectedType != nullptr && !currentExpectedType->IsAutoType() && outputAsComposite->_thisType != currentExpectedType)
+			if (currentExpectedType != nullptr && !currentExpectedType->IsAutoType() && !outputAsComposite->_thisType->IsSameType(currentExpectedType))
 			{
-				if (!currentExpectedType->IsImplicitlyAssignableFrom(outputAsComposite->_thisType, symbolTable))
-					throw UnexpectedException(); // We should have caught the type exception already
 				auto loadInstr = builder->CreateLoad(tempVal);
 				auto castGuy = builder->CreateCast(static_cast<llvm::Instruction::CastOps>(outputAsComposite->_thisType->CreateCast(currentExpectedType)), loadInstr, currentExpectedType->GetIRType(context));
 				tempVal = currentExpectedType->CreateAllocation("", builder, context);
@@ -214,9 +230,9 @@ namespace Ast {
 		return retVal;
 	}
 
-	llvm::Value* DebugPrintStatement::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* DebugPrintStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto value = _expression->CodeGen(symbolTable, builder, context, module);
+		auto value = _expression->CodeGen(builder, context, module);
 		std::vector<llvm::Value*> args;
 
 		if (value->getType()->isIntegerTy())
@@ -332,19 +348,18 @@ namespace Ast {
 		return nullptr; // ???
 	}
 
-	llvm::Value* Reference::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* Reference::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto symbol = symbolTable->Lookup(_id);
-		auto typeInfo = symbol->GetTypeInfo();
+		auto typeInfo = _symbolBinding->GetTypeInfo();
 		if (typeInfo->IsPrimitiveType())
 		{
-			return builder->CreateLoad(symbol->GetIRValue(), _id);
+			return builder->CreateLoad(_symbolBinding->GetIRValue(builder, context, module), _id);
 		}
 		else
-			return symbol->GetIRValue();
+			return _symbolBinding->GetIRValue(builder, context, module);
 	}
 
-	llvm::Value* ExpressionList::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* ExpressionList::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		throw UnexpectedException();
 		//return _symbol->GetAllocationInstance();
@@ -355,7 +370,7 @@ namespace Ast {
 	*/
 
 
-	llvm::Value* StringConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* StringConstant::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		std::wstring asWideString(_input.begin(), _input.end()); // TODO: Doesn't handle inlined unicode characters
 		llvm::SmallVector<uint16_t, 8> ElementVals;
@@ -364,7 +379,7 @@ namespace Ast {
 		return llvm::ConstantDataArray::get(*context, ElementVals);
 	}
 
-	llvm::Value* IntegerConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* IntegerConstant::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		if (hint == nullptr || hint->IsConstant())
 		{
@@ -388,7 +403,7 @@ namespace Ast {
 		}
 	}
 
-	llvm::Value* FloatingConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* FloatingConstant::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		if (hint != nullptr && std::dynamic_pointer_cast<Float32TypeInfo>(hint) != nullptr)
 			return llvm::ConstantFP::get(*context, llvm::APFloat(AsFloat32()));
@@ -397,7 +412,7 @@ namespace Ast {
 		return llvm::ConstantFP::get(*context, llvm::APFloat(AsFloat64()));
 	}
 
-	llvm::Value* BoolConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BoolConstant::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		if (_value)
 			return llvm::ConstantInt::getTrue(*context);
@@ -405,14 +420,11 @@ namespace Ast {
 			return llvm::ConstantInt::getFalse(*context);
 	}
 
-	llvm::Value* CharConstant::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* CharConstant::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto val = llvm::ConstantInt::get(*context, llvm::APInt(hint == CharByteTypeInfo::Get() ? 8 : 16, Value()));
 		if (hint != nullptr && hint != _typeInfo && hint != CharByteTypeInfo::Get() && hint != CharTypeInfo::Get())
-			if (hint->IsImplicitlyAssignableFrom(_typeInfo, symbolTable))
-				return builder->CreateCast(llvm::Instruction::CastOps::ZExt, val, hint->GetIRType(context));
-			else
-				throw UnexpectedException();
+			return builder->CreateCast(llvm::Instruction::CastOps::ZExt, val, hint->GetIRType(context));
 		return val;
 	}
 
@@ -420,10 +432,10 @@ namespace Ast {
 	 * Operations
 	 */
 
-	llvm::Value* AddOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* AddOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(builder, context, module, _implicitCastType);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -442,10 +454,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* SubtractOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* SubtractOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, _resultOfOperation);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -464,10 +476,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* MultiplyOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* MultiplyOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, _resultOfOperation);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -486,10 +498,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* DivideOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* DivideOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, _resultOfOperation);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -511,10 +523,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* RemainderOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* RemainderOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, _resultOfOperation);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -536,10 +548,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* GreaterThanOrEqualOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* GreaterThanOrEqualOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(builder, context, module, _implicitCastType);
 
 		if (_implicitCastType->IsInteger())
 		{
@@ -561,10 +573,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* LessThanOrEqualOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LessThanOrEqualOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(builder, context, module, _implicitCastType);
 
 		if (_implicitCastType->IsInteger())
 		{
@@ -586,10 +598,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* GreaterThanOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* GreaterThanOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(builder, context, module, _implicitCastType);
 
 		if (_implicitCastType->IsInteger())
 		{
@@ -611,10 +623,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* LessThanOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LessThanOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(builder, context, module, _implicitCastType);
 
 		if (_implicitCastType->IsInteger())
 		{
@@ -636,10 +648,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* EqualToOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* EqualToOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(builder, context, module, _implicitCastType);
 
 		if (_implicitCastType->IsInteger())
 		{
@@ -658,10 +670,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* NotEqualToOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* NotEqualToOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, _implicitCastType);
+		auto lhs = _lhs->CodeGen(builder, context, module, _implicitCastType);
+		auto rhs = _rhs->CodeGen(builder, context, module, _implicitCastType);
 
 		if (_implicitCastType->IsInteger())
 		{
@@ -684,138 +696,126 @@ namespace Ast {
 	static std::shared_ptr<IntegerConstant> s_one = std::make_shared<IntegerConstant>("1", FileLocation(-1, -1));
 	static std::shared_ptr<FloatingConstant> s_oneFloat = std::make_shared<FloatingConstant>("1.0", FileLocation(-1, -1));
 
-	llvm::Value* PostIncrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PostIncrementOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto type = hint ? hint : _typeInfo;
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, type);
+		auto val = _expr->CodeGen(builder, context, module, type);
 		// Now increment it by one
 		llvm::Value* result;
 		if (val->getType()->isIntegerTy())
 		{
-			result = builder->CreateAdd(val, s_one->CodeGen(symbolTable, builder, context, module, type));
+			result = builder->CreateAdd(val, s_one->CodeGen(builder, context, module, type));
 		}
 		else if (val->getType()->isFloatingPointTy())
 		{
-			result = builder->CreateFAdd(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, type));
+			result = builder->CreateFAdd(val, s_oneFloat->CodeGen(builder, context, module, type));
 		}
 		else
 		{
 			throw UnexpectedException();
 		}
-		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
-		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
-		if (exprAsReference == nullptr)
-			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
-		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetIRValue());
+		// Now store the result.
+		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		builder->CreateStore(result, exprVal);
 		return val; // Return the result before the increment
 	}
 
-	llvm::Value* PostDecrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PostDecrementOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
+		auto val = _expr->CodeGen(builder, context, module, hint ? hint : _typeInfo);
 		// Now decrement it by one
 		llvm::Value* result;
 		if (val->getType()->isIntegerTy())
 		{
-			result = builder->CreateSub(val, s_one->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+			result = builder->CreateSub(val, s_one->CodeGen(builder, context, module, hint ? hint : _typeInfo));
 		}
 		else if (val->getType()->isFloatingPointTy())
 		{
-			result = builder->CreateFSub(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+			result = builder->CreateFSub(val, s_oneFloat->CodeGen(builder, context, module, hint ? hint : _typeInfo));
 		}
 		else
 		{
 			throw UnexpectedException();
 		}
-		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
-		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
-		if (exprAsReference == nullptr)
-			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
-		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetIRValue());
+		// Now store the result.
+		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		builder->CreateStore(result, exprVal);
 		return val; // Return the result before the decrement
 	}
 
-	llvm::Value* PreIncrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PreIncrementOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
+		auto val = _expr->CodeGen(builder, context, module, hint ? hint : _typeInfo);
 		// Now increment it by one
 		llvm::Value* result;
 		if (val->getType()->isIntegerTy())
 		{
-			result = builder->CreateAdd(val, s_one->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+			result = builder->CreateAdd(val, s_one->CodeGen(builder, context, module, hint ? hint : _typeInfo));
 		}
 		else if (val->getType()->isFloatingPointTy())
 		{
-			result = builder->CreateFAdd(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+			result = builder->CreateFAdd(val, s_oneFloat->CodeGen(builder, context, module, hint ? hint : _typeInfo));
 		}
 		else
 		{
 			throw UnexpectedException();
 		}
-		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
-		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
-		if (exprAsReference == nullptr)
-			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
-		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetIRValue());
+		// Now store the result.
+		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		builder->CreateStore(result, exprVal);
 		return result; // Return the result after the increment
 	}
 
-	llvm::Value* PreDecrementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* PreDecrementOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
+		auto val = _expr->CodeGen(builder, context, module, hint ? hint : _typeInfo);
 		// Now decrement it by one
 		llvm::Value* result;
 		if (val->getType()->isIntegerTy())
 		{
-			result = builder->CreateSub(val, s_one->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+			result = builder->CreateSub(val, s_one->CodeGen(builder, context, module, hint ? hint : _typeInfo));
 		}
 		else if (val->getType()->isFloatingPointTy())
 		{
-			result = builder->CreateFSub(val, s_oneFloat->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo));
+			result = builder->CreateFSub(val, s_oneFloat->CodeGen(builder, context, module, hint ? hint : _typeInfo));
 		}
 		else
 		{
 			throw UnexpectedException();
 		}
-		// Now store the result. For now, we assume it's a reference (nothing else supports these operations)
-		auto exprAsReference = std::dynamic_pointer_cast<Reference>(_expr);
-		if (exprAsReference == nullptr)
-			throw UnexpectedException(); // TODO: What if user makes syntax error, like 0++. What do we want to report?
-		auto symbol = symbolTable->Lookup(exprAsReference->Id());
-		builder->CreateStore(result, symbol->GetIRValue());
+		// Now store the result.
+		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		builder->CreateStore(result, exprVal);
 		return result; // Return the result after the decrement
 	}
 
-	llvm::Value* NegateOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* NegateOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val =_expr->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
+		auto val =_expr->CodeGen(builder, context, module, BoolTypeInfo::Get());
 		// Now return the negation of that
 		return builder->CreateNot(val);
 	}
 
-	llvm::Value* LogicalAndOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LogicalAndOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
+		auto lhs = _lhs->CodeGen(builder, context, module, BoolTypeInfo::Get());
+		auto rhs = _rhs->CodeGen(builder, context, module, BoolTypeInfo::Get());
 
 		return builder->CreateAnd(lhs, rhs);
 	}
 
-	llvm::Value* LogicalOrOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* LogicalOrOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, BoolTypeInfo::Get());
+		auto lhs = _lhs->CodeGen(builder, context, module, BoolTypeInfo::Get());
+		auto rhs = _rhs->CodeGen(builder, context, module, BoolTypeInfo::Get());
 
 		return builder->CreateOr(lhs, rhs);
 	}
 
-	llvm::Value* BitwiseAndOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseAndOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -825,10 +825,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseOrOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseOrOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -838,10 +838,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseXorOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseXorOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
 
 		if (_resultOfOperation->IsInteger())
 		{
@@ -851,10 +851,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseShiftLeftOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseShiftLeftOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
 
 		if (_lhsTypeInfo->IsInteger())
 		{
@@ -864,10 +864,10 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* BitwiseShiftRightOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* BitwiseShiftRightOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto lhs = _lhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
-		auto rhs = _rhs->CodeGen(symbolTable, builder, context, module, hint ? hint : _resultOfOperation);
+		auto lhs = _lhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
+		auto rhs = _rhs->CodeGen(builder, context, module, hint ? hint : _resultOfOperation);
 
 		if (_lhsTypeInfo)
 		{
@@ -877,9 +877,9 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* ComplementOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* ComplementOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expr->CodeGen(symbolTable, builder, context, module, hint ? hint : _typeInfo);
+		auto val = _expr->CodeGen(builder, context, module, hint ? hint : _typeInfo);
 		if (val->getType()->isIntegerTy())
 		{
 			// XOR with 0xFFFF....
@@ -905,16 +905,16 @@ namespace Ast {
 		throw UnexpectedException();
 	}
 
-	llvm::Value* CastOperation::CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* CastOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto val = _expression->CodeGen(symbolTable, builder, context, module);
+		auto val = _expression->CodeGen(builder, context, module);
 		return builder->CreateCast((llvm::Instruction::CastOps)_castFrom->CreateCast(_castTo), val, _castTo->GetIRType(context));
 	}
 
-	llvm::Value* Expression::CodeGen(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value* Expression::CodeGen(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		FileLocationContext locationContext(_location);
-		auto val = CodeGenInternal(symbolTable, builder, context, module, hint);
+		auto val = CodeGenInternal(builder, context, module, hint);
 		if (hint != nullptr && !hint->IsConstant())
 		{
 			if (hint->IsComposite())
@@ -932,14 +932,515 @@ namespace Ast {
 				}
 			}
 			// Try to implicitly cast it
-			else if (hint->GetIRType(context) != val->getType())
+			else if (!hint->IsClassType() && hint->GetIRType(context) != val->getType())
 			{
-				if (!hint->IsImplicitlyAssignableFrom(_typeInfo, symbolTable))
-					throw UnexpectedException(); // Somehow we're trying to implicitly cast something that doesn't implicitly cast
-
 				return builder->CreateCast(static_cast<llvm::Instruction::CastOps>(_typeInfo->CreateCast(hint)), val, hint->GetIRType(context));
 			}
 		}
 		return val;
+	}
+
+	llvm::Value* StackConstructionExpression::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		llvm::Value* retVal = nullptr;
+		// Only allocate local variables. Member variables are already allocated.
+		if (_varBinding->IsVariableBinding())
+		{
+			// First, create the struct on the stack
+			auto classTypeInfo = std::make_shared<ClassTypeInfo>(_symbolBinding->GetTypeInfo(), true /*valueType*/);
+			retVal = classTypeInfo->CreateAllocation(_varName, builder, context);
+
+			// Bind the variable to this struct value
+			_varBinding->BindIRValue(retVal);
+		}
+
+		// Now, run the c'tor
+		_ctorCall->CodeGen(builder, context, module);
+
+		return retVal;
+	}
+
+	llvm::AllocaInst* ClassTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+	{
+		return builder->CreateAlloca(GetIRType(context), nullptr /*arraysize*/, name);
+	}
+
+	/* Statements */
+
+	void Ast::Statement::CodeGen(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		FileLocationContext locationContext(_location);
+		CodeGenInternal(builder, context, module);
+	}
+
+	void Ast::IfStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		auto ifContBlock =llvm::BasicBlock::Create(*context); // The label after the if/else statement is over
+		bool ifContBlockReachable = false;
+		auto func = builder->GetInsertBlock()->getParent();
+		auto elseBlock = _elseStatement != nullptr ? llvm::BasicBlock::Create(*context) : nullptr;
+		auto cond = _condition->CodeGen(builder, context, module, BoolTypeInfo::Get());
+		auto result = builder->CreateICmpNE(cond, builder->getInt1(0));
+
+		auto ifBlock = llvm::BasicBlock::Create(*context, "", func);
+
+		if (elseBlock != nullptr)
+		{
+			builder->CreateCondBr(cond, ifBlock, elseBlock);
+		}
+		else
+		{
+			builder->CreateCondBr(cond, ifBlock, ifContBlock);
+			ifContBlockReachable = true;
+		}
+
+		builder->SetInsertPoint(ifBlock);
+
+		_statement->CodeGen(builder, context, module);
+
+		// Run any d'tors from the if block going out of scope
+		for (auto& dtor : _ifStatementEndScopeDtors)
+		{
+			dtor->CodeGen(builder, context, module);
+		}
+
+		// Add a branch to the continue block (after the if/else)
+		// but not if there's already a terminator, ie a return stmt.
+		auto insertBlock = builder->GetInsertBlock();
+		if (insertBlock->empty() || !insertBlock->back().isTerminator())
+		{
+			builder->CreateBr(ifContBlock);
+			ifContBlockReachable = true;
+		}
+
+		if (_elseStatement != nullptr)
+		{
+			func->getBasicBlockList().push_back(elseBlock);
+			builder->SetInsertPoint(elseBlock);
+			_elseStatement->CodeGen(builder, context, module);
+
+			// Run any d'tors from the else block going out of scope
+			for (auto& dtor : _elseStatementEndScopeDtors)
+			{
+				dtor->CodeGen(builder, context, module);
+			}
+
+			// Add a branch to the continue block (after the if/else)
+			// but not if there's already a terminator, ie a return stmt.
+			elseBlock = builder->GetInsertBlock();
+			if (elseBlock->empty() || !elseBlock->back().isTerminator())
+			{
+				builder->CreateBr(ifContBlock);
+				ifContBlockReachable = true;
+			}
+		}
+
+		if (ifContBlockReachable)
+		{
+			func->getBasicBlockList().push_back(ifContBlock);
+			builder->SetInsertPoint(ifContBlock);
+		}
+	}
+
+	void Ast::WhileStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		auto func = builder->GetInsertBlock()->getParent();
+		auto conditionBlock = llvm::BasicBlock::Create(*context, "", func);
+
+		builder->CreateBr(conditionBlock);
+		builder->SetInsertPoint(conditionBlock);
+		auto loopBlock = llvm::BasicBlock::Create(*context);
+		builder->CreateCondBr(_condition->CodeGen(builder, context, module, BoolTypeInfo::Get()), loopBlock, _currentLoopBinding->GetEndOfScopeBlock(context));
+		func->getBasicBlockList().push_back(loopBlock);
+		builder->SetInsertPoint(loopBlock);
+
+		_statement->CodeGen(builder, context, module);
+
+		builder->CreateBr(conditionBlock);
+
+		auto fallthrough = _currentLoopBinding->GetEndOfScopeBlock(context);
+		func->getBasicBlockList().push_back(fallthrough);
+		builder->SetInsertPoint(fallthrough);
+
+		// Run any d'tors from the while block going out of scope
+		for (auto& dtor : _endScopeDtors)
+		{
+			dtor->CodeGen(builder, context, module);
+		}
+	}
+
+	void Ast::BreakStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		// First run any d'tors from the while block going out of scope
+		for (auto& dtor : _endScopeDtors)
+		{
+			dtor->CodeGen(builder, context, module);
+		}
+		builder->CreateBr(_currentLoopBinding->GetEndOfScopeBlock(context));
+	}
+
+	void Ast::Assignment::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		_lhs->CodeGen(_rhs, builder, context, module);
+	}
+
+	void Ast::ScopedStatements::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		if (_statements != nullptr)
+		{
+			_statements->CodeGen(builder, context, module);
+
+			// Run any d'tors from the while block going out of scope
+			for (auto& dtor : _endScopeDtors)
+			{
+				dtor->CodeGen(builder, context, module);
+			}
+		}
+	}
+
+	void Ast::ExpressionAsStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		_expr->CodeGen(builder, context, module);
+	}
+
+	void ReturnStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		auto functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(_functionBinding->GetTypeInfo());
+		auto outputTypeAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionTypeInfo->OutputArgsType());
+		if (outputTypeAsComposite != nullptr)
+		{
+			// Return the 1st parameter, treat the rest as out parameters
+			auto exprList = std::dynamic_pointer_cast<ExpressionList>(_idList);
+
+			auto function = (llvm::Function*)_functionBinding->GetIRValue(builder, context, module);
+
+			// Get the number of input arguments
+			int inputArgCount = 0;
+			if (functionTypeInfo->InputArgsType() != nullptr)
+			{
+				auto inputArgsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(functionTypeInfo->InputArgsType());
+				if (inputArgsComposite == nullptr)
+				{
+					inputArgCount++;
+				}
+				else
+				{
+					auto inputArg = inputArgsComposite;
+					while (inputArg != nullptr && inputArgsComposite->_thisType != nullptr)
+					{
+						inputArgCount++;
+						inputArg = inputArg->_next;
+					}
+				}
+			}
+			auto currExprList = exprList;
+			auto currOutputType = outputTypeAsComposite;
+			if (functionTypeInfo->IsMethod())
+				inputArgCount++;// Methods have "this" as an invisible 1st arg.
+			int i = 0;
+			for (auto &arg : function->args())
+			{
+				if (i++ < inputArgCount)
+					continue;
+
+				// Now we've gotten to output args
+				// TODO: Passing fun with same output type???
+				currOutputType = currOutputType->_next;
+				auto currExpr = currExprList->_right;
+				if (currExpr != nullptr)
+				{
+					currExprList = std::dynamic_pointer_cast<ExpressionList>(currExpr);
+					if (currExprList == nullptr)
+					{
+						// Just finish up last parameter
+						CreateAssignment(currOutputType->_thisType, &arg/*ptr (deref)*/, currExpr->CodeGen(builder, context, module, currOutputType->_thisType), builder, context, module);
+						break;
+					}
+					else
+					{
+						CreateAssignment(currOutputType->_thisType, &arg, currExprList->_left->CodeGen(builder, context, module, currOutputType->_thisType), builder, context, module);
+					}
+				}
+				else
+				{
+					throw UnexpectedException();
+				}
+			}
+
+			// Ret has to go last
+			llvm::Value* val;
+			std::shared_ptr<TypeInfo> type;
+			
+			// TODO: Will this work for return functions with same type?
+			if (exprList)
+			{
+				val = exprList->_left->CodeGen(builder, context, module, outputTypeAsComposite->_thisType);
+				type = outputTypeAsComposite->_thisType;
+			}
+			else
+			{
+				val = _idList->CodeGen(builder, context, module, outputTypeAsComposite);
+				type = outputTypeAsComposite;
+			}
+			val = GetValueToReturn(val, type, builder, context, module);
+
+			// Before returning, destroy locally allocated variables
+			for (auto& dtor : _endScopeDtors)
+			{
+				dtor->CodeGen(builder, context, module);
+			}
+
+			builder->CreateRet(val); 
+		}
+		else
+		{
+			auto val = _idList->CodeGen(builder, context, module, _returnType);
+			val = GetValueToReturn(val, _idList->_typeInfo, builder, context, module);
+
+			// Before returning, destroy locally allocated variables
+			for (auto& dtor : _endScopeDtors)
+			{
+				dtor->CodeGen(builder, context, module);
+			}
+
+			builder->CreateRet(val);
+		}
+	}
+
+	llvm::Value * Ast::ReturnStatement::GetValueToReturn(llvm::Value * value, std::shared_ptr<Ast::TypeInfo> typeInfo, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		if (typeInfo->IsClassType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo)->IsValueType())
+		{
+			return builder->CreateLoad(value);
+		}
+		return value;
+	}
+
+	void Ast::ClassMemberDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+	}
+
+	void Ast::Initializer::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		if (_stackAssignment != nullptr)
+			_stackAssignment->CodeGen(builder, context, module);
+	}
+
+	void Ast::InitializerStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		auto list = _list;
+		while (list != nullptr)
+		{
+			list->_thisInitializer->CodeGen(builder, context, module);
+			list = list->_next;
+		}
+	}
+	
+	void Ast::FunctionDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		llvm::FunctionType* ft = nullptr;
+		llvm::Function* function = nullptr;
+		CodeGenEnter(builder, context, module, &ft, &function);
+
+		// Codegen body
+		if (_body != nullptr)
+			_body->CodeGen(builder, context, module);
+
+		CodeGenLeave(builder, context, module, ft, function);
+	}
+
+	void Ast::FunctionDeclaration::CodeGenEnter(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, llvm::FunctionType ** ft, llvm::Function ** function)
+	{
+		// Parameter type
+		std::vector<llvm::Type*> argTypes;
+		bool isMethod = !_mods->IsStatic();
+		llvm::Type* ptrToThisType = nullptr;
+		if (isMethod)
+		{
+			// For non-static methods, add a pointer to "this" as the 1st argument
+			//auto argument = std::make_shared<Argument>(_classBinding->GetTypeInfo(), "this");
+			//_inputArgs = std::make_shared<ArgumentList>(argument, _inputArgs);
+			auto thisType = _classBinding->GetTypeInfo()->GetIRType(context);
+			ptrToThisType = llvm::PointerType::get(thisType, 0);
+			argTypes.push_back(ptrToThisType);
+		}
+		if (_inputArgs != nullptr)
+			_inputArgs->AddIRTypesToVector(argTypes, context);
+
+		// Return type
+		llvm::Type* retType = llvm::Type::getVoidTy(*context);
+		if (_returnArgs != nullptr && _returnArgs->_argument != nullptr)
+		{
+			retType = _returnArgs->_argument->_typeInfo->GetIRType(context);
+		}
+		if (_returnArgs != nullptr && _returnArgs->_next != nullptr)
+		{
+			// LLVM doesn't support multiple return types, so we'll treat them as out
+			// paramaters
+			_returnArgs->_next->AddIRTypesToVector(argTypes, context, true /*asOutput*/);
+		}
+
+		*ft = llvm::FunctionType::get(retType, argTypes, false /*isVarArg*/);
+		auto name = _functionBinding->GetFullyQualifiedName();
+		if (name.compare("Program.main") == 0)
+			name = "main";
+		*function = llvm::Function::Create(*ft, llvm::Function::ExternalLinkage /*TODO*/, name, module);
+		_functionBinding->BindIRValue(*function);
+		auto bb = llvm::BasicBlock::Create(*context, "", *function);
+		builder->SetInsertPoint(bb);
+
+		// Now store the args
+		auto currArg = _inputArgs;
+		int i = 0;
+		for (auto &arg : (*function)->args())
+		{
+			if (i == 0 && isMethod)
+				arg.setName("this");
+			else
+				arg.setName(currArg->_argument->_name);
+
+			if (i >= _argBindings.size() + (isMethod ? 1 : 0))
+			{
+				// We've reached output args, we don't need to bind them.
+				currArg = currArg->_next;
+				i++;
+				continue;
+			}
+
+			// Create bindings
+			if (i == 0 && isMethod)
+			{
+				// Since "this" isn't a pointer that can be reassigned, there's no point in allocating a new pointer and storing it.
+				// We'll just always refer to the current pointer
+				_thisPtrBinding->BindIRValue(&arg);
+			}
+			else
+			{
+				auto binding = _argBindings[i - (isMethod ? 1 : 0)];
+				// Create an allocation for the arg
+				auto alloc = binding->CreateAllocationInstance(currArg->_argument->_name, builder, context);
+				CreateAssignment(binding->GetTypeInfo(), alloc, &arg, builder, context, module);
+				binding->BindIRValue(alloc);
+				currArg = currArg->_next;
+				if (currArg == nullptr && _returnArgs != nullptr && _returnArgs->_next != nullptr)
+					currArg = _returnArgs->_next;
+			}
+			i++;
+		}
+	}
+
+	void Ast::FunctionDeclaration::CodeGenLeave(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, llvm::FunctionType * ft, llvm::Function * function)
+	{
+		if (_returnArgs == nullptr || _returnArgs->_argument == nullptr)
+		{
+			// Destroy anything that ran out of scope
+			for (auto& dtor : _endScopeDtors)
+			{
+				dtor->CodeGen(builder, context, module);
+			}
+
+			builder->CreateRetVoid(); // What if user added return statement to the end of the block already?
+		}
+
+		llvm::verifyFunction(*function);
+	}
+
+	void Ast::ConstructorDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		llvm::FunctionType* ft = nullptr;
+		llvm::Function* function = nullptr;
+		CodeGenEnter(builder, context, module, &ft, &function);
+
+		// Once we enter the c'tor scope, the initializers are the first thing to get done
+		if (_initializerStatement != nullptr)
+			_initializerStatement->CodeGen(builder, context, module);
+
+		// Are there any uninitialized value-types? Go ahead and initialize them, if we can
+		for (auto& memberBinding : _classBinding->_members)
+		{
+			memberBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding); // Create a binding capable of referring to this ptr
+			auto memberType = memberBinding->GetTypeInfo();
+			if (memberType->IsClassType())
+			{
+				auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(memberType);
+				if (asClassType == nullptr)
+				{
+					throw UnexpectedException();
+				}
+				if (asClassType->IsValueType() &&
+					std::dynamic_pointer_cast<Ast::SymbolTable::ConstructorBinding>(_functionBinding)->_initializers.count(memberBinding->_memberDeclaration->_name) == 0)
+				{
+					// Try to find a default c'tor and add it
+					auto initer = std::make_shared<Initializer>(memberBinding->_memberDeclaration->_name, nullptr /*no args*/, FileLocationContext::CurrentLocation());
+					try
+					{
+						initer->CodeGen(builder, context, module);
+					}
+					catch (NoMatchingFunctionSignatureFoundException&)
+					{
+						throw ValueTypeMustBeInitializedException(memberBinding->_memberDeclaration->_name);
+					}
+				}
+				else if (!asClassType->IsValueType())
+				{
+					// Assign to nullptr
+					builder->CreateStore(asClassType->GetDefaultValue(context), memberBinding->GetIRValue(builder, context, module));
+				}
+			}
+			else if (memberType->IsPrimitiveType())
+			{
+				// Give local members the default value
+				builder->CreateStore(memberBinding->GetTypeInfo()->GetDefaultValue(context), memberBinding->GetIRValue(builder, context, module));
+			}
+		}
+
+		// Now do the body of the c'tor
+		if (_body != nullptr)
+			_body->CodeGen(builder, context, module);
+
+		CodeGenLeave(builder, context, module, ft, function);
+	}
+
+	void Ast::ClassStatementList::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		_statement->CodeGen(builder, context, module);
+		if (_next != nullptr)
+			_next->CodeGen(builder, context, module);
+	}
+
+	void Ast::GlobalStatements::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		_stmt->CodeGen(builder, context, module);
+		if (_next != nullptr)
+			_next->CodeGen(builder, context, module);
+	}
+
+	void Ast::NamespaceDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		_stmts->CodeGen(builder, context, module);
+	}
+
+	void Ast::ClassDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		// Look through members first, and create a struct type
+		std::vector<llvm::Type*> memberTypes;
+		for (auto& member : _classBinding->_members)
+		{
+			auto val = member->GetTypeInfo()->GetIRType(context);
+			memberTypes.push_back(val);
+		}
+		auto type = llvm::StructType::create(*context, memberTypes, _name, true /*isPacked*/);
+		_classBinding->BindType(type);
+
+		// Now codegen the rest (basically just methods since members don't need to do anything)
+		if (_list != nullptr)
+			_list->CodeGen(builder, context, module);
+	}
+
+	void Ast::LineStatements::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		_statement->CodeGen(builder, context, module);
+		if (_next != nullptr)
+			_next->CodeGen(builder, context, module);
 	}
 }

@@ -5,6 +5,7 @@
 #include <Classes.h>
 #include <Operations.h>
 
+#include "CodeGenUtils.h"
 #include <Utils.h>
 #include <llvm\IR\Module.h>
 #include <llvm\IR\IRBuilder.h>
@@ -28,7 +29,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<AddOperation>(new IntegerConstant("1"), new IntegerConstant("1"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table , &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 2);
@@ -41,7 +42,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<SubtractOperation>(new IntegerConstant("1"), new IntegerConstant("1"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0);
@@ -54,7 +55,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<MultiplyOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 30);
@@ -67,7 +68,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<DivideOperation>(new IntegerConstant("100"), new IntegerConstant("5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 20);
@@ -80,7 +81,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<RemainderOperation>(new IntegerConstant("11"), new IntegerConstant("3"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 2);
@@ -93,21 +94,21 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<GreaterThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<GreaterThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<GreaterThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
@@ -120,21 +121,21 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<LessThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<LessThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<LessThanOrEqualOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
@@ -147,21 +148,21 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<GreaterThanOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<GreaterThanOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<GreaterThanOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
@@ -174,21 +175,21 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<LessThanOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<LessThanOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<LessThanOperation>(new IntegerConstant("5"), new IntegerConstant("6"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
@@ -201,14 +202,14 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<EqualToOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<EqualToOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
@@ -221,14 +222,14 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<NotEqualToOperation>(new IntegerConstant("5"), new IntegerConstant("5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsFalse(!!((llvm::ConstantInt*)val)->getValue());
 
 			expr = std::make_shared<NotEqualToOperation>(new IntegerConstant("5"), new IntegerConstant("4"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 1, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(!!((llvm::ConstantInt*)val)->getValue());
@@ -241,7 +242,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<BitwiseAndOperation>(new IntegerConstant("0x1010"), new IntegerConstant("0x1101"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0x1000);
@@ -254,7 +255,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<BitwiseOrOperation>(new IntegerConstant("0x1010"), new IntegerConstant("0x1100"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0x1110);
@@ -267,7 +268,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<BitwiseXorOperation>(new IntegerConstant("0x1010"), new IntegerConstant("0x1100"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 0x0110);
@@ -280,14 +281,14 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<BitwiseShiftLeftOperation>(new IntegerConstant("0xF"), new IntegerConstant("2"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 60);
 
 			expr = std::make_shared<BitwiseShiftLeftOperation>(new IntegerConstant("1", true /*negate*/), new IntegerConstant("2"));
 			expr->Evaluate(table);
-			val = expr->CodeGen(table, &builder, &TheContext, module);
+			val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == llvm::APInt(32, -4, true));
@@ -300,7 +301,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<BitwiseShiftRightOperation>(new IntegerConstant("0xF"), new IntegerConstant("2"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 3);
@@ -308,46 +309,26 @@ namespace CodeGenTests
 
 		TEST_METHOD(Int32PostIncrCodegen)
 		{
-			llvm::IRBuilder<> builder(TheContext);
-			auto module = new llvm::Module("Module", TheContext);
-			auto table = std::make_shared<SymbolTable>();
-			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
-			assignment->TypeCheck(table, &builder, &TheContext, module);
-			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PostIncrementOperation(new Reference("i")));
-			exprStmt->TypeCheck(table, &builder, &TheContext, module);
+			auto tree = ParseTree("class A { static fun B() { int i = 1; i++; } }");
+			TestTreeCodegen(tree.get(), TheContext);
 		}
 
 		TEST_METHOD(Int32PostDecCodegen)
 		{
-			llvm::IRBuilder<> builder(TheContext);
-			auto module = new llvm::Module("Module", TheContext);
-			auto table = std::make_shared<SymbolTable>();
-			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
-			assignment->TypeCheck(table, &builder, &TheContext, module);
-			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PostDecrementOperation(new Reference("i")));
-			exprStmt->TypeCheck(table, &builder, &TheContext, module);
+			auto tree = ParseTree("class A { static fun B() { int i = 1; i--; } }");
+			TestTreeCodegen(tree.get(), TheContext);
 		}
 
 		TEST_METHOD(Int32PreIncrCodegen)
 		{
-			llvm::IRBuilder<> builder(TheContext);
-			auto module = new llvm::Module("Module", TheContext);
-			auto table = std::make_shared<SymbolTable>();
-			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
-			assignment->TypeCheck(table, &builder, &TheContext, module);
-			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PreIncrementOperation(new Reference("i")));
-			exprStmt->TypeCheck(table, &builder, &TheContext, module);
+			auto tree = ParseTree("class A { static fun B() { int i = 1; ++i; } }");
+			TestTreeCodegen(tree.get(), TheContext);
 		}
 
 		TEST_METHOD(Int32PreDecCodegen)
 		{
-			llvm::IRBuilder<> builder(TheContext);
-			auto module = new llvm::Module("Module", TheContext);
-			auto table = std::make_shared<SymbolTable>();
-			auto assignment = std::make_unique<Assignment>(new AssignFrom(new DeclareVariable(Int32TypeInfo::Get(), "i")), new IntegerConstant("1"));
-			assignment->TypeCheck(table, &builder, &TheContext, module);
-			auto exprStmt = std::make_unique<ExpressionAsStatement>(new PreDecrementOperation(new Reference("i")));
-			exprStmt->TypeCheck(table, &builder, &TheContext, module);
+			auto tree = ParseTree("class A { static fun B() { int i = 1; --i; } }");
+			TestTreeCodegen(tree.get(), TheContext);
 		}
 
 		TEST_METHOD(Int32ComplCodegen)
@@ -357,7 +338,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<ComplementOperation>(new IntegerConstant("0x0F0F0F0F"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 32, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 4042322160);
@@ -370,7 +351,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<AddOperation>(new IntegerConstant("2147483649"), new IntegerConstant("2147483649"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int) 64, ((llvm::ConstantInt*)val)->getBitWidth());
 		}
@@ -382,7 +363,7 @@ namespace CodeGenTests
 			auto table = std::make_shared<SymbolTable>();
 			auto expr = std::make_shared<AddOperation>(new FloatingConstant("1.5"), new FloatingConstant("1.5"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isDoubleTy());
 		}
 	};
@@ -397,7 +378,7 @@ namespace CodeGenTests
 
 			auto expr = std::make_shared<AddOperation>(new IntegerConstant("1"), new IntegerConstant("2147483649"));
 			expr->Evaluate(table);
-			auto val = expr->CodeGen(table, &builder, &TheContext, module);
+			auto val = expr->CodeGen(&builder, &TheContext, module);
 			Assert::IsTrue(val->getType()->isIntegerTy());
 			Assert::AreEqual((unsigned int)64, ((llvm::ConstantInt*)val)->getBitWidth());
 			Assert::IsTrue(((llvm::ConstantInt*)val)->getValue() == 2147483650);

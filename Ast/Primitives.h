@@ -13,6 +13,12 @@ namespace Ast
 		{
 			return true;
 		}
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			// Primitives are instantiated once, and can be compared with a simple pointer comparison
+			return other.get() == this;
+		}
 	};
 
 	class IntegerConstant;
@@ -27,6 +33,7 @@ namespace Ast
 		}
 		virtual int Bits() = 0;
 		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo) override;
+		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) override;
 	};
 
 	class FloatingTypeInfo : public PrimitiveTypeInfo
@@ -37,6 +44,7 @@ namespace Ast
 			return true;
 		}
 		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo) override;
+		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) override;
 	};
 
 	// TODO: String should be defined as a class IN Ruddy code, but the compiler needs to be smart enough 
@@ -94,6 +102,12 @@ namespace Ast
 		virtual bool IsConstant() override
 		{
 			return true;
+		}
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
+		{
+			// Primitives are instantiated once, and can be compared with a simple pointer comparison
+			return other.get() == this;
 		}
 	};
 
@@ -186,7 +200,7 @@ namespace Ast
 				return UInt64TypeInfo::Get();
 		}
 
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		uint8_t AsByte()
 		{
@@ -418,7 +432,7 @@ namespace Ast
 			return _staticTypeInfo;
 		}
 
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		virtual std::shared_ptr<TypeInfo> BestFitTypeInfo() override
 		{
@@ -498,7 +512,7 @@ namespace Ast
 			return BoolTypeInfo::Get();
 		}
 
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		static std::shared_ptr<BoolConstantType> _staticTypeInfo;
 	private:
@@ -602,7 +616,7 @@ namespace Ast
 			return _staticTypeInfo;
 		}
 
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		static std::shared_ptr<CharConstantType> _staticTypeInfo;
 	private:
@@ -659,7 +673,7 @@ namespace Ast
 			return StringTypeInfo::Get();
 		}
 
-		virtual llvm::Value* CodeGenInternal(std::shared_ptr<SymbolTable> symbolTable, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
 
 		static std::shared_ptr<StringConstantType> _staticTypeInfo;
 	private:

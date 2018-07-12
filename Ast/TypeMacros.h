@@ -37,6 +37,8 @@ namespace Ast {
 	class CLASS_NAME : public PrimitiveTypeInfo \
 	{ \
 		DECLARE_PRIMITIVE_TYPE_INFO_OVERRIDES(CLASS_NAME) \
+		public: \
+			virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) override; \
 	};
 
 #define DECLARE_PRIMITIVE_TYPE_INFO_AUTO_IMPLICIT_CAST_TO(CLASS_NAME, SIGNED, BITS, AUTO_IMPLICIT_CAST_TO_CLASS_NAME) \

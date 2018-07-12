@@ -737,6 +737,16 @@ namespace TypeCheckingTests
 			});
 		}
 
+		TEST_METHOD(PrimitiveTypeCanNotBeInitializedInInitializer)
+		{
+			auto tree = ParseTree("class B { int _a; B() : _a(1) {} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<ExpectedValueTypeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
 		TEST_METHOD(DeclareReferenceMemberVariableWithNonClassTypeFails)
 		{
 			auto tree = ParseTree("class A {} class B { fun C() { } C& _c; }");

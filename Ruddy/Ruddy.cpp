@@ -72,7 +72,9 @@ int _tmain(int argc, _TCHAR* argv[])
 		// replaced by import statements so we're not generating everything
 		AddExternOsFunctions(module, *TheContext);
 		// Generate code from the input
-		tree->TypeCheck(symbolTable, &builder, TheContext, module);
+		tree->TypeCheck(symbolTable);
+
+		tree->CodeGen(&builder, TheContext, module);
 
 		// Now save it to a file
 		std::wstring fileName = argv[1];
