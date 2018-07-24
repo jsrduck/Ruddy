@@ -27,7 +27,7 @@ namespace Ast
 	public:
 		Statement(FileLocation& location) : _location(location) { }
 		virtual ~Statement() { }
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable);
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass = CLASS_AND_NAMESPACE_DECLARATIONS);
 		void CodeGen(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module);
 		FileLocation Location()
 		{
@@ -36,7 +36,7 @@ namespace Ast
 	protected:
 		// Without the llvm types, TypeCheckInternal simply does a type check without generating any code. With the llvm parameters, it will also output generated code as it walks
 		// the abstract syntax tree.
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) = 0;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) = 0;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
 	
 	private:
@@ -58,8 +58,10 @@ namespace Ast
 			GlobalStatement(location),
 			_stmt(stmt), _next(list)
 		{}
+
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass = TYPE_CHECK_ALL) override;
 		
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "GlobalStatements"; }
@@ -75,7 +77,7 @@ namespace Ast
 			_name(name), _stmts(stmts)
 		{}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "NamespaceDeclaration"; }
@@ -99,7 +101,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "LineStatements"; }
@@ -116,7 +118,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "IfStatement"; }
@@ -137,7 +139,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "WhileStatement"; }
@@ -153,7 +155,7 @@ namespace Ast
 	public:
 		BreakStatement(FileLocation& location) : LineStatement(location) { }
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override
@@ -256,7 +258,7 @@ namespace Ast
 
 		Assignment(AssignFrom* lhs, Expression* rhs, bool inInitializerList = false) : Assignment(lhs, rhs, FileLocation(-1,-1), inInitializerList) { }
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override
@@ -279,7 +281,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "ScopedStatement"; }
@@ -298,7 +300,7 @@ namespace Ast
 
 		ExpressionAsStatement(Expression* expr) : ExpressionAsStatement(expr, FileLocation(-1,-1)) { }
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual std::string ToString() override { return "ExpressionAsStatement"; }
@@ -314,7 +316,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		llvm::Value* GetValueToReturn(llvm::Value* value, std::shared_ptr<Ast::TypeInfo> typeInfo, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module);

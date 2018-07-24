@@ -808,4 +808,49 @@ namespace TypeCheckingTests
 			});
 		}
 	};
+
+	TEST_CLASS(MultiPassTests)
+	{
+		TEST_METHOD(ClassHasReferenceToClassThatComesAfter)
+		{
+			auto tree = ParseTree("class B { A _a; } class A { } ");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ClassReferencesMemberOfClassThatComesAfter)
+		{
+			auto tree = ParseTree("class B { fun Foo() { let a = new A(); a.i = 1; } } class A { int i; }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(ClassReferencesMethodOfClassThatComesAfter)
+		{
+			auto tree = ParseTree("class B { fun Bar() { A.Foo(); } } class A { static fun Foo() { } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(MethodHasReferenceToMethodThatComesAfter)
+		{
+			auto tree = ParseTree("class A { fun Foo() { Bar(); } fun Bar() { } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(CtorReferencesVariablesDeclaredLater)
+		{
+			auto tree = ParseTree("class A { A() { i = 1; } int i; }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(MethodReferencesVariablesDeclaredLater)
+		{
+			auto tree = ParseTree("class A { fun Foo() { i = 1; } int i; }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+	};
 }

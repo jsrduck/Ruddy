@@ -37,4 +37,16 @@ namespace Ast
 		Modifiers _mods;
 	};
 
+	enum TypeCheckPass
+	{
+		TYPE_CHECK_ALL = 0,
+
+		TYPE_CHECK_START = 1,
+		CLASS_AND_NAMESPACE_DECLARATIONS = 1,
+		METHOD_DECLARATIONS = 2,
+		CLASS_VARIABLES = 3,
+		METHOD_BODIES = 4,
+		TYPE_CHECK_END = 4
+	};
+
 }

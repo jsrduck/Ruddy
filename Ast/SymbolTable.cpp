@@ -40,45 +40,71 @@ namespace Ast
 		return binding;
 	}
 
-	void SymbolTable::BindNamespace(const std::string& namespaceName)
+	void SymbolTable::BindNamespace(const std::string& namespaceName, TypeCheckPass pass)
 	{
-		auto binding = std::make_shared<NamespaceBinding>(_currentNamespace.size() > 0 ? _currentNamespace.top()->GetName() : "", namespaceName);
-		if (_map.count(binding->GetFullyQualifiedName()) > 0)
+		std::shared_ptr<NamespaceBinding> binding;
+		if (pass == CLASS_AND_NAMESPACE_DECLARATIONS)
 		{
-			throw SymbolAlreadyDefinedInThisScopeException(binding->GetName());
-		} // TODO: Check for class/namespace/member collisions in any nested namespace
-		_map[binding->GetFullyQualifiedName()] = binding;
+			binding = std::make_shared<NamespaceBinding>(_currentNamespace.size() > 0 ? _currentNamespace.top()->GetName() : "", namespaceName);
+			if (_map.count(binding->GetFullyQualifiedName()) > 0)
+			{
+				throw SymbolAlreadyDefinedInThisScopeException(binding->GetName());
+			} // TODO: Check for class/namespace/member collisions in any nested namespace
+			_map[binding->GetFullyQualifiedName()] = binding;
+		}
+		else
+		{
+			// Lookup the previously defined binding
+			binding = std::dynamic_pointer_cast<NamespaceBinding>(Lookup(namespaceName));
+		}
 		_aux_stack.push(binding);
 		_currentNamespace.push(binding);
 		_currentAddressableNamespaces.push_back(binding);
 	}
 
-	std::shared_ptr<SymbolTable::ClassBinding> SymbolTable::BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration)
+	std::shared_ptr<SymbolTable::ClassBinding> SymbolTable::BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration, TypeCheckPass pass)
 	{
-		auto binding = std::make_shared<ClassBinding>(className, _currentNamespace.size() > 0 ? _currentNamespace.top()->GetFullyQualifiedName() : "", classDeclaration);
-		if (_map.count(binding->GetFullyQualifiedName()) > 0)
+		std::shared_ptr<ClassBinding> binding;
+		if (pass == CLASS_AND_NAMESPACE_DECLARATIONS)
 		{
-			throw SymbolAlreadyDefinedInThisScopeException(binding->GetName());
-		} // TODO: Check for class/namespace/member collisions in any nested namespace
-		_map[binding->GetFullyQualifiedName()] = binding;
+			binding = std::make_shared<ClassBinding>(className, _currentNamespace.size() > 0 ? _currentNamespace.top()->GetFullyQualifiedName() : "", classDeclaration);
+			if (_map.count(binding->GetFullyQualifiedName()) > 0)
+			{
+				throw SymbolAlreadyDefinedInThisScopeException(binding->GetName());
+			} // TODO: Check for class/namespace/member collisions in any nested namespace
+			_map[binding->GetFullyQualifiedName()] = binding;
+		}
+		else
+		{
+			// Lookup the previously defined binding
+			binding = std::dynamic_pointer_cast<ClassBinding>(Lookup(className));
+		}
 		_aux_stack.push(binding);
 		_currentClass.push(binding);
 		_currentAddressableNamespaces.push_back(binding);
 		return binding;
 	}
 
-	std::shared_ptr<SymbolTable::ConstructorBinding> SymbolTable::BindConstructor(std::shared_ptr<FunctionDeclaration> functionDeclaration)
+	std::shared_ptr<SymbolTable::ConstructorBinding> SymbolTable::BindConstructor(std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass)
 	{
 		if (_currentFunction.size() > 0 || _currentClass.size() == 0)
 		{
 			throw UnexpectedException();
 		}
-		auto binding = _currentClass.top()->AddConstructorBinding(functionDeclaration, shared_from_this());
-		if (_map.count(binding->GetFullyQualifiedName()) > 0)
+		std::shared_ptr<ConstructorBinding> binding;
+		if (pass == METHOD_DECLARATIONS)
 		{
-			throw UnexpectedException();
+			binding = _currentClass.top()->AddConstructorBinding(functionDeclaration, shared_from_this());
+			if (_map.count(binding->GetFullyQualifiedName()) > 0)
+			{
+				throw UnexpectedException();
+			}
+			//_map[binding->GetFullyQualifiedName()] = binding;
 		}
-		//_map[binding->GetFullyQualifiedName()] = binding;
+		else
+		{
+			binding = std::dynamic_pointer_cast<ConstructorBinding>(_currentClass.top()->_ctors[0]); // TODO: Multiple c'tors
+		}
 		_aux_stack.push(binding);
 		_currentFunction.push(binding);
 		return binding;
@@ -106,24 +132,32 @@ namespace Ast
 		ctorBinding->AddInitializerBinding(memberName, assignment);
 	}
 
-	std::shared_ptr<SymbolTable::FunctionBinding> SymbolTable::BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration)
+	std::shared_ptr<SymbolTable::FunctionBinding> SymbolTable::BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass)
 	{
 		if (_currentFunction.size() > 0 || _currentClass.size() == 0)
 		{
 			throw FunctionMustBeDeclaredInClassScopeException(functionName);
 		}
-		auto binding = _currentClass.top()->AddFunctionBinding(functionName, functionDeclaration);
-		if (_map.count(binding->GetFullyQualifiedName()) > 0)
+		std::shared_ptr<FunctionBinding> binding;
+		if (pass == METHOD_DECLARATIONS)
 		{
-			throw UnexpectedException();
+			binding = _currentClass.top()->AddFunctionBinding(functionName, functionDeclaration);
+			if (_map.count(binding->GetFullyQualifiedName()) > 0)
+			{
+				throw UnexpectedException();
+			}
+			_map[binding->GetFullyQualifiedName()] = binding;
 		}
-		_map[binding->GetFullyQualifiedName()] = binding;
+		else
+		{
+			binding = std::dynamic_pointer_cast<FunctionBinding>(Lookup(functionName));
+		}
 		_aux_stack.push(binding);
 		_currentFunction.push(binding);
 		return binding;
 	}
 
-	std::shared_ptr<Ast::SymbolTable::MemberBinding> SymbolTable::BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable)
+	std::shared_ptr<Ast::SymbolTable::MemberBinding> SymbolTable::BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable, TypeCheckPass pass)
 	{
 		if (_currentFunction.size() > 0)
 		{
@@ -134,12 +168,21 @@ namespace Ast
 		{
 			throw VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException(variableName);
 		}
-		auto binding = _currentClass.top()->AddMemberVariableBinding(variableName, memberVariable);
-		if (_map.count(binding->GetFullyQualifiedName()) > 0)
+		std::shared_ptr<MemberBinding> binding;
+		if (pass == CLASS_VARIABLES)
 		{
-			throw UnexpectedException();
+			binding = _currentClass.top()->AddMemberVariableBinding(variableName, memberVariable);
+			if (_map.count(binding->GetFullyQualifiedName()) > 0)
+			{
+				throw UnexpectedException();
+			}
+			_map[binding->GetFullyQualifiedName()] = binding;
 		}
-		_map[binding->GetFullyQualifiedName()] = binding;
+		else
+		{
+			binding = std::make_shared<SymbolTable::MemberBinding>(variableName, _currentClass.top()->GetFullyQualifiedName(), memberVariable, _currentClass.top());
+			binding = std::dynamic_pointer_cast<MemberBinding>(_map[binding->GetFullyQualifiedName()]);
+		}
 		_aux_stack.push(binding);
 		return binding;
 	}

@@ -22,13 +22,13 @@ namespace ParserTests
 			auto asCtor = std::dynamic_pointer_cast<Ast::ConstructorDeclaration>(statementList->_statement);
 			if (asCtor != nullptr)
 			{
-				statementList = classDecl->_list->_next;
+				statementList = statementList->_next;
 				continue;
 			}
 			auto asDtor = std::dynamic_pointer_cast<Ast::DestructorDeclaration>(statementList->_statement);
 			if (asDtor != nullptr)
 			{
-				statementList = classDecl->_list->_next;
+				statementList = statementList->_next;
 				continue;
 			}
 			break;

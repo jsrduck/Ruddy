@@ -7,16 +7,16 @@
 using namespace std;
 
 namespace Ast {
-	void Statement::TypeCheck(std::shared_ptr<SymbolTable> symbolTable)
+	void Statement::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
 		FileLocationContext locationContext(_location);
-		TypeCheckInternal(symbolTable);
+		TypeCheckInternal(symbolTable, pass);
 	}
 
-	void Ast::ClassStatement::TypeCheck(std::shared_ptr<SymbolTable> symbolTable)
+	void Ast::ClassStatement::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
 		_classBinding = symbolTable->GetCurrentClass();
-		Statement::TypeCheck(symbolTable);
+		Statement::TypeCheck(symbolTable, pass);
 	}
 
 	std::shared_ptr<TypeInfo> Expression::Evaluate(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
@@ -208,15 +208,16 @@ namespace Ast {
 		return nullptr;
 	}
 
-	void LineStatements::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void LineStatements::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		_statement->TypeCheck(symbolTable);
+		_statement->TypeCheck(symbolTable, pass);
 		if (_next != nullptr)
-			_next->TypeCheck(symbolTable);
+			_next->TypeCheck(symbolTable, pass);
 	}
 
-	void IfStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void IfStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		// Type check the condition
 		auto conditionType = _condition->Evaluate(symbolTable);
 		if (!BoolTypeInfo::Get()->IsImplicitlyAssignableFrom(conditionType, symbolTable))
@@ -225,7 +226,7 @@ namespace Ast {
 		}
 
 		symbolTable->Enter();
-		_statement->TypeCheck(symbolTable);
+		_statement->TypeCheck(symbolTable, pass);
 		_ifStatementEndScopeDtors = symbolTable->Exit();
 		for (auto& dtor : _ifStatementEndScopeDtors)
 			dtor->Evaluate(symbolTable);
@@ -233,15 +234,16 @@ namespace Ast {
 		if (_elseStatement != nullptr)
 		{
 			symbolTable->Enter();
-			_elseStatement->TypeCheck(symbolTable);
+			_elseStatement->TypeCheck(symbolTable, pass);
 			_elseStatementEndScopeDtors = symbolTable->Exit();
 			for (auto& dtor : _elseStatementEndScopeDtors)
 				dtor->Evaluate(symbolTable);
 		}
 	}
 
-	void WhileStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void WhileStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		// TODO: More static analysis. Infinite loops? Unreachable code?
 		symbolTable->Enter();
 		_currentLoopBinding = symbolTable->BindLoop();
@@ -251,14 +253,15 @@ namespace Ast {
 			throw TypeMismatchException(BoolTypeInfo::Get(), conditionType);
 		}
 
-		_statement->TypeCheck(symbolTable);
+		_statement->TypeCheck(symbolTable, pass);
 		_endScopeDtors = symbolTable->Exit();
 		for (auto& dtor : _endScopeDtors)
 			dtor->Evaluate(symbolTable);
 	}
 
-	void BreakStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void BreakStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		_currentLoopBinding = symbolTable->GetCurrentLoop();
 		_endScopeDtors = symbolTable->BreakFromCurrentLoop();
 		if (_currentLoopBinding == nullptr)
@@ -377,8 +380,9 @@ namespace Ast {
 		_symbolBinding = symbolTable->BindVariable(_name, _typeInfo->IsAutoType() ? rhs : _typeInfo);
 	}
 
-	void Assignment::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void Assignment::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		_rhsTypeInfo = _rhs->Evaluate(symbolTable, _inInitializerList);
 		_lhsTypeInfo = _lhs->Resolve(symbolTable, _rhsTypeInfo, _rhs);
 
@@ -389,8 +393,9 @@ namespace Ast {
 		_lhs->Bind(symbolTable, _rhsTypeInfo);
 	}
 
-	void ReturnStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void ReturnStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		// TODO: Catch unreachable code after return;
 		_returnType = _idList->Evaluate(symbolTable);
 		_functionBinding = symbolTable->GetCurrentFunction();
@@ -406,82 +411,111 @@ namespace Ast {
 		_endScopeDtors = symbolTable->ReturnFromCurrentFunction();
 	}
 
-	void GlobalStatements::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void GlobalStatements::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		_stmt->TypeCheck(symbolTable);
-		if (_next != nullptr)
-			_next->TypeCheck(symbolTable);
+		if (pass == TYPE_CHECK_ALL)
+		{
+			for (auto currPass = static_cast<int>(TYPE_CHECK_START); currPass <= static_cast<int>(TYPE_CHECK_END); currPass++)
+				GlobalStatement::TypeCheck(symbolTable, static_cast<TypeCheckPass>(currPass));
+		}
+		else
+		{
+			GlobalStatement::TypeCheck(symbolTable, pass);
+		}
 	}
 
-	void NamespaceDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void GlobalStatements::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
+	{
+		_stmt->TypeCheck(symbolTable, pass);
+		if (_next != nullptr)
+			_next->TypeCheck(symbolTable, pass);
+	}
+
+	void NamespaceDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
 		symbolTable->Enter();
-		symbolTable->BindNamespace(_name);
-		_stmts->TypeCheck(symbolTable);
+		symbolTable->BindNamespace(_name, pass);
+		_stmts->TypeCheck(symbolTable, pass);
 		symbolTable->Exit();
 	}
 
-	void ScopedStatements::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void ScopedStatements::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		symbolTable->Enter();
 		if (_statements != nullptr)
-			_statements->TypeCheck(symbolTable);
+			_statements->TypeCheck(symbolTable, pass);
 		_endScopeDtors = symbolTable->Exit();
 		for (auto& dtor : _endScopeDtors)
 			dtor->Evaluate(symbolTable);
 	}
 
-	void ExpressionAsStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void ExpressionAsStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		_expr->Evaluate(symbolTable);
 	}
 
-	void ClassDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void ClassDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
 		symbolTable->Enter();
-		_classBinding = symbolTable->BindClass(_name, dynamic_pointer_cast<ClassDeclaration>(shared_from_this()));
-		if (_list != nullptr)
-			_list->TypeCheck(symbolTable);
+		_classBinding = symbolTable->BindClass(_name, dynamic_pointer_cast<ClassDeclaration>(shared_from_this()), pass);
 
-		// If no constructors are defined, define the default c'tor for them
-		if (_classBinding->_ctors.size() == 0)
+		if (pass >= METHOD_DECLARATIONS)
 		{
-			auto ctor = std::make_shared<ConstructorDeclaration>(Visibility::PUBLIC, _name, nullptr, nullptr, nullptr, FileLocationContext::CurrentLocation());
-			ctor->TypeCheck(symbolTable);
-			// Add it to the beginning of the statement list so codegen finds it
-			_list = std::make_shared<ClassStatementList>(ctor, _list, FileLocationContext::CurrentLocation());
-		}
+			if (_list != nullptr)
+				_list->TypeCheck(symbolTable, pass);
 
-		// If the d'tor isn't defined, define an implicit one
-		if (_classBinding->_dtor == nullptr)
-		{
-			auto dtor = std::make_shared<DestructorDeclaration>(_name, nullptr, FileLocationContext::CurrentLocation());
-			dtor->TypeCheck(symbolTable);
-			// Add it to the beginning of the statement list so codegen finds it
-			_list = std::make_shared<ClassStatementList>(dtor, _list, FileLocationContext::CurrentLocation());
+			if (pass == METHOD_DECLARATIONS)
+			{
+				// If no constructors are defined, define the default c'tor for them
+				if (_classBinding->_ctors.size() == 0)
+				{
+					auto ctor = std::make_shared<ConstructorDeclaration>(Visibility::PUBLIC, _name, nullptr, nullptr, nullptr, FileLocationContext::CurrentLocation());
+					ctor->TypeCheck(symbolTable, pass);
+					// Add it to the beginning of the statement list so next phase of type checking finds it
+					_list = std::make_shared<ClassStatementList>(ctor, _list, FileLocationContext::CurrentLocation());
+				}
+
+				// If the d'tor isn't defined, define an implicit one
+				if (_classBinding->_dtor == nullptr)
+				{
+					auto dtor = std::make_shared<DestructorDeclaration>(_name, nullptr, FileLocationContext::CurrentLocation());
+					dtor->TypeCheck(symbolTable, pass);
+					// Add it to the beginning of the statement list so next phase of type checking finds it
+					_list = std::make_shared<ClassStatementList>(dtor, _list, FileLocationContext::CurrentLocation());
+				}
+			}
 		}
 
 		symbolTable->Exit();
 	}
 
-	void ClassMemberDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void ClassMemberDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		// TODO: Check if type is even visible
-		if (_defaultValue != nullptr && !_typeInfo->IsImplicitlyAssignableFrom(_defaultValue->Evaluate(symbolTable), symbolTable))
+		if (pass >= CLASS_VARIABLES)
 		{
-			throw TypeMismatchException(_defaultValue->Evaluate(symbolTable), _typeInfo);
-		}
-		else if (_defaultValue == nullptr && !_typeInfo->IsLegalTypeForAssignment(symbolTable))
-		{
-			// We need to make sure that this is a legal type for assignment
-			throw SymbolWrongTypeException(_typeInfo->Name());
-		}
+			if (pass == CLASS_VARIABLES)
+			{
+				// TODO: Check if type is even visible
+				if (_defaultValue != nullptr && !_typeInfo->IsImplicitlyAssignableFrom(_defaultValue->Evaluate(symbolTable), symbolTable))
+				{
+					throw TypeMismatchException(_defaultValue->Evaluate(symbolTable), _typeInfo);
+				}
+				else if (_defaultValue == nullptr && !_typeInfo->IsLegalTypeForAssignment(symbolTable))
+				{
+					// We need to make sure that this is a legal type for assignment
+					throw SymbolWrongTypeException(_typeInfo->Name());
+				}
+			}
 
-		auto binding = symbolTable->BindMemberVariable(_name, dynamic_pointer_cast<ClassMemberDeclaration>(shared_from_this()));
+			auto binding = symbolTable->BindMemberVariable(_name, dynamic_pointer_cast<ClassMemberDeclaration>(shared_from_this()), pass);
+		}
 	}
 
-	void Initializer::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void Initializer::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		// Find the member variable being constructed
 		if (!_stackAssignment)
 		{
@@ -518,32 +552,43 @@ namespace Ast {
 		_stackAssignment->Evaluate(symbolTable, true /*inInitializerList*/);
 	}
 
-	void InitializerStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void InitializerStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		assert(pass == METHOD_BODIES);
 		auto list = _list;
 		while (list != nullptr)
 		{
 			// Find the member variable being constructed
-			list->_thisInitializer->TypeCheck(symbolTable);
+			list->_thisInitializer->TypeCheck(symbolTable, pass);
 			list = list->_next;
 		}
 	}
 
 	// TODO: Static analysis to make sure all code paths return a value (for non void return types)
 	// TODO: Static analysis to make sure there is no "unreachable" code (maybe that should be on "linestatements?"
-	void FunctionDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void FunctionDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		symbolTable->Enter();
-		_functionBinding = symbolTable->BindFunction(Name(), dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()));
+		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
+		{
+			symbolTable->Enter();
+			_functionBinding = symbolTable->BindFunction(Name(), dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
 
-		TypeCheckArgumentList(_functionBinding, symbolTable);
+			if (pass == METHOD_BODIES)
+			{
+				TypeCheckArgumentList(_functionBinding, symbolTable);
 
-		if (_body != nullptr)
-			_body->TypeCheck(symbolTable);
+				if (_body != nullptr)
+					_body->TypeCheck(symbolTable, pass);
+			}
 
-		_endScopeDtors = symbolTable->Exit();
-		for (auto& dtor : _endScopeDtors)
-			dtor->Evaluate(symbolTable);
+			_endScopeDtors = symbolTable->Exit();
+
+			if (pass == METHOD_BODIES && _body != nullptr)
+			{
+				for (auto& dtor : _endScopeDtors)
+					dtor->Evaluate(symbolTable);
+			}
+		}
 	}
 	
 	void FunctionDeclaration::TypeCheckArgumentList(std::shared_ptr<Ast::SymbolTable::FunctionBinding> binding, std::shared_ptr<SymbolTable> symbolTable)
@@ -565,82 +610,103 @@ namespace Ast {
 		}
 	}
 
-	void ConstructorDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void ConstructorDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		symbolTable->Enter();
-		auto ctorBinding = symbolTable->BindConstructor(dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()));
-		_functionBinding = ctorBinding;
-
-		TypeCheckArgumentList(ctorBinding, symbolTable);
-
-		// Once we enter the c'tor scope, the initializers are the first thing to get done
-		if (_initializerStatement != nullptr)
-			_initializerStatement->TypeCheck(symbolTable);
-
-		// Are there any uninitialized value-types? Go ahead and initialize them, if we can
-		auto classBinding = symbolTable->GetCurrentClass();
-		int index = 0;
-		for (auto& memberBinding : classBinding->_members)
+		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
-			auto memberType = memberBinding->GetTypeInfo();
-			if (memberType->IsClassType())
+			symbolTable->Enter();
+			auto ctorBinding = symbolTable->BindConstructor(dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
+
+			if (pass == METHOD_DECLARATIONS)
 			{
-				auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(memberType);
-				if (asClassType == nullptr)
-				{
-					throw UnexpectedException();
-				}
-				if (asClassType->IsValueType() &&
-					ctorBinding->_initializers.count(memberBinding->_memberDeclaration->_name) == 0)
-				{
-					// Try to find a default c'tor and add it
-					auto initer = std::make_shared<Initializer>(memberBinding->_memberDeclaration->_name, nullptr /*no args*/, FileLocationContext::CurrentLocation());
-					try
-					{
-						initer->TypeCheck(symbolTable);
-						// Add it to the initializer statement so it gets code gen'd
-						if (_initializerStatement == nullptr)
-							_initializerStatement = std::make_shared<InitializerStatement>(nullptr, FileLocationContext::CurrentLocation());
-						_initializerStatement->_list = std::make_shared<InitializerList>(initer, _initializerStatement->_list);
-					}
-					catch (NoMatchingFunctionSignatureFoundException&)
-					{
-						throw ValueTypeMustBeInitializedException(memberBinding->_memberDeclaration->_name);
-					}
-				}
+				_functionBinding = ctorBinding;
 			}
+
+			if (pass == METHOD_BODIES)
+			{
+				TypeCheckArgumentList(ctorBinding, symbolTable);
+			}
+
+			if (pass == METHOD_BODIES)
+			{
+				// Once we enter the c'tor scope, the initializers are the first thing to get done
+				if (_initializerStatement != nullptr)
+					_initializerStatement->TypeCheck(symbolTable, pass);
+
+				// Are there any uninitialized value-types? Go ahead and initialize them, if we can
+				auto classBinding = symbolTable->GetCurrentClass();
+				int index = 0;
+				for (auto& memberBinding : classBinding->_members)
+				{
+					auto memberType = memberBinding->GetTypeInfo();
+					if (memberType->IsClassType())
+					{
+						auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(memberType);
+						if (asClassType == nullptr)
+						{
+							throw UnexpectedException();
+						}
+						if (asClassType->IsValueType() &&
+							ctorBinding->_initializers.count(memberBinding->_memberDeclaration->_name) == 0)
+						{
+							// Try to find a default c'tor and add it
+							auto initer = std::make_shared<Initializer>(memberBinding->_memberDeclaration->_name, nullptr /*no args*/, FileLocationContext::CurrentLocation());
+							try
+							{
+								initer->TypeCheck(symbolTable, pass);
+								// Add it to the initializer statement so it gets code gen'd
+								if (_initializerStatement == nullptr)
+									_initializerStatement = std::make_shared<InitializerStatement>(nullptr, FileLocationContext::CurrentLocation());
+								_initializerStatement->_list = std::make_shared<InitializerList>(initer, _initializerStatement->_list);
+							}
+							catch (NoMatchingFunctionSignatureFoundException&)
+							{
+								throw ValueTypeMustBeInitializedException(memberBinding->_memberDeclaration->_name);
+							}
+						}
+					}
+				}
+
+				// Now do the body of the c'tor
+				if (_body != nullptr)
+					_body->TypeCheck(symbolTable, pass);
+			}
+
+			_endScopeDtors = symbolTable->Exit();
 		}
-
-		// Now do the body of the c'tor
-		if (_body != nullptr)
-			_body->TypeCheck(symbolTable);
-
-		_endScopeDtors = symbolTable->Exit();
 	}
 
-	void DestructorDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void DestructorDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		FunctionDeclaration::TypeCheckInternal(symbolTable);
-		_classBinding->_dtor = std::dynamic_pointer_cast<DestructorDeclaration>(shared_from_this()); // TODO: This should be done through AddDestructorBinding method
-
-		// Also add a call to the d'tor of each stack-allocated member variable to the d'tor of this type
-		// We destroy variables in the reverse order that they are declared
-		for (auto& iter = _classBinding->_members.rbegin(); iter != _classBinding->_members.rend(); ++iter)
+		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
-			auto memberBinding = *iter;
-			auto typeInfo = memberBinding->GetTypeInfo();
-			if (typeInfo->IsClassType())
+			FunctionDeclaration::TypeCheckInternal(symbolTable, pass);
+
+			if (pass == METHOD_DECLARATIONS)
+				_classBinding->_dtor = std::dynamic_pointer_cast<DestructorDeclaration>(shared_from_this()); // TODO: This should be done through AddDestructorBinding method
+
+			if (pass == METHOD_BODIES)
 			{
-				auto asClassTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo);
-				if (asClassTypeInfo == nullptr)
-					throw UnexpectedException();
-				if (asClassTypeInfo->IsValueType())
+				// Also add a call to the d'tor of each stack-allocated member variable to the d'tor of this type
+				// We destroy variables in the reverse order that they are declared
+				for (auto& iter = _classBinding->_members.rbegin(); iter != _classBinding->_members.rend(); ++iter)
 				{
-					auto memberClassBinding = std::dynamic_pointer_cast<Ast::SymbolTable::ClassBinding>(symbolTable->Lookup(asClassTypeInfo->FullyQualifiedName(symbolTable)));
-					if (memberClassBinding == nullptr)
-						throw UnexpectedException();
-					auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding);
-					AppendDtor(memberClassBinding->_dtor->CreateCall(instanceBinding, FileLocationContext::CurrentLocation()));
+					auto memberBinding = *iter;
+					auto typeInfo = memberBinding->GetTypeInfo();
+					if (typeInfo->IsClassType())
+					{
+						auto asClassTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo);
+						if (asClassTypeInfo == nullptr)
+							throw UnexpectedException();
+						if (asClassTypeInfo->IsValueType())
+						{
+							auto memberClassBinding = std::dynamic_pointer_cast<Ast::SymbolTable::ClassBinding>(symbolTable->Lookup(asClassTypeInfo->FullyQualifiedName(symbolTable)));
+							if (memberClassBinding == nullptr)
+								throw UnexpectedException();
+							auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding);
+							AppendDtor(memberClassBinding->_dtor->CreateCall(instanceBinding, FileLocationContext::CurrentLocation()));
+						}
+					}
 				}
 			}
 		}
@@ -652,10 +718,10 @@ namespace Ast {
 			_endScopeDtors.push_back(dtor);
 	}
 
-	void ClassStatementList::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable)
+	void ClassStatementList::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		_statement->TypeCheck(symbolTable);
+		_statement->TypeCheck(symbolTable, pass);
 		if (_next != nullptr)
-			_next->TypeCheck(symbolTable);
+			_next->TypeCheck(symbolTable, pass);
 	}
 }

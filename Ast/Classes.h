@@ -14,7 +14,7 @@ namespace Ast
 	{
 	public:
 		ClassStatement(FileLocation& location) : Statement(location) { }
-		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass = CLASS_AND_NAMESPACE_DECLARATIONS) override;
 	protected:
 		std::shared_ptr<Ast::SymbolTable::ClassBinding> _classBinding;
 	};
@@ -32,7 +32,7 @@ namespace Ast
 			_defaultValue(defaultValue)
 		{}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		Visibility _visibility;
@@ -78,7 +78,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable);
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass);
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::string _name;
@@ -110,7 +110,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable);
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass);
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::shared_ptr<InitializerList> _list;
@@ -126,7 +126,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 		virtual std::string Name()
 		{
@@ -159,7 +159,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 		std::shared_ptr<InitializerStatement> _initializerStatement;
 	};
@@ -182,7 +182,7 @@ namespace Ast
 			return std::make_shared<FunctionCall>(std::dynamic_pointer_cast<FunctionTypeInfo>(_functionBinding->GetTypeInfo()), nullptr /*expression*/, _functionBinding, varBinding, location);
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 
 		void AppendDtor(std::shared_ptr<FunctionCall> dtor);
 		//virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
@@ -203,7 +203,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		std::shared_ptr<ClassStatement> _statement;
@@ -219,7 +219,7 @@ namespace Ast
 		{
 		}
 
-		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable) override;
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		Visibility _visibility;

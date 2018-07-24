@@ -1,14 +1,14 @@
 // Explicit c'tor
 class Foo
 {
-	int64 j;
-	int i;
-
 	public Foo()
 	{
 		i = 3;
 		j = 7;
 	}
+
+	int64 j;
+	int i;
 }
 
 // Implicit c'tor
@@ -21,16 +21,16 @@ class Bar
 // Explicit c'tor with args
 class Baz
 {
-	uint i;
-	float j;
-	char k;
-
 	public Baz(uint a, float b, char c)
 	{
 		i = a;
 		j = b;
 		k = c;
 	}
+
+	uint i;
+	float j;
+	char k;
 }
 
 // Contains stack-allocated class member variable and implicit c'tor
@@ -42,13 +42,13 @@ class FooBar
 // Contains stack-allocated class member variable and explicit c'tor with both explicit and implicit initializers
 class FooBar2
 {
-	Baz& baz;
-	FooBar& fooBar;
-
 	FooBar2(uint a, float b, char c) : baz(a, b, c)
 	{
 		fooBar.bar.i = 13;
 	}
+	
+	Baz& baz;
+	FooBar& fooBar;
 }
 
 // Passes stack allocated classes as input and outputs
@@ -94,7 +94,6 @@ class FooBaz
 
 class PrintOnDestruct
 {
-	int _toPrint;
 	PrintOnDestruct(int toPrint)
 	{
 		_toPrint = toPrint;
@@ -104,6 +103,8 @@ class PrintOnDestruct
 	{
 		print(_toPrint);
 	}
+	
+	int _toPrint;
 }
 
 class HasPrintOnDestruct
@@ -119,8 +120,6 @@ class HasPrintOnDestruct
 
 class HasPrintOnDestruct2
 {
-	HasPrintOnDestruct& m_hpod;
-
 	HasPrintOnDestruct2(int toPrint) : m_hpod(toPrint)
 	{
 	}
@@ -129,6 +128,8 @@ class HasPrintOnDestruct2
 	{
 		print("x");
 	}
+
+	HasPrintOnDestruct& m_hpod;
 }
 
 class HasLocalVarsInFunctionCall

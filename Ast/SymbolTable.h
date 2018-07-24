@@ -146,7 +146,7 @@ namespace Ast
 			bool IsNamespaceBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override { throw UnexpectedException(); }
 		};
-		void BindNamespace(const std::string& namespaceName);
+		void BindNamespace(const std::string& namespaceName, TypeCheckPass pass);
 
 		class FunctionBinding : public SymbolBinding
 		{
@@ -157,7 +157,7 @@ namespace Ast
 			std::shared_ptr<FunctionDeclaration> _functionDeclaration;
 			std::shared_ptr<FunctionTypeInfo> _typeInfo;
 		};
-		std::shared_ptr<FunctionBinding> BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
+		std::shared_ptr<FunctionBinding> BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass);
 		std::shared_ptr<FunctionBinding> GetCurrentFunction();
 
 		class FunctionInstanceBinding : public FunctionBinding
@@ -185,7 +185,7 @@ namespace Ast
 			void AddInitializerBinding(const std::string& memberName, std::shared_ptr<StackConstructionExpression> assignment);
 			std::unordered_map<std::string, std::shared_ptr<StackConstructionExpression>> _initializers;
 		};
-		std::shared_ptr<ConstructorBinding> BindConstructor(std::shared_ptr<FunctionDeclaration> functionDeclaration);
+		std::shared_ptr<ConstructorBinding> BindConstructor(std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass);
 		std::shared_ptr<ConstructorBinding> GetCurrentConstructor();
 		void BindInitializer(const std::string& memberName, std::shared_ptr<StackConstructionExpression> assignment);
 
@@ -205,7 +205,7 @@ namespace Ast
 			MemberBinding(std::shared_ptr<MemberBinding> memberBinding);
 			int _index = 0;
 		};
-		std::shared_ptr<MemberBinding> BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable);
+		std::shared_ptr<MemberBinding> BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable, TypeCheckPass pass);
 
 		class MemberInstanceBinding : public MemberBinding
 		{
@@ -250,7 +250,7 @@ namespace Ast
 			std::unordered_map<std::string, std::shared_ptr<FunctionBinding>> _functions;
 			std::vector<std::shared_ptr<MemberBinding>> _members;
 		};
-		std::shared_ptr<ClassBinding> BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration);
+		std::shared_ptr<ClassBinding> BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration, TypeCheckPass pass);
 		std::shared_ptr<ClassBinding> GetCurrentClass();
 
 		class LoopBinding : public SymbolBinding
