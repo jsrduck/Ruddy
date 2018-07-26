@@ -158,6 +158,80 @@ class HasLocalVarsInFunctionCall
 	}
 }
 
+class HasOverloadedStaticMethods
+{
+	static fun(int min) GetMin(int a, int b)
+	{
+		if (a < b)
+			return a;
+		return b;
+	}
+
+	static fun(int min) GetMin(int a, int b, int c)
+	{
+		return GetMin(GetMin(a,b), GetMin(b,c));
+	}
+
+	static fun(int min) GetMin(int a, int b, int c, int d)
+	{
+		return GetMin(GetMin(a,b),GetMin(c,d));
+	}
+}
+
+class HasOverloadedMethods
+{
+	HasOverloadedMethods(int base)
+	{
+		_base = base;
+	}
+
+	fun(int min) Multiply(int a, int b)
+	{
+		return a * b * _base;
+	}
+
+	fun(int min) Multiply(int a, int b, int c)
+	{
+		return a * b * c * _base;
+	}
+
+	fun(int min) Multiply(int a, int b, int c, int d)
+	{
+		return a * b * c * d * _base;
+	}
+
+	int _base;
+}
+
+class HasMultipleCtors
+{
+	HasMultipleCtors()
+	{
+	}
+
+	HasMultipleCtors(int i, float j)
+	{
+		_i = i;
+		_j = j;
+	}
+
+	HasMultipleCtors(int i, float j, bool negate)
+	{
+		_i = i;
+		_j = j;
+
+		if (negate)
+		{
+			_i = -1 * _i;
+			_j = -1.0 * _j;
+		}
+	}
+
+	int _i;
+	float _j;
+}
+
+
 class Program 
 {
 	static fun(int ret) main()
@@ -325,6 +399,25 @@ class Program
 
 		// Ctor should print
 		HasLocalVarsInFunctionCall& print9FromCtor(); // 9
+
+		HasMultipleCtors& hmc1();
+		HasMultipleCtors& hmc2(3, 7.5);
+		HasMultipleCtors& hmc3(3, 7.5, true);
+		print(hmc1._i); // 0
+		print(hmc1._j); // 0
+		print(hmc2._i); // 3
+		print(hmc2._j); // 7.5
+		print(hmc3._i); // -3
+		print(hmc3._j); // -7.5
+
+		print(HasOverloadedStaticMethods.GetMin(3,2)); // 2
+		print(HasOverloadedStaticMethods.GetMin(3,2,1)); // 1
+		print(HasOverloadedStaticMethods.GetMin(3,2,1,0)); // 0
+
+		HasOverloadedMethods& hom(5);
+		print(hom.Multiply(2,3)); // 30
+		print(hom.Multiply(2,3,2)); // 60
+		print(hom.Multiply(2,3,2,3)); // 180
 
 		return 0;
 	}

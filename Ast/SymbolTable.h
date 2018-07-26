@@ -148,26 +148,103 @@ namespace Ast
 		};
 		void BindNamespace(const std::string& namespaceName, TypeCheckPass pass);
 
+		class OverloadedFunctionBinding;
 		class FunctionBinding : public SymbolBinding
 		{
 		public:
-			FunctionBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
+			FunctionBinding(const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
 			bool IsFunctionBinding() override { return true; }
+			static bool HaveSameSignatures(std::shared_ptr<TypeInfo> inputArgs1, std::shared_ptr<TypeInfo> inputArgs2, std::shared_ptr<SymbolTable> symbolTable);
+			virtual bool IsOverridden() { return false; }
+			virtual std::shared_ptr<OverloadedFunctionBinding> GetOverloadedBinding()
+			{
+				return nullptr;
+			}
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
 			std::shared_ptr<FunctionDeclaration> _functionDeclaration;
 			std::shared_ptr<FunctionTypeInfo> _typeInfo;
 		};
-		std::shared_ptr<FunctionBinding> BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass);
+		std::shared_ptr<FunctionBinding> BindFunction(std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass);
 		std::shared_ptr<FunctionBinding> GetCurrentFunction();
+
+		class OverloadedFunctionBinding : public FunctionBinding, public std::enable_shared_from_this<OverloadedFunctionBinding>
+		{
+		public:
+			OverloadedFunctionBinding(std::shared_ptr<FunctionBinding> functionBinding1, std::shared_ptr<FunctionBinding> functionBinding2);
+			void AddBinding(std::shared_ptr<FunctionBinding> functionBinding);
+			std::shared_ptr<FunctionBinding> GetMatching(std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<SymbolTable> symbolTable);
+
+			virtual bool IsOverridden()
+			{
+				return true;
+			}
+
+			virtual std::shared_ptr<OverloadedFunctionBinding> GetOverloadedBinding()
+			{
+				return shared_from_this();
+			}
+
+			std::shared_ptr<TypeInfo> GetTypeInfo() override
+			{
+				throw UnexpectedException();
+			}
+
+			virtual void BindIRValue(llvm::Value* value)
+			{
+				throw UnexpectedException();
+			}
+
+			virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
+			{
+				throw UnexpectedException();
+			}
+
+			virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+			{
+				throw UnexpectedException();
+			}
+
+			std::vector<std::shared_ptr<FunctionBinding>> _bindings;
+		};
 
 		class FunctionInstanceBinding : public FunctionBinding
 		{
 		public:
 			FunctionInstanceBinding(std::shared_ptr<FunctionBinding> functionBinding, std::shared_ptr<SymbolBinding> reference) :
-				FunctionBinding(functionBinding->GetName(), functionBinding->GetParentNamespaceName(), functionBinding->_functionDeclaration),
+				FunctionBinding(functionBinding->GetParentNamespaceName(), functionBinding->_functionDeclaration),
 				_functionBinding(functionBinding),
 				_reference(reference)
 			{
+			}
+
+			virtual bool IsOverridden()
+			{
+				return _functionBinding->IsOverridden();
+			}
+
+			virtual std::shared_ptr<OverloadedFunctionBinding> GetOverloadedBinding()
+			{
+				return _functionBinding->GetOverloadedBinding();
+			}
+
+			std::shared_ptr<TypeInfo> GetTypeInfo() override
+			{
+				return _functionBinding->GetTypeInfo();
+			}
+
+			virtual void BindIRValue(llvm::Value* value)
+			{
+				_functionBinding->BindIRValue(value);
+			}
+
+			virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
+			{
+				return _functionBinding->GetIRValue(builder, context, module);
+			}
+
+			virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+			{
+				return _functionBinding->CreateAllocationInstance(name, builder, context);
 			}
 
 			std::shared_ptr<FunctionBinding> _functionBinding;
@@ -178,7 +255,7 @@ namespace Ast
 		{
 		public:
 			ConstructorBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration) :
-				FunctionBinding(name, fullyQualifiedClassName, functionDeclaration)
+				FunctionBinding(fullyQualifiedClassName, functionDeclaration)
 			{
 			}
 
@@ -232,7 +309,7 @@ namespace Ast
 			ClassBinding(const std::string& name, const std::string& fullyQualifiedNamespaceName, std::shared_ptr<ClassDeclaration> classDeclaration);
 
 			std::shared_ptr<ConstructorBinding> AddConstructorBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable);
-			std::shared_ptr<FunctionBinding> AddFunctionBinding(const std::string& name, std::shared_ptr<FunctionDeclaration> functionDeclaration);
+			std::shared_ptr<FunctionBinding> AddFunctionBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable);
 			std::shared_ptr<MemberBinding> AddMemberVariableBinding(const std::string& name, std::shared_ptr<ClassMemberDeclaration> classMemberDeclaration);
 			void BindType(llvm::Type* type)
 			{

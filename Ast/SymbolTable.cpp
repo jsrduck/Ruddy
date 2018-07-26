@@ -132,25 +132,37 @@ namespace Ast
 		ctorBinding->AddInitializerBinding(memberName, assignment);
 	}
 
-	std::shared_ptr<SymbolTable::FunctionBinding> SymbolTable::BindFunction(const std::string& functionName, std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass)
+	std::shared_ptr<SymbolTable::FunctionBinding> SymbolTable::BindFunction(std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass)
 	{
 		if (_currentFunction.size() > 0 || _currentClass.size() == 0)
 		{
-			throw FunctionMustBeDeclaredInClassScopeException(functionName);
+			throw FunctionMustBeDeclaredInClassScopeException(functionDeclaration->Name());
 		}
 		std::shared_ptr<FunctionBinding> binding;
 		if (pass == METHOD_DECLARATIONS)
 		{
-			binding = _currentClass.top()->AddFunctionBinding(functionName, functionDeclaration);
-			if (_map.count(binding->GetFullyQualifiedName()) > 0)
+			binding = _currentClass.top()->AddFunctionBinding(functionDeclaration, shared_from_this());
+			if (_map.count(binding->GetFullyQualifiedName()) == 0)
 			{
-				throw UnexpectedException();
+				_map[binding->GetFullyQualifiedName()] = binding;
 			}
-			_map[binding->GetFullyQualifiedName()] = binding;
+			else
+			{
+				// Must have an overloaded function now
+				_map[binding->GetFullyQualifiedName()] = _currentClass.top()->_functions[functionDeclaration->Name()];
+			}
 		}
 		else
 		{
-			binding = std::dynamic_pointer_cast<FunctionBinding>(Lookup(functionName));
+			binding = std::dynamic_pointer_cast<FunctionBinding>(Lookup(functionDeclaration->Name()));
+			
+			if (binding->IsOverridden())
+			{
+				auto asOverloaded = binding->GetOverloadedBinding();
+				binding = asOverloaded->GetMatching(functionDeclaration->_inputArgsType, shared_from_this());
+				if (!binding)
+					throw UnexpectedException();
+			}
 		}
 		_aux_stack.push(binding);
 		_currentFunction.push(binding);
@@ -216,6 +228,8 @@ namespace Ast
 				return nullptr; // Functions don't have submembers to reference
 			}
 			auto retVal = Lookup(resolvedPrefixSymbol->GetFullyQualifiedName(), symbolName.substr(lastPrefixDelimitter+1), checkIsInitialized);
+			if (!retVal)
+				return retVal;
 			if (retVal->IsClassMemberBinding())
 			{
 				auto asClassMember = std::dynamic_pointer_cast<MemberBinding>(retVal);
@@ -502,14 +516,37 @@ namespace Ast
 		_initializers[memberName] = assignment;
 	}
 
-	std::shared_ptr<SymbolTable::FunctionBinding> SymbolTable::ClassBinding::AddFunctionBinding(const std::string& name, std::shared_ptr<FunctionDeclaration> functionDeclaration)
+	std::shared_ptr<SymbolTable::FunctionBinding> SymbolTable::ClassBinding::AddFunctionBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable)
 	{
-		auto binding = std::make_shared<SymbolTable::FunctionBinding>(name, GetFullyQualifiedName(), functionDeclaration);
-		if (_functions.count(name) > 0)
+		auto binding = std::make_shared<SymbolTable::FunctionBinding>(GetFullyQualifiedName(), functionDeclaration);
+		if (_functions.count(functionDeclaration->Name()) > 0)
 		{
-			throw SymbolAlreadyDefinedInThisScopeException(name);
+			// Is it overloaded?
+			auto existingBinding = _functions[functionDeclaration->Name()];
+			if (existingBinding->IsOverridden())
+			{
+				auto asOverloaded = existingBinding->GetOverloadedBinding();
+				for (auto otherBinding : asOverloaded->_bindings)
+				{
+					if (FunctionBinding::HaveSameSignatures(std::dynamic_pointer_cast<FunctionTypeInfo>(otherBinding->GetTypeInfo())->InputArgsType(), std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->InputArgsType(), symbolTable))
+					{
+						throw SymbolAlreadyDefinedInThisScopeException(functionDeclaration->Name());
+					}
+				}
+				asOverloaded->AddBinding(binding);
+				return binding;
+			}
+			else
+			{
+				if (FunctionBinding::HaveSameSignatures(std::dynamic_pointer_cast<FunctionTypeInfo>(existingBinding->GetTypeInfo())->InputArgsType(), std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->InputArgsType(), symbolTable))
+				{
+					throw SymbolAlreadyDefinedInThisScopeException(functionDeclaration->Name());
+				}
+				_functions[functionDeclaration->Name()] = std::make_shared<OverloadedFunctionBinding>(existingBinding, binding);
+				return binding;
+			}
 		}
-		_functions[name] = binding;
+		_functions[functionDeclaration->Name()] = binding;
 		return binding;
 	}
 
@@ -533,8 +570,8 @@ namespace Ast
 	}
 
 
-	SymbolTable::FunctionBinding::FunctionBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration) 
-		: SymbolBinding(name, fullyQualifiedClassName.empty() ? name : fullyQualifiedClassName + "." + name, functionDeclaration->_visibility),
+	SymbolTable::FunctionBinding::FunctionBinding(const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration) 
+		: SymbolBinding(functionDeclaration->Name(), fullyQualifiedClassName.empty() ? functionDeclaration->Name() : fullyQualifiedClassName + "." + functionDeclaration->Name(), functionDeclaration->_visibility),
 		_functionDeclaration(functionDeclaration)
 	{
 		_typeInfo = std::make_shared<FunctionTypeInfo>(functionDeclaration);
@@ -543,6 +580,47 @@ namespace Ast
 	std::shared_ptr<TypeInfo> SymbolTable::FunctionBinding::GetTypeInfo()
 	{
 		return _typeInfo;
+	}
+
+	bool Ast::SymbolTable::FunctionBinding::HaveSameSignatures(std::shared_ptr<TypeInfo> inputArgs1, std::shared_ptr<TypeInfo> inputArgs2, std::shared_ptr<SymbolTable> symbolTable)
+	{
+		if ((inputArgs1 == nullptr && inputArgs2 != nullptr) ||
+			(inputArgs1 != nullptr && inputArgs2 == nullptr))
+		{
+			return false;
+		}
+		else if (inputArgs2 != nullptr &&
+			!inputArgs2->IsImplicitlyAssignableFrom(inputArgs1, symbolTable))
+		{
+			return false;
+		}
+		else
+		{
+			// Found it!
+			return true;
+		}
+	}
+
+	Ast::SymbolTable::OverloadedFunctionBinding::OverloadedFunctionBinding(std::shared_ptr<FunctionBinding> functionBinding1, std::shared_ptr<FunctionBinding> functionBinding2)
+		: FunctionBinding(functionBinding1->GetFullyQualifiedName(), functionBinding1->_functionDeclaration)
+	{
+		_bindings.push_back(functionBinding1);
+		_bindings.push_back(functionBinding2);
+	}
+
+	void Ast::SymbolTable::OverloadedFunctionBinding::AddBinding(std::shared_ptr<FunctionBinding> functionBinding)
+	{
+		_bindings.push_back(functionBinding);
+	}
+
+	std::shared_ptr<Ast::SymbolTable::FunctionBinding> Ast::SymbolTable::OverloadedFunctionBinding::GetMatching(std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<SymbolTable> symbolTable)
+	{
+		for (auto binding : _bindings)
+		{
+			if (FunctionBinding::HaveSameSignatures(inputArgs, std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->InputArgsType(), symbolTable))
+				return binding;
+		}
+		return nullptr;
 	}
 
 	SymbolTable::ClassBinding::ClassBinding(const std::string& name, const std::string& fullyQualifiedNamespaceName, std::shared_ptr<ClassDeclaration> classDeclaration) 

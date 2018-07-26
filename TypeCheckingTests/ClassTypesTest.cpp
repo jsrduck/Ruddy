@@ -526,6 +526,78 @@ namespace TypeCheckingTests
 				tree->TypeCheck(table);
 			});
 		}
+
+		TEST_METHOD(StaticFunctionReferenceToNonStaticMemberVariableFails)
+		{
+			auto tree = ParseTree("class A { bool b; static fun(bool ret) Foo() { return b; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<NonStaticMemberReferencedFromStaticContextException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(StaticFunctionReferenceToNonStaticMemberOfLocalVariableOfSameClassSucceeds)
+		{
+			auto tree = ParseTree("class A { bool b; static fun(bool ret) Foo() { A a = new A(); return a.b; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(StaticFunctionReferenceToNonStaticMemberOfLocalVariableSucceeds)
+		{
+			auto tree = ParseTree("class A { bool b; } class B { static fun(bool ret) Foo() { A a = new A(); return a.b; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(OverloadedStaticFunctionsSupported)
+		{
+			auto tree = ParseTree("class A { static fun Foo(int a) { } static fun Foo(int a, int b) { } static fun Foo(bool b) { } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(OverloadedStaticFunctionCallsSupported)
+		{
+			auto tree = ParseTree("class A { static fun Foo(int a) { } static fun Foo(int a, int b) { } static fun Foo(bool b) { } } class B { fun Go() { A.Foo(1); A.Foo(1,2); A.Foo(true); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(OverloadedMethodsSupported)
+		{
+			auto tree = ParseTree("class A { fun Foo(int a) { } fun Foo(int a, int b) { } fun Foo(bool b) { } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(OverloadedMethodCallsSupported)
+		{
+			auto tree = ParseTree("class A { fun Foo(int a) { } fun Foo(int a, int b) { } fun Foo(bool b) { } } class B { fun Go() { A a = new A(); a.Foo(1); a.Foo(1,2); a.Foo(true); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(OverloadedFunctionsWithSameInputArgsNotSupported)
+		{
+			auto tree = ParseTree("class A { static fun Foo(int a) { } static fun Foo(int a, int b) { } static fun Foo(int b) { } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolAlreadyDefinedInThisScopeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(OverloadedFunctionsWithSameInputArgsButDifferentOutputArgsNotSupported)
+		{
+			auto tree = ParseTree("class A { static fun Foo(int a) { } static fun Foo(int a, int b) { } static fun(int ret) Foo(int b) { return b; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolAlreadyDefinedInThisScopeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
 	};
 
 	TEST_CLASS(ConstructorTests)
@@ -803,6 +875,36 @@ namespace TypeCheckingTests
 			auto tree = ParseTree("class A {} class B { A& _a; B() : _a(), _a() {} }");
 			auto table = std::make_shared<SymbolTable>();
 			Assert::ExpectException<CannotReinitializeMemberException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(ExplicitCallToCtorFails)
+		{
+			auto tree = ParseTree("class A { } class B { fun Foo() { A.A(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolNotDefinedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(ExplicitCallToLocalCtorFails)
+		{
+			auto tree = ParseTree("class A { fun Foo() { A(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolWrongTypeException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(ExplicitCallToVarCtorFails)
+		{
+			auto tree = ParseTree("class A { fun Foo() { A a = new A(); a.A(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolNotDefinedException>([this, &tree, &table]()
 			{
 				tree->TypeCheck(table);
 			});

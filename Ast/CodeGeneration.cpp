@@ -123,7 +123,7 @@ namespace Ast {
 	{
 		if (_functionTypeInfo == nullptr)
 			throw UnexpectedException();
-		auto function = module->getFunction(_symbolBinding->GetFullyQualifiedName());
+		auto function = _symbolBinding->GetIRValue(builder, context, module); // module->getFunction(_symbolBinding->GetFullyQualifiedName());
 		if (function == nullptr)
 			throw UnexpectedException();
 		std::vector<llvm::Value*> args;

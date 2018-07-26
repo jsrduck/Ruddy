@@ -139,6 +139,15 @@ namespace Ast {
 		}
 	};
 
+	class NonStaticMemberReferencedFromStaticContextException : public Exception
+	{
+	public:
+		NonStaticMemberReferencedFromStaticContextException(const std::string& symbolName)
+		{
+			_message = "Non static member variable \"" + symbolName + "\" cannot be referenced from a non-static context.";
+		}
+	};
+
 	class BreakInWrongPlaceException : public Exception
 	{
 	public:

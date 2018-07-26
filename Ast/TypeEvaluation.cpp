@@ -39,6 +39,21 @@ namespace Ast {
 			// This symbol exists, but it's not a variable so it can't be used as an expression
 			throw SymbolWrongTypeException(_id);
 		}
+		auto currentFunction = symbolTable->GetCurrentFunction();
+		if (!currentFunction)
+			throw UnexpectedException();
+		if (!std::dynamic_pointer_cast<FunctionTypeInfo>(currentFunction->GetTypeInfo())->IsMethod()
+			&& _symbolBinding->IsClassMemberBinding())
+		{
+			// TODO: Support static class members
+			auto asMember = std::dynamic_pointer_cast<SymbolTable::MemberBinding>(_symbolBinding);
+			auto asMemberInstance = std::dynamic_pointer_cast<SymbolTable::MemberInstanceBinding>(_symbolBinding);
+			auto currentClass = symbolTable->GetCurrentClass();
+			if (asMember && currentClass && !asMemberInstance && asMember->_classBinding == currentClass)
+			{
+				throw NonStaticMemberReferencedFromStaticContextException(_symbolBinding->GetName());
+			}
+		}
 		return _symbolBinding->GetTypeInfo();
 	}
 
@@ -87,17 +102,7 @@ namespace Ast {
 			auto functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(constructorSymbol->GetTypeInfo());
 			if (functionTypeInfo == nullptr)
 				throw UnexpectedException();
-			if ((argsExpression == nullptr && functionTypeInfo->InputArgsType() != nullptr) ||
-				(argsExpression != nullptr && functionTypeInfo->InputArgsType() == nullptr))
-			{
-				continue;
-			}
-			else if (functionTypeInfo->InputArgsType() != nullptr &&
-				!functionTypeInfo->InputArgsType()->IsImplicitlyAssignableFrom(argsExpression, symbolTable))
-			{
-				continue;
-			}
-			else
+			if (SymbolTable::FunctionBinding::HaveSameSignatures(argsExpression, functionTypeInfo->InputArgsType(), symbolTable))
 			{
 				// Found it!
 				return std::make_shared<ClassTypeInfo>(symbol->GetTypeInfo(), false /*valueType*/);
@@ -161,18 +166,36 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> FunctionCall::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
+		_argsExprTypeInfo = _expression ? _expression->Evaluate(symbolTable) : nullptr;
+
 		if (_functionTypeInfo == nullptr)
 		{
-			_symbolBinding = symbolTable->Lookup(_name, inInitializerList);
-			if (_symbolBinding == nullptr)
+			auto originalBinding = symbolTable->Lookup(_name, inInitializerList);
+			if (originalBinding == nullptr)
 			{
 				// This id isn't defined in the symbol table yet
 				throw SymbolNotDefinedException(_name);
 			}
-			else if (!_symbolBinding->IsFunctionBinding())
+			else if (!originalBinding->IsFunctionBinding())
 			{
 				// This symbol exists, but it's not the name of a function
-				throw SymbolWrongTypeException(_symbolBinding->GetFullyQualifiedName());
+				throw SymbolWrongTypeException(originalBinding->GetFullyQualifiedName());
+			}
+
+			_symbolBinding = originalBinding;
+
+			auto asFunctionBinding = std::dynamic_pointer_cast<SymbolTable::FunctionBinding>(_symbolBinding);
+			if (!asFunctionBinding)
+				throw UnexpectedException();
+			if (asFunctionBinding->IsOverridden())
+			{
+				auto asOverloaded = asFunctionBinding->GetOverloadedBinding();
+				auto matchingBinding = asOverloaded->GetMatching(_argsExprTypeInfo, symbolTable);
+				if (matchingBinding == nullptr)
+				{
+					throw NoMatchingFunctionSignatureFoundException(_argsExprTypeInfo);
+				}
+				_symbolBinding = matchingBinding;
 			}
 
 			auto functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(_symbolBinding->GetTypeInfo());
@@ -182,13 +205,12 @@ namespace Ast {
 
 			if (!_functionTypeInfo->_mods->IsStatic())
 			{
-				auto functionInstanceBinding = std::dynamic_pointer_cast<Ast::SymbolTable::FunctionInstanceBinding>(_symbolBinding);
+				auto functionInstanceBinding = std::dynamic_pointer_cast<Ast::SymbolTable::FunctionInstanceBinding>(originalBinding);
 				_varBinding = functionInstanceBinding->_reference;
 			}
 		}
 
 		//_classBinding = symbolTable->GetCurrentClass();
-		_argsExprTypeInfo = _expression ? _expression->Evaluate(symbolTable) : nullptr;
 		if ((_argsExprTypeInfo == nullptr && _functionTypeInfo->InputArgsType() != nullptr) ||
 			(_argsExprTypeInfo != nullptr && _functionTypeInfo->InputArgsType() == nullptr))
 		{
@@ -571,7 +593,14 @@ namespace Ast {
 		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
 			symbolTable->Enter();
-			_functionBinding = symbolTable->BindFunction(Name(), dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
+			auto binding = symbolTable->BindFunction(std::dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
+
+			if (pass == METHOD_DECLARATIONS)
+			{
+				_functionBinding = binding;
+				_inputArgsType = std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->InputArgsType();
+				_outputArgsType = std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->OutputArgsType();
+			}
 
 			if (pass == METHOD_BODIES)
 			{
