@@ -30,6 +30,9 @@
     <ClInclude Include="os_io.h">
       <Filter>Header Files\OS</Filter>
     </ClInclude>
+    <ClInclude Include="cxxopts.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -43,5 +46,13 @@
     <CustomBuild Include="Ruddy-vs14-x86.bat">
       <Filter>Source Files</Filter>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="TestFile1.rdy">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="TestFile2.rdy">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

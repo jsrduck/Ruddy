@@ -59,6 +59,13 @@ namespace Ast
 			_stmt(stmt), _next(list)
 		{}
 
+
+		GlobalStatements(std::shared_ptr<GlobalStatements> stmts) :
+			GlobalStatement(FileLocation(0,0)),
+			_stmt(stmts), _next(nullptr)
+		{
+		}
+
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass = TYPE_CHECK_ALL) override;
 		
 		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;

@@ -8,8 +8,11 @@
 #include <stack>
 #include <functional>
 
+#include <boost\property_tree\json_parser.hpp>
+
 namespace Ast
 {
+	// DO NOT DELETE ENTRIES: reordering breaks our symbol table serialization
 	enum Visibility
 	{
 		PUBLIC,
@@ -24,6 +27,7 @@ namespace Ast
 	class StackConstructionExpression;
 	class DestructorDeclaration;
 	class FunctionCall;
+	class Expression;
 	class SymbolTable : public std::enable_shared_from_this<SymbolTable>
 	{
 	public:
@@ -93,6 +97,11 @@ namespace Ast
 			Visibility GetVisibility() { return _visibility; }
 
 			std::shared_ptr<FunctionCall> _onExit;
+
+			// Serialize for import
+			boost::property_tree::ptree Serialize(std::shared_ptr<Ast::SymbolTable> symbolTable);
+			virtual void SerializeInternal(std::shared_ptr<Ast::SymbolTable> symbolTable, boost::property_tree::ptree&) { throw UnexpectedException(); }
+
 		protected:
 			std::string _name;
 			std::string _fullyQualifiedName;
@@ -110,6 +119,10 @@ namespace Ast
 		std::vector<std::shared_ptr<FunctionCall>> Exit();
 		std::vector<std::shared_ptr<FunctionCall>> BreakFromCurrentLoop();
 		std::vector<std::shared_ptr<FunctionCall>> ReturnFromCurrentFunction();
+
+		/* Serialize for importing */
+		void Serialize(std::ostream& output, std::string libName);
+		void LoadFrom(std::istream& input);
 
 		class ScopeMarker : public SymbolBinding
 		{
@@ -147,12 +160,15 @@ namespace Ast
 			std::shared_ptr<TypeInfo> GetTypeInfo() override { throw UnexpectedException(); }
 		};
 		void BindNamespace(const std::string& namespaceName, TypeCheckPass pass);
+		void BindExternalNamespace(const std::string& namespaceName, const std::string& parentNamespace);
 
+		class ClassBinding;
 		class OverloadedFunctionBinding;
-		class FunctionBinding : public SymbolBinding
+		class FunctionBinding : public SymbolBinding, public std::enable_shared_from_this<FunctionBinding>
 		{
 		public:
-			FunctionBinding(const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration);
+			FunctionBinding(const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<ClassBinding> classBinding);
+			FunctionBinding(const std::string& name, const std::string & fullyQualifiedClassName, Visibility visibility, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, std::shared_ptr<Modifier> mods, std::shared_ptr<ClassBinding> classBinding);
 			bool IsFunctionBinding() override { return true; }
 			static bool HaveSameSignatures(std::shared_ptr<TypeInfo> inputArgs1, std::shared_ptr<TypeInfo> inputArgs2, std::shared_ptr<SymbolTable> symbolTable);
 			virtual bool IsOverridden() { return false; }
@@ -160,14 +176,26 @@ namespace Ast
 			{
 				return nullptr;
 			}
+			virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
+			virtual void SerializeInternal(std::shared_ptr<Ast::SymbolTable> symbolTable, boost::property_tree::ptree& symbol) override;
+
+			std::shared_ptr<FunctionCall> CreateCall(std::shared_ptr<SymbolBinding> varBinding, FileLocation& location, std::shared_ptr<Expression> expression = nullptr);
+
+			virtual bool IsMethod()
+			{
+				return !_typeInfo->_mods->IsStatic();
+			}
+
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
-			std::shared_ptr<FunctionDeclaration> _functionDeclaration;
 			std::shared_ptr<FunctionTypeInfo> _typeInfo;
+			std::shared_ptr<ClassBinding> _classBinding;
 		};
 		std::shared_ptr<FunctionBinding> BindFunction(std::shared_ptr<FunctionDeclaration> functionDeclaration, TypeCheckPass pass);
+		std::shared_ptr<FunctionBinding> BindExternalFunction(std::shared_ptr<ClassBinding> classBinding, Visibility visibility, const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, Modifier::Modifiers mods);
 		std::shared_ptr<FunctionBinding> GetCurrentFunction();
 
-		class OverloadedFunctionBinding : public FunctionBinding, public std::enable_shared_from_this<OverloadedFunctionBinding>
+		class OverloadedFunctionBinding : public FunctionBinding
 		{
 		public:
 			OverloadedFunctionBinding(std::shared_ptr<FunctionBinding> functionBinding1, std::shared_ptr<FunctionBinding> functionBinding2);
@@ -181,7 +209,7 @@ namespace Ast
 
 			virtual std::shared_ptr<OverloadedFunctionBinding> GetOverloadedBinding()
 			{
-				return shared_from_this();
+				return std::dynamic_pointer_cast<OverloadedFunctionBinding>(shared_from_this());
 			}
 
 			std::shared_ptr<TypeInfo> GetTypeInfo() override
@@ -204,6 +232,19 @@ namespace Ast
 				throw UnexpectedException();
 			}
 
+			// TODO: We have a weird situation here where we could have some static or some non-static methods. Should they be the same type? Methods internally take a this pointer
+			// as a first param. Should overrides be the same? We can't tell from inside the symbol table lookup which one the caller is asking for.
+			virtual bool IsMethod() override
+			{
+				for (auto& binding : _bindings)
+				{
+					if (!binding->_typeInfo->_mods->IsStatic())
+						return true;
+				}
+			}
+
+			virtual void SerializeInternal(std::shared_ptr<Ast::SymbolTable> symbolTable, boost::property_tree::ptree& symbol) override;
+
 			std::vector<std::shared_ptr<FunctionBinding>> _bindings;
 		};
 
@@ -211,7 +252,7 @@ namespace Ast
 		{
 		public:
 			FunctionInstanceBinding(std::shared_ptr<FunctionBinding> functionBinding, std::shared_ptr<SymbolBinding> reference) :
-				FunctionBinding(functionBinding->GetParentNamespaceName(), functionBinding->_functionDeclaration),
+				FunctionBinding(functionBinding->GetName(), functionBinding->GetParentNamespaceName(), functionBinding->GetVisibility(), functionBinding->_typeInfo->InputArgsType(), functionBinding->_typeInfo->OutputArgsType(), functionBinding->_typeInfo->_mods, functionBinding->_classBinding),
 				_functionBinding(functionBinding),
 				_reference(reference)
 			{
@@ -254,8 +295,13 @@ namespace Ast
 		class ConstructorBinding : public FunctionBinding
 		{
 		public:
-			ConstructorBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration) :
-				FunctionBinding(fullyQualifiedClassName, functionDeclaration)
+			ConstructorBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<ClassBinding> classBinding) :
+				FunctionBinding(fullyQualifiedClassName, functionDeclaration, classBinding)
+			{
+			}
+
+			ConstructorBinding(const std::string& name, const std::string& fullyQualifiedClassName, Visibility visibility, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<Modifier> mods, std::shared_ptr<ClassBinding> classBinding) :
+				FunctionBinding(name, fullyQualifiedClassName, visibility, inputArgs, nullptr /*outputArgs*/, mods, classBinding)
 			{
 			}
 
@@ -266,23 +312,25 @@ namespace Ast
 		std::shared_ptr<ConstructorBinding> GetCurrentConstructor();
 		void BindInitializer(const std::string& memberName, std::shared_ptr<StackConstructionExpression> assignment);
 
-		class ClassBinding;
 		class MemberBinding : public SymbolBinding
 		{
 		public:
 			MemberBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<ClassMemberDeclaration> memberDeclaration, std::shared_ptr<ClassBinding> classBinding);
+			MemberBinding(const std::string& name, const std::string& fullyQualifiedClassName, std::shared_ptr<TypeInfo> typeInfo, std::shared_ptr<ClassBinding> classBinding, Visibility visibility, Modifier::Modifiers mods);
 			bool IsClassMemberBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
 			int Index() { return _index; }
+			virtual void SerializeInternal(std::shared_ptr<Ast::SymbolTable> symbolTable, boost::property_tree::ptree& symbol) override;
 
-			std::shared_ptr<ClassMemberDeclaration> _memberDeclaration;
 			std::shared_ptr<TypeInfo> _typeInfo;
 			std::shared_ptr<ClassBinding> _classBinding;
+			std::shared_ptr<Modifier> _modifier;
 		protected:
 			MemberBinding(std::shared_ptr<MemberBinding> memberBinding);
 			int _index = 0;
 		};
 		std::shared_ptr<MemberBinding> BindMemberVariable(const std::string& variableName, std::shared_ptr<ClassMemberDeclaration> memberVariable, TypeCheckPass pass);
+		std::shared_ptr<MemberBinding> BindExternalMemberVariable(std::shared_ptr<ClassBinding> classBinding, const std::string& variableName, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods);
 
 		class MemberInstanceBinding : public MemberBinding
 		{
@@ -307,10 +355,16 @@ namespace Ast
 		{
 		public:
 			ClassBinding(const std::string& name, const std::string& fullyQualifiedNamespaceName, std::shared_ptr<ClassDeclaration> classDeclaration);
+			ClassBinding(const std::string& name, const std::string& fullyQualifiedNamespaceName, Visibility visibility);
 
 			std::shared_ptr<ConstructorBinding> AddConstructorBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable);
+			std::shared_ptr<ConstructorBinding> AddExternalConstructorBinding(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<Modifier> mods);
+			std::shared_ptr<FunctionBinding> AddDestructorBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable);
+			std::shared_ptr<FunctionBinding> AddExternalDestructorBinding(std::shared_ptr<SymbolTable> symbolTable);
 			std::shared_ptr<FunctionBinding> AddFunctionBinding(std::shared_ptr<FunctionDeclaration> functionDeclaration, std::shared_ptr<SymbolTable> symbolTable);
+			std::shared_ptr<FunctionBinding> AddExternalFunctionBinding(std::shared_ptr<SymbolTable> symbolTable, Visibility visibility, const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, Modifier::Modifiers mods);
 			std::shared_ptr<MemberBinding> AddMemberVariableBinding(const std::string& name, std::shared_ptr<ClassMemberDeclaration> classMemberDeclaration);
+			std::shared_ptr<MemberBinding> AddExternalMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods);
 			void BindType(llvm::Type* type)
 			{
 				_typeInfo->BindType(type);
@@ -320,15 +374,20 @@ namespace Ast
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
 			size_t NumMembers();
 
-			std::shared_ptr<ClassDeclaration> _classDeclaration;
+			
+			virtual void SerializeInternal(std::shared_ptr<Ast::SymbolTable> symbolTable, boost::property_tree::ptree& symbol) override;
+			static std::shared_ptr<ClassBinding> LoadFrom(std::shared_ptr<Ast::SymbolTable> symbolTable, boost::property_tree::ptree& classTree);
+
 			std::shared_ptr<ClassDeclarationTypeInfo> _typeInfo;
 			std::vector<std::shared_ptr<FunctionBinding>> _ctors;
-			std::shared_ptr<DestructorDeclaration> _dtor;
+			std::shared_ptr<FunctionBinding> _dtorBinding;
 			std::unordered_map<std::string, std::shared_ptr<FunctionBinding>> _functions;
 			std::vector<std::shared_ptr<MemberBinding>> _members;
 		};
 		std::shared_ptr<ClassBinding> BindClass(const std::string& className, std::shared_ptr<ClassDeclaration> classDeclaration, TypeCheckPass pass);
+		std::shared_ptr<ClassBinding> BindExternalClass(const std::string& className, const std::string& fullyQualifiedClassName);
 		std::shared_ptr<ClassBinding> GetCurrentClass();
+		std::shared_ptr<FunctionBinding> BindDestructor(std::shared_ptr<DestructorDeclaration> functionDeclaration, TypeCheckPass pass);
 
 		class LoopBinding : public SymbolBinding
 		{
@@ -358,4 +417,5 @@ namespace Ast
 		std::stack<std::shared_ptr<LoopBinding>> _currentLoop;
 		std::vector<std::shared_ptr<SymbolBinding>> _currentAddressableNamespaces; // Anything addressable, ie, classes and namespaces
 	};
+	void LoadFunction(boost::property_tree::basic_ptree<std::string, std::string> &funPtree, std::shared_ptr<Ast::SymbolTable::ClassBinding> &classBinding, std::shared_ptr<Ast::SymbolTable> &symbolTable, std::string &funName);
 }

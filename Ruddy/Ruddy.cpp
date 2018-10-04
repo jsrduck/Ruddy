@@ -6,6 +6,7 @@
 #include <Statements.h>
 #include <Parser.h>
 #include <Exceptions.h>
+#include "cxxopts.hpp"
 
 #include <string>
 #include <memory>
@@ -47,19 +48,45 @@ void AddExternOsFunctions(llvm::Module* module, llvm::LLVMContext& context)
 }
 
 // Ruddy.exe produces the LLVM intermediate code representation. A batch file can be used as a full end-to-end compiler
-int _tmain(int argc, _TCHAR* argv[])
+int main(int argc, char* argv[])
 {
-	if (argc < 1)
+	cxxopts::Options options(argv[0]);
+	options.allow_unrecognised_options()
+		.add_options()
+		("positional", "Positional arguemnts", cxxopts::value<std::vector<std::string>>())
+		("o,output", "output type (lib,dll,exe)", cxxopts::value<std::string>()->default_value("exe"));
+
+	options.parse_positional({ "positional" });
+	auto result = options.parse(argc, argv);
+
+	if (!result.count("positional"))
 	{
-		std::cout << "Must pass in a file to compile";
+		std::cout << "Must pass in at least 1 file to compile";
 		return -1;
 	}
 
+	auto& files = result["positional"].as<std::vector<std::string>>();
+
 	try
 	{
-		std::ifstream inputFile;
-		inputFile.open(argv[1], std::ios::in);
-		auto tree = std::unique_ptr<Ast::GlobalStatements>(Parser::Parse(&inputFile));
+		std::shared_ptr<Ast::GlobalStatements> masterList = nullptr;
+		std::shared_ptr<Ast::GlobalStatements> lastFile = nullptr;
+		for (auto& file : files)
+		{
+			std::ifstream inputFile;
+			inputFile.open(file, std::ios::in);
+			auto stmtList = std::shared_ptr<Ast::GlobalStatements>(Parser::Parse(&inputFile));
+			if (masterList == nullptr)
+			{
+				masterList = std::make_shared<Ast::GlobalStatements>(stmtList);
+				lastFile = masterList;
+			}
+			else
+			{
+				lastFile->_next = std::make_shared<Ast::GlobalStatements>(stmtList);
+				lastFile = lastFile->_next;
+			}
+		}
 
 		// Type check
 		auto symbolTable = std::make_shared<Ast::SymbolTable>();
@@ -72,18 +99,17 @@ int _tmain(int argc, _TCHAR* argv[])
 		// replaced by import statements so we're not generating everything
 		AddExternOsFunctions(module, *TheContext);
 		// Generate code from the input
-		tree->TypeCheck(symbolTable);
+		masterList->TypeCheck(symbolTable);
 
-		tree->CodeGen(&builder, TheContext, module);
+		masterList->CodeGen(&builder, TheContext, module);
 
 		// Now save it to a file
-		std::wstring fileName = argv[1];
+		std::string fileName = argv[1];
 		auto outputFileName = fileName.substr(0, fileName.find_last_of('.'));
-		outputFileName.append(L".ll");
-		std::string outputFileNameAsString = std::string(outputFileName.begin(), outputFileName.end());
+		outputFileName.append(".ll");
 
 		std::error_code errInfo;
-		auto stream = std::make_unique<llvm::raw_fd_ostream>(outputFileNameAsString, errInfo, llvm::sys::fs::OpenFlags::F_RW);
+		auto stream = std::make_unique<llvm::raw_fd_ostream>(outputFileName, errInfo, llvm::sys::fs::OpenFlags::F_RW);
 		module->print(*stream.get(), nullptr);
 		stream->close();
 	}

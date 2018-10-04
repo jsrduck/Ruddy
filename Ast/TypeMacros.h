@@ -12,6 +12,7 @@ namespace Ast {
 		static std::shared_ptr<TypeInfo> Get() { return _staticInstance; }; \
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override; \
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool isOutput = false) override; \
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override; \
 	private: \
 		static const std::string _name; \
 		static int _supportedOperations; \
@@ -76,6 +77,10 @@ namespace Ast {
 	{ \
 		return (operation->OperatorId() & _supportedOperations) != 0; \
 	} \
+	std::string CLASS_NAME::SerializedName(std::shared_ptr<SymbolTable>) \
+	{ \
+		return TYPE_NAME; \
+	}
 
 #define IMPL_PRIMITIVE_TYPE_INFO(CLASS_NAME,TYPE_NAME) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \
@@ -90,7 +95,7 @@ namespace Ast {
 	{ \
 		return std::dynamic_pointer_cast<CLASS_NAME>(other) != nullptr || \
 			std::dynamic_pointer_cast<ASSIGNABLE_FROM_CLASS_NAME1>(other) != nullptr; \
-	} 
+	}
 
 #define IMPL_PRIMITIVE_TYPE_INFO2(CLASS_NAME,TYPE_NAME,ASSIGNABLE_FROM_CLASS_NAME1,ASSIGNABLE_FROM_CLASS_NAME2) \
 	IMPL_PRIMITIVE_TYPE_INFO_STD(CLASS_NAME,TYPE_NAME) \

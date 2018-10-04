@@ -2,12 +2,12 @@
 #include "Primitives.h"
 #include "Operations.h"
 
+#include <unordered_map>
 #include <llvm\IR\Module.h>
 #include <llvm\IR\IRBuilder.h>
 
 namespace Ast
 {
-
 	std::shared_ptr<IntegerConstantType> IntegerConstant::_staticTypeInfo = std::make_shared<IntegerConstantType>();
 	std::shared_ptr<TypeInfo> IntegerConstantType::Get()
 	{
@@ -287,4 +287,25 @@ namespace Ast
 			return llvm::Type::getInt8Ty(*context);
 	}
 
+	std::unordered_map<std::string, std::shared_ptr<TypeInfo>> s_typeInfoMap;
+	std::shared_ptr<TypeInfo> PrimitiveTypeInfo::LoadFrom(const std::string & typeName)
+	{
+		if (s_typeInfoMap.size() == 0)
+		{
+			s_typeInfoMap[Int32TypeInfo::Get()->SerializedName(nullptr)] = Int32TypeInfo::Get();
+			s_typeInfoMap[Int64TypeInfo::Get()->SerializedName(nullptr)] = Int64TypeInfo::Get();
+			s_typeInfoMap[UInt32TypeInfo::Get()->SerializedName(nullptr)] = UInt32TypeInfo::Get();
+			s_typeInfoMap[UInt64TypeInfo::Get()->SerializedName(nullptr)] = UInt64TypeInfo::Get();
+			s_typeInfoMap[Float32TypeInfo::Get()->SerializedName(nullptr)] = Float32TypeInfo::Get();
+			s_typeInfoMap[Float64TypeInfo::Get()->SerializedName(nullptr)] = Float64TypeInfo::Get();
+			s_typeInfoMap[CharByteTypeInfo::Get()->SerializedName(nullptr)] = CharByteTypeInfo::Get();
+			s_typeInfoMap[CharTypeInfo::Get()->SerializedName(nullptr)] = CharTypeInfo::Get();
+			s_typeInfoMap[BoolTypeInfo::Get()->SerializedName(nullptr)] = BoolTypeInfo::Get();
+			s_typeInfoMap[ByteTypeInfo::Get()->SerializedName(nullptr)] = ByteTypeInfo::Get();
+			s_typeInfoMap[StringTypeInfo::Get()->SerializedName(nullptr)] = StringTypeInfo::Get();
+		}
+		if (s_typeInfoMap.count(typeName) == 0)
+			return nullptr;
+		return s_typeInfoMap[typeName];
+	}
 }

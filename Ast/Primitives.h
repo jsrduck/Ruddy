@@ -9,6 +9,7 @@ namespace Ast
 {
 	class PrimitiveTypeInfo : public TypeInfo
 	{
+	public:
 		virtual bool IsPrimitiveType() override
 		{
 			return true;
@@ -19,6 +20,8 @@ namespace Ast
 			// Primitives are instantiated once, and can be compared with a simple pointer comparison
 			return other.get() == this;
 		}
+
+		static std::shared_ptr<TypeInfo> LoadFrom(const std::string& typeName);
 	};
 
 	class IntegerConstant;

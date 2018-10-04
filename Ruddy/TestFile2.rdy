@@ -1,0 +1,9 @@
+class MathClass
+{
+	static fun(uint result) Factorial(uint input)
+	{
+		if (input == 0 || input == 1)
+			return 1;
+		return input * Factorial(input-1);
+	}
+}

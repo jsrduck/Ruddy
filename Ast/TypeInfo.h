@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <vector>
 #include "Node.h"
 #include "Exceptions.h"
 
@@ -63,6 +64,13 @@ namespace Ast
 		{
 			throw UnexpectedException();
 		}
+
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable)
+		{
+			throw UnexpectedException();
+		}
+
+		virtual void AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput = false);
 	};
 
 	class AutoTypeInfo : public TypeInfo
@@ -168,6 +176,18 @@ namespace Ast
 				_next->IsImplicitlyAssignableFrom(otherArgList->_next, symbolTable);
 		}
 
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			if (_next == nullptr)
+			{
+				return _thisType->SerializedName(symbolTable);
+			}
+			else
+			{
+				return  _thisType->SerializedName(symbolTable) + "," + _next->SerializedName(symbolTable);
+			}
+		}
+
 		virtual const std::string& Name() override
 		{
 			return _name;
@@ -190,6 +210,8 @@ namespace Ast
 			// TODO
 			throw UnexpectedException();
 		}
+
+		virtual void AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput = false) override; // TODO
 
 		virtual bool IsComposite() override
 		{
@@ -219,6 +241,7 @@ namespace Ast
 	{
 	public:
 		FunctionTypeInfo(std::shared_ptr<FunctionDeclaration> functionDeclaration);
+		FunctionTypeInfo(const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, std::shared_ptr<Modifier> mods);
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
 			return false;
@@ -287,6 +310,7 @@ namespace Ast
 	{
 	public:
 		ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration, std::string& fullyQualifiedName);
+		ClassDeclarationTypeInfo(const std::string& name, const std::string& fullyQualifiedName);
 
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
 		{
@@ -402,6 +426,14 @@ namespace Ast
 			return std::dynamic_pointer_cast<ClassDeclarationTypeInfo>(_classDeclTypeInfo)->FullyQualifiedName(symbolTable);
 		}
 
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			auto result = FullyQualifiedName(symbolTable);
+			if (IsValueType())
+				result = result + "&";
+			return result;
+		}
+
 	private:
 		std::shared_ptr<TypeInfo> _classDeclTypeInfo;
 		bool _valueType;
@@ -413,6 +445,19 @@ namespace Ast
 	public:
 		UnresolvedClassTypeInfo(const std::string& name, bool valueType) : _name(name), _valueType(valueType)
 		{
+		}
+
+		UnresolvedClassTypeInfo(const std::string& name)
+		{
+			_valueType = name.at(name.size() - 1) == '&';
+			if (_valueType)
+			{
+				_name = name.substr(0, name.size() - 1);
+			}
+			else
+			{
+				_name = name;
+			}
 		}
 
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
@@ -473,6 +518,16 @@ namespace Ast
 		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
 		{
 			return _resolvedType->IsSameType(other);
+		}
+
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override
+		{
+			if (NeedsResolution())
+				if (symbolTable != nullptr)
+					EnsureResolved(symbolTable);
+				else
+					throw UnexpectedException();
+			return _resolvedType->SerializedName(symbolTable);
 		}
 
 	private:

@@ -106,19 +106,6 @@ namespace Ast {
 		}
 	}
 
-	void ArgumentList::AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput)
-	{
-		if (_argument != nullptr)
-		{
-			auto irType = _argument->_typeInfo->GetIRType(context, asOutput);
-			if (irType->isStructTy())
-				irType = irType->getPointerTo();
-			inputVector.push_back(irType);
-		}
-		if (_next != nullptr)
-			_next->AddIRTypesToVector(inputVector, context, asOutput);
-	}
-
 	llvm::Value* FunctionCall::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		if (_functionTypeInfo == nullptr)
@@ -1251,43 +1238,11 @@ namespace Ast {
 
 	void Ast::FunctionDeclaration::CodeGenEnter(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, llvm::FunctionType ** ft, llvm::Function ** function)
 	{
-		// Parameter type
-		std::vector<llvm::Type*> argTypes;
-		bool isMethod = !_mods->IsStatic();
-		llvm::Type* ptrToThisType = nullptr;
-		if (isMethod)
-		{
-			// For non-static methods, add a pointer to "this" as the 1st argument
-			//auto argument = std::make_shared<Argument>(_classBinding->GetTypeInfo(), "this");
-			//_inputArgs = std::make_shared<ArgumentList>(argument, _inputArgs);
-			auto thisType = _classBinding->GetTypeInfo()->GetIRType(context);
-			ptrToThisType = llvm::PointerType::get(thisType, 0);
-			argTypes.push_back(ptrToThisType);
-		}
-		if (_inputArgs != nullptr)
-			_inputArgs->AddIRTypesToVector(argTypes, context);
+		*function = reinterpret_cast<llvm::Function*>(_functionBinding->GetIRValue(builder, context, module));
 
-		// Return type
-		llvm::Type* retType = llvm::Type::getVoidTy(*context);
-		if (_returnArgs != nullptr && _returnArgs->_argument != nullptr)
-		{
-			retType = _returnArgs->_argument->_typeInfo->GetIRType(context);
-		}
-		if (_returnArgs != nullptr && _returnArgs->_next != nullptr)
-		{
-			// LLVM doesn't support multiple return types, so we'll treat them as out
-			// paramaters
-			_returnArgs->_next->AddIRTypesToVector(argTypes, context, true /*asOutput*/);
-		}
-
-		*ft = llvm::FunctionType::get(retType, argTypes, false /*isVarArg*/);
-		auto name = _functionBinding->GetFullyQualifiedName();
-		if (name.compare("Program.main") == 0)
-			name = "main";
-		*function = llvm::Function::Create(*ft, llvm::Function::ExternalLinkage /*TODO*/, name, module);
-		_functionBinding->BindIRValue(*function);
 		auto bb = llvm::BasicBlock::Create(*context, "", *function);
 		builder->SetInsertPoint(bb);
+		bool isMethod = !_mods->IsStatic();
 
 		// Now store the args
 		auto currArg = _inputArgs;
@@ -1368,17 +1323,17 @@ namespace Ast {
 					throw UnexpectedException();
 				}
 				if (asClassType->IsValueType() &&
-					std::dynamic_pointer_cast<Ast::SymbolTable::ConstructorBinding>(_functionBinding)->_initializers.count(memberBinding->_memberDeclaration->_name) == 0)
+					std::dynamic_pointer_cast<Ast::SymbolTable::ConstructorBinding>(_functionBinding)->_initializers.count(memberBinding->GetName()) == 0)
 				{
 					// Try to find a default c'tor and add it
-					auto initer = std::make_shared<Initializer>(memberBinding->_memberDeclaration->_name, nullptr /*no args*/, FileLocationContext::CurrentLocation());
+					auto initer = std::make_shared<Initializer>(memberBinding->GetName(), nullptr /*no args*/, FileLocationContext::CurrentLocation());
 					try
 					{
 						initer->CodeGen(builder, context, module);
 					}
 					catch (NoMatchingFunctionSignatureFoundException&)
 					{
-						throw ValueTypeMustBeInitializedException(memberBinding->_memberDeclaration->_name);
+						throw ValueTypeMustBeInitializedException(memberBinding->GetName());
 					}
 				}
 				else if (!asClassType->IsValueType())
@@ -1430,6 +1385,7 @@ namespace Ast {
 			memberTypes.push_back(val);
 		}
 		auto type = llvm::StructType::create(*context, memberTypes, _name, true /*isPacked*/);
+
 		_classBinding->BindType(type);
 
 		// Now codegen the rest (basically just methods since members don't need to do anything)

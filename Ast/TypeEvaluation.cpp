@@ -500,7 +500,7 @@ namespace Ast {
 				}
 
 				// If the d'tor isn't defined, define an implicit one
-				if (_classBinding->_dtor == nullptr)
+				if (_classBinding->_dtorBinding == nullptr)
 				{
 					auto dtor = std::make_shared<DestructorDeclaration>(_name, nullptr, FileLocationContext::CurrentLocation());
 					dtor->TypeCheck(symbolTable, pass);
@@ -595,17 +595,9 @@ namespace Ast {
 			symbolTable->Enter();
 			auto binding = symbolTable->BindFunction(std::dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
 
-			if (pass == METHOD_DECLARATIONS)
-			{
-				_functionBinding = binding;
-				_inputArgsType = std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->InputArgsType();
-				_outputArgsType = std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->OutputArgsType();
-			}
-
+			TypeCheckArgumentList(binding, symbolTable, pass);
 			if (pass == METHOD_BODIES)
 			{
-				TypeCheckArgumentList(_functionBinding, symbolTable);
-
 				if (_body != nullptr)
 					_body->TypeCheck(symbolTable, pass);
 			}
@@ -620,22 +612,31 @@ namespace Ast {
 		}
 	}
 	
-	void FunctionDeclaration::TypeCheckArgumentList(std::shared_ptr<Ast::SymbolTable::FunctionBinding> binding, std::shared_ptr<SymbolTable> symbolTable)
+	void FunctionDeclaration::TypeCheckArgumentList(std::shared_ptr<Ast::SymbolTable::FunctionBinding> binding, std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
-		// If this is a method, bind the "this" variable
-		if (!_mods->IsStatic())
+		if (pass == METHOD_DECLARATIONS)
 		{
-			_thisPtrBinding = symbolTable->BindVariable("this", _classBinding->GetTypeInfo());
+			_functionBinding = binding;
+			_inputArgsType = std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->InputArgsType();
+			_outputArgsType = std::dynamic_pointer_cast<FunctionTypeInfo>(binding->GetTypeInfo())->OutputArgsType();
 		}
-
-		auto argumentList = _inputArgs;
-		while (argumentList != nullptr)
+		else if (pass == METHOD_BODIES)
 		{
-			auto varBinding = symbolTable->BindVariable(argumentList->_argument->_name, argumentList->_argument->_typeInfo);
-			if (argumentList->_argument->_typeInfo->NeedsResolution())
-				std::dynamic_pointer_cast<UnresolvedClassTypeInfo>(argumentList->_argument->_typeInfo)->EnsureResolved(symbolTable);
-			_argBindings.push_back(varBinding);
-			argumentList = argumentList->_next;
+			// If this is a method, bind the "this" variable
+			if (!_mods->IsStatic())
+			{
+				_thisPtrBinding = symbolTable->BindVariable("this", _classBinding->GetTypeInfo());
+			}
+
+			auto argumentList = _inputArgs;
+			while (argumentList != nullptr)
+			{
+				auto varBinding = symbolTable->BindVariable(argumentList->_argument->_name, argumentList->_argument->_typeInfo);
+				if (argumentList->_argument->_typeInfo->NeedsResolution())
+					std::dynamic_pointer_cast<UnresolvedClassTypeInfo>(argumentList->_argument->_typeInfo)->EnsureResolved(symbolTable);
+				_argBindings.push_back(varBinding);
+				argumentList = argumentList->_next;
+			}
 		}
 	}
 
@@ -646,15 +647,7 @@ namespace Ast {
 			symbolTable->Enter();
 			auto ctorBinding = symbolTable->BindConstructor(dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
 
-			if (pass == METHOD_DECLARATIONS)
-			{
-				_functionBinding = ctorBinding;
-			}
-
-			if (pass == METHOD_BODIES)
-			{
-				TypeCheckArgumentList(ctorBinding, symbolTable);
-			}
+			TypeCheckArgumentList(ctorBinding, symbolTable, pass);
 
 			if (pass == METHOD_BODIES)
 			{
@@ -676,10 +669,10 @@ namespace Ast {
 							throw UnexpectedException();
 						}
 						if (asClassType->IsValueType() &&
-							ctorBinding->_initializers.count(memberBinding->_memberDeclaration->_name) == 0)
+							ctorBinding->_initializers.count(memberBinding->GetName()) == 0)
 						{
 							// Try to find a default c'tor and add it
-							auto initer = std::make_shared<Initializer>(memberBinding->_memberDeclaration->_name, nullptr /*no args*/, FileLocationContext::CurrentLocation());
+							auto initer = std::make_shared<Initializer>(memberBinding->GetName(), nullptr /*no args*/, FileLocationContext::CurrentLocation());
 							try
 							{
 								initer->TypeCheck(symbolTable, pass);
@@ -690,7 +683,7 @@ namespace Ast {
 							}
 							catch (NoMatchingFunctionSignatureFoundException&)
 							{
-								throw ValueTypeMustBeInitializedException(memberBinding->_memberDeclaration->_name);
+								throw ValueTypeMustBeInitializedException(memberBinding->GetName());
 							}
 						}
 					}
@@ -709,13 +702,18 @@ namespace Ast {
 	{
 		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
-			FunctionDeclaration::TypeCheckInternal(symbolTable, pass);
+			symbolTable->Enter();
 
-			if (pass == METHOD_DECLARATIONS)
-				_classBinding->_dtor = std::dynamic_pointer_cast<DestructorDeclaration>(shared_from_this()); // TODO: This should be done through AddDestructorBinding method
+			auto dtorBinding = symbolTable->BindDestructor(dynamic_pointer_cast<DestructorDeclaration>(shared_from_this()), pass);
+				//_classBinding->_dtor = std::dynamic_pointer_cast<DestructorDeclaration>(shared_from_this()); // TODO: This should be done through AddDestructorBinding method
+
+			TypeCheckArgumentList(dtorBinding, symbolTable, pass);
 
 			if (pass == METHOD_BODIES)
 			{
+				if (_body != nullptr)
+					_body->TypeCheck(symbolTable, pass);
+
 				// Also add a call to the d'tor of each stack-allocated member variable to the d'tor of this type
 				// We destroy variables in the reverse order that they are declared
 				for (auto& iter = _classBinding->_members.rbegin(); iter != _classBinding->_members.rend(); ++iter)
@@ -733,11 +731,15 @@ namespace Ast {
 							if (memberClassBinding == nullptr)
 								throw UnexpectedException();
 							auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding);
-							AppendDtor(memberClassBinding->_dtor->CreateCall(instanceBinding, FileLocationContext::CurrentLocation()));
+							AppendDtor(memberClassBinding->_dtorBinding->CreateCall(instanceBinding, FileLocationContext::CurrentLocation()));
 						}
 					}
 				}
 			}
+
+			auto otherDtors = symbolTable->Exit();
+			for (auto& dtor : otherDtors)
+				AppendDtor(dtor);
 		}
 	}
 

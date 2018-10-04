@@ -264,6 +264,11 @@ namespace Ast
 	{
 	}
 
+	ClassDeclarationTypeInfo::ClassDeclarationTypeInfo(const std::string & name, const std::string & fullyQualifiedName) :
+		_name(name), _fullyQualifiedName(fullyQualifiedName), _type(nullptr)
+	{
+	}
+
 	bool ClassDeclarationTypeInfo::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		auto otherAsUnresolvedClassType = std::dynamic_pointer_cast<UnresolvedClassTypeInfo>(other);
@@ -285,6 +290,12 @@ namespace Ast
 		{
 			return otherAsCompositeType->_next == nullptr && IsImplicitlyAssignableFrom(otherAsCompositeType->_thisType, symbolTable);
 		}
+
+		if (other->IsPrimitiveType())
+		{
+			return false;
+		}
+
 		throw UnexpectedException();
 	}
 
@@ -384,6 +395,22 @@ namespace Ast
 		}
 	}
 
+	void Ast::TypeInfo::AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext * context, bool asOutput)
+	{
+		auto irType = GetIRType(context, asOutput);
+		if (irType->isStructTy())
+			irType = irType->getPointerTo();
+		inputVector.push_back(irType);
+	}
+
+	void CompositeTypeInfo::AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext * context, bool asOutput)
+	{
+		if (_thisType != nullptr)
+			_thisType->AddIRTypesToVector(inputVector, context, asOutput);
+		if (_next != nullptr)
+			_next->AddIRTypesToVector(inputVector, context, asOutput);
+	}
+
 	/* FunctionTypeInfo */
 
 	FunctionTypeInfo::FunctionTypeInfo(std::shared_ptr<FunctionDeclaration> functionDeclaration) : _inputArgs(nullptr), _outputArgs(nullptr), _mods(functionDeclaration->_mods)
@@ -405,6 +432,11 @@ namespace Ast
 			else
 				_outputArgs = functionDeclaration->_returnArgs->_argument->_typeInfo;
 		}
+	}
+
+	FunctionTypeInfo::FunctionTypeInfo(const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, std::shared_ptr<Modifier> mods) :
+		_name(name), _inputArgs(inputArgs), _outputArgs(outputArgs), _mods(mods)
+	{
 	}
 
 	bool FunctionTypeInfo::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable)

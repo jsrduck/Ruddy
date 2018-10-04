@@ -15,7 +15,6 @@ namespace Ast
 	public:
 		ClassStatement(FileLocation& location) : Statement(location) { }
 		virtual void TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass = CLASS_AND_NAMESPACE_DECLARATIONS) override;
-	protected:
 		std::shared_ptr<Ast::SymbolTable::ClassBinding> _classBinding;
 	};
 
@@ -63,8 +62,6 @@ namespace Ast
 		ArgumentList(std::shared_ptr<Argument> arg, std::shared_ptr<ArgumentList> next) : _argument(arg), _next(next)
 		{
 		}
-
-		void AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput = false);
 
 		std::shared_ptr<Argument> _argument;
 		std::shared_ptr<ArgumentList> _next;
@@ -142,7 +139,7 @@ namespace Ast
 		std::shared_ptr<Ast::TypeInfo> _inputArgsType;
 		std::shared_ptr<Ast::TypeInfo> _outputArgsType;
 	protected:
-		void TypeCheckArgumentList(std::shared_ptr<Ast::SymbolTable::FunctionBinding> binding, std::shared_ptr<SymbolTable> symbolTable);
+		void TypeCheckArgumentList(std::shared_ptr<Ast::SymbolTable::FunctionBinding> binding, std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass);
 		void CodeGenEnter(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, llvm::FunctionType** ft, llvm::Function** function);
 		void CodeGenLeave(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, llvm::FunctionType* ft, llvm::Function* function);
 		std::shared_ptr<Ast::SymbolTable::FunctionBinding> _functionBinding;
@@ -177,11 +174,6 @@ namespace Ast
 		virtual std::string Name()
 		{
 			return "~" + _name;
-		}
-
-		std::shared_ptr<FunctionCall> CreateCall(std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location)
-		{
-			return std::make_shared<FunctionCall>(std::dynamic_pointer_cast<FunctionTypeInfo>(_functionBinding->GetTypeInfo()), nullptr /*expression*/, _functionBinding, varBinding, location);
 		}
 
 		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;

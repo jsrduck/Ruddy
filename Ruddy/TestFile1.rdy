@@ -1,0 +1,8 @@
+class Program 
+{
+	static fun(int ret) main()
+	{
+		print(MathClass.Factorial(5));
+		return 0;
+	}
+}

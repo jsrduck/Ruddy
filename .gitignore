@@ -234,3 +234,5 @@ packages/**
 *.db-wal
 *.s
 CodeGenTests/ValidateClasses.exe
+*.exp
+*.lib
