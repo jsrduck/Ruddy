@@ -39,10 +39,7 @@ namespace Ast
 		// Operator logic
 		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr);
 		virtual bool SupportsOperator(Operation* operation) = 0;
-		virtual bool IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(Operation* operation, std::shared_ptr<TypeInfo>& implicitCastTypeOut)
-		{
-			return false;
-		}
+		virtual bool IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(Operation* operation, std::shared_ptr<TypeInfo>& implicitCastTypeOut) { return false; }
 		virtual bool IsAutoType() { return false; }
 		virtual bool NeedsResolution() { return false; }
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
@@ -55,20 +52,11 @@ namespace Ast
 		virtual bool IsClassType() { return false; }
 		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) = 0;
 
-		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo)
-		{
-			throw UnexpectedException();
-		}
+		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo) { throw UnexpectedException(); }
 
-		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context)
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) { throw UnexpectedException(); }
 
-		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable)
-		{
-			throw UnexpectedException();
-		}
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) { throw UnexpectedException(); }
 
 		virtual void AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput = false);
 	};
@@ -76,15 +64,9 @@ namespace Ast
 	class AutoTypeInfo : public TypeInfo
 	{
 	public:
-		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return true;
-		}
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override { return true; }
 
-		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return true;
-		}
+		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override { return true; }
 
 		virtual const std::string& Name() override
 		{
@@ -120,116 +102,31 @@ namespace Ast
 	class CompositeTypeInfo : public TypeInfo
 	{
 	public:
-		CompositeTypeInfo(std::shared_ptr<TypeInfo> thisType, std::shared_ptr<CompositeTypeInfo> next = nullptr) : _thisType(thisType), _next(next)
-		{
-			_name = thisType->Name();
-			if (_next != nullptr)
-			{
-				_name.append(",");
-				_name.append(_next->Name());
-			}
-		}
-
-		static std::shared_ptr<CompositeTypeInfo> Clone(std::shared_ptr<CompositeTypeInfo> from)
-		{
-			std::shared_ptr<CompositeTypeInfo> retVal = nullptr;
-			auto current = retVal;
-			while (from != nullptr)
-			{
-				auto newGuy = std::make_shared<CompositeTypeInfo>(from->_thisType);
-				if (current != nullptr)
-				{
-					current->_next = newGuy;
-				}
-				current = newGuy;
-				if (retVal == nullptr)
-				{
-					retVal = current;
-				}
-				from = from->_next;
-			}
-			return retVal;
-		}
+		CompositeTypeInfo(std::shared_ptr<TypeInfo> thisType, std::shared_ptr<CompositeTypeInfo> next = nullptr);
 
 		CompositeTypeInfo(std::shared_ptr<ArgumentList> argumentList);
 
-		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return _thisType->IsLegalTypeForAssignment(symbolTable) && _next->IsLegalTypeForAssignment(symbolTable);
-		}
+		static std::shared_ptr<CompositeTypeInfo> Clone(std::shared_ptr<CompositeTypeInfo> from);
 
-		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			auto otherArgList = std::dynamic_pointer_cast<CompositeTypeInfo>(other);
-			if (otherArgList == nullptr)
-			{
-				// This has to be a single argument
-				return _next == nullptr && _thisType->IsImplicitlyAssignableFrom(other, symbolTable);
-			}
-			if (_next == nullptr)
-			{
-				// The other one had better be a single argument
-				return otherArgList->_next == nullptr && _thisType->IsImplicitlyAssignableFrom(otherArgList->_thisType, symbolTable);
-			}
-			// Both have more to look at
-			return _thisType->IsImplicitlyAssignableFrom(otherArgList->_thisType, symbolTable) &&
-				_next->IsImplicitlyAssignableFrom(otherArgList->_next, symbolTable);
-		}
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			if (_next == nullptr)
-			{
-				return _thisType->SerializedName(symbolTable);
-			}
-			else
-			{
-				return  _thisType->SerializedName(symbolTable) + "," + _next->SerializedName(symbolTable);
-			}
-		}
+		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual const std::string& Name() override
-		{
-			return _name;
-		}
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual bool SupportsOperator(Operation* operation) override
-		{
-			// TODO overloading
-			return false;
-		}
+		virtual const std::string& Name() override;
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
-		{
-			// TODO
-			throw UnexpectedException();
-		}
+		virtual bool SupportsOperator(Operation* operation) override;
 
-		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
-		{
-			// TODO
-			throw UnexpectedException();
-		}
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
 		virtual void AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext* context, bool asOutput = false) override; // TODO
 
-		virtual bool IsComposite() override
-		{
-			return true;
-		}
+		virtual bool IsComposite() override;
 
-		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
-		{
-			auto otherAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(other);
-			if (otherAsComposite != nullptr)
-			{
-				return _thisType->IsSameType(otherAsComposite->_thisType) && _next->IsSameType(otherAsComposite->_next);
-			}
-			else
-			{
-				return _next == nullptr && _thisType->IsSameType(other);
-			}
-		}
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
 
 		std::shared_ptr<TypeInfo> _thisType;
 		std::shared_ptr<CompositeTypeInfo> _next;
@@ -240,44 +137,21 @@ namespace Ast
 	class FunctionTypeInfo : public TypeInfo
 	{
 	public:
-		FunctionTypeInfo(std::shared_ptr<FunctionDeclaration> functionDeclaration);
 		FunctionTypeInfo(const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, std::shared_ptr<Modifier> mods);
-		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return false;
-		}
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
 		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
 		virtual const std::string& Name() override;
 
 		// Operator logic
-		virtual bool SupportsOperator(Operation* operation) { return false; } // For now, we don't support operators on functions.
+		virtual bool SupportsOperator(Operation* operation); // For now, we don't support operators on functions.
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
-		{
-			// TODO
-			throw UnexpectedException();
-		}
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
-		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
-		{
-			// TODO
-			throw UnexpectedException();
-		}
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
-		bool IsMethod()
-		{
-			return !_mods->IsStatic();
-		}
+		bool IsMethod();
 
-		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
-		{
-			auto otherAsFunction = std::dynamic_pointer_cast<FunctionTypeInfo>(other);
-			if (otherAsFunction == nullptr)
-				return false;
-
-			// TODO: Is it enough for a function to have a matching signature to be the same type?
-			return InputArgsType()->IsSameType(otherAsFunction->InputArgsType()) && OutputArgsType()->IsSameType(otherAsFunction->OutputArgsType());
-		}
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
 
 		std::shared_ptr<TypeInfo> InputArgsType() { return _inputArgs; }
 		std::shared_ptr<TypeInfo> OutputArgsType() { return _outputArgs; }
@@ -290,10 +164,7 @@ namespace Ast
 	class BaseClassTypeInfo : public TypeInfo
 	{
 	public:
-		bool IsClassType() override
-		{
-			return true;
-		}
+		bool IsClassType() override;
 
 		virtual std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) = 0;
 
@@ -309,55 +180,27 @@ namespace Ast
 	class ClassDeclarationTypeInfo : public TypeInfo
 	{
 	public:
-		ClassDeclarationTypeInfo(std::shared_ptr<ClassDeclaration> classDeclaration, std::string& fullyQualifiedName);
 		ClassDeclarationTypeInfo(const std::string& name, const std::string& fullyQualifiedName);
 
-		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return false;
-		}
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
 
 		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual const std::string& Name() override
-		{
-			return _name;
-		}
+		virtual const std::string& Name() override;
 
-		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr)
-		{
-			return _fullyQualifiedName;
-		}
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr);
 
 		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
 		virtual bool SupportsOperator(Operation* operation) override;
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
-		{
-			// TODO
-			throw UnexpectedException();
-		}
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
-		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
-		{
-			if (_type == nullptr)
-				throw UnexpectedException();
-			return _type;
-		}
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
-		void BindType(llvm::Type* type)
-		{
-			_type = type;
-		}
+		void BindType(llvm::Type* type);
 
-		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
-		{
-			auto otherAsClass = std::dynamic_pointer_cast<BaseClassTypeInfo>(other);
-			if (otherAsClass == nullptr)
-				return false;
-			return FullyQualifiedName().compare(otherAsClass->FullyQualifiedName()) == 0;
-		}
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
 
 	private:
 		llvm::Type* _type;
@@ -370,69 +213,33 @@ namespace Ast
 	class ClassTypeInfo : public BaseClassTypeInfo
 	{
 	public:
-		ClassTypeInfo(std::shared_ptr<TypeInfo> classDeclTypeInfo, bool valueType) : 
-			_classDeclTypeInfo(classDeclTypeInfo), _valueType(valueType)
-		{
-		}
+		ClassTypeInfo(std::shared_ptr<TypeInfo> classDeclTypeInfo, bool valueType);
 
-		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			return true;
-		}
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
 
 		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual const std::string& Name() override
-		{
-			return _classDeclTypeInfo->Name();
-		}
+		virtual const std::string& Name() override;
 
-		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override
-		{
-			return _classDeclTypeInfo->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
-		}
+		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
-		virtual bool SupportsOperator(Operation* operation) override
-		{
-			return _classDeclTypeInfo->SupportsOperator(operation);
-		}
+		virtual bool SupportsOperator(Operation* operation) override;
 
 		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
-		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
-		{
-			return _classDeclTypeInfo->GetIRType(context, asOutput);
-		}
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
-		bool IsValueType() override
-		{
-			return _valueType;
-		}
+		bool IsValueType() override;
 
-		std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> /*symbolTable*/) override
-		{
-			return _classDeclTypeInfo;
-		}
+		std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> /*symbolTable*/) override;
 
 		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) override;
 
-		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
-		{
-			return _classDeclTypeInfo->IsSameType(other);
-		}
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
 
-		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) override
-		{
-			return std::dynamic_pointer_cast<ClassDeclarationTypeInfo>(_classDeclTypeInfo)->FullyQualifiedName(symbolTable);
-		}
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
-		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			auto result = FullyQualifiedName(symbolTable);
-			if (IsValueType())
-				result = result + "&";
-			return result;
-		}
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override;
 
 	private:
 		std::shared_ptr<TypeInfo> _classDeclTypeInfo;
@@ -443,92 +250,37 @@ namespace Ast
 	class UnresolvedClassTypeInfo : public BaseClassTypeInfo
 	{
 	public:
-		UnresolvedClassTypeInfo(const std::string& name, bool valueType) : _name(name), _valueType(valueType)
-		{
-		}
+		UnresolvedClassTypeInfo(const std::string& name, bool valueType);
 
-		UnresolvedClassTypeInfo(const std::string& name)
-		{
-			_valueType = name.at(name.size() - 1) == '&';
-			if (_valueType)
-			{
-				_name = name.substr(0, name.size() - 1);
-			}
-			else
-			{
-				_name = name;
-			}
-		}
+		UnresolvedClassTypeInfo(const std::string& name);
 
 		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
 
 		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual const std::string& Name() override
-		{
-			return _name;
-		}
+		virtual const std::string& Name() override;
 
-		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) override
-		{
-			if (NeedsResolution())
-				if (symbolTable != nullptr)
-					EnsureResolved(symbolTable);
-				else
-					throw UnexpectedException();
-			return _resolvedType->FullyQualifiedName();
-		}
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
 		virtual std::shared_ptr<TypeInfo> EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs = nullptr, std::shared_ptr<SymbolTable> symbolTable = nullptr) override;
 
 		virtual bool SupportsOperator(Operation* operation) override;
 		
-		virtual bool NeedsResolution() override
-		{
-			return true;
-		}
+		virtual bool NeedsResolution() override;
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
-		{
-			if (_resolvedType == nullptr)
-				throw UnexpectedException();
-			return _resolvedType->CreateAllocation(name, builder, context);
-		}
+		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
 
-		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override
-		{
-			if (_resolvedType == nullptr)
-				throw UnexpectedException();
-			return _resolvedType->GetIRType(context, asOutput);
-		}
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
 		void EnsureResolved(std::shared_ptr<SymbolTable> symbolTable); 
 		
-		bool IsValueType() override
-		{
-			return _valueType;
-		}
+		bool IsValueType() override;
 
-		std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			EnsureResolved(symbolTable);
-			return _resolvedType->GetClassDeclarationTypeInfo(symbolTable);
-		}
+		std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) override;
 
-		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override
-		{
-			return _resolvedType->IsSameType(other);
-		}
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
 
-		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override
-		{
-			if (NeedsResolution())
-				if (symbolTable != nullptr)
-					EnsureResolved(symbolTable);
-				else
-					throw UnexpectedException();
-			return _resolvedType->SerializedName(symbolTable);
-		}
+		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override;
 
 	private:
 		std::string _name;
@@ -542,22 +294,13 @@ namespace Ast
 	class TypeSpecifier
 	{
 	public:
-		TypeSpecifier() : _resolvedType(new AutoTypeInfo())
-		{
-		}
+		TypeSpecifier();
 
-		TypeSpecifier(const std::string& name, bool valueType) : _resolvedType(new UnresolvedClassTypeInfo(name, valueType))
-		{
-		}
+		TypeSpecifier(const std::string& name, bool valueType);
 
-		TypeSpecifier(std::shared_ptr<TypeInfo> knownType) : _resolvedType(knownType)
-		{
-		}
+		TypeSpecifier(std::shared_ptr<TypeInfo> knownType);
 
-		std::shared_ptr<TypeInfo> GetTypeInfo()
-		{
-			return _resolvedType;
-		}
+		std::shared_ptr<TypeInfo> GetTypeInfo();
 
 	private:
 		std::shared_ptr<TypeInfo> _resolvedType;

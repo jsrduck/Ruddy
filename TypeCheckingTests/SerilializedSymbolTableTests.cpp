@@ -2,6 +2,7 @@
 #include "CppUnitTest.h"
 #include <sstream>
 #include <Utils.h>
+#include <fstream>
 
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;

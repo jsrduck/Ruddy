@@ -67,6 +67,7 @@ namespace Ast
 		std::shared_ptr<ArgumentList> _next;
 	};
 
+	class StackConstructionExpression;
 	class Initializer : public Statement
 	{
 	public:
@@ -139,6 +140,7 @@ namespace Ast
 		std::shared_ptr<Ast::TypeInfo> _inputArgsType;
 		std::shared_ptr<Ast::TypeInfo> _outputArgsType;
 	protected:
+		void GetInputAndOutputTypes();
 		void TypeCheckArgumentList(std::shared_ptr<Ast::SymbolTable::FunctionBinding> binding, std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass);
 		void CodeGenEnter(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, llvm::FunctionType** ft, llvm::Function** function);
 		void CodeGenLeave(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, llvm::FunctionType* ft, llvm::Function* function);

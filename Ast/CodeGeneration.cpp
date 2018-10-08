@@ -3,12 +3,222 @@
 #include "Statements.h"
 #include "Classes.h"
 #include "Operations.h"
+#include "CodeGen.h"
+#include "SymbolTable.h"
 
 #include <llvm\IR\Module.h>
 #include <llvm\IR\IRBuilder.h>
 #include <llvm\IR\Verifier.h>
 
 namespace Ast {
+	/* SymbolCodeGenerator */
+	class BasicCodeGenerator : public SymbolCodeGenerator
+	{
+		virtual void BindIRValue(llvm::Value* value) override
+		{
+			_value = value;
+		}
+
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			return _value;
+		}
+
+		virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			throw UnexpectedException();
+		}
+
+		virtual llvm::BasicBlock* GetEndOfScopeBlock(llvm::LLVMContext* context) override
+		{
+			throw UnexpectedException();
+		}
+	protected:
+		llvm::Value* _value = nullptr;
+	};
+
+	class UnsupportedCodeGenerator : public SymbolCodeGenerator
+	{
+		virtual void BindIRValue(llvm::Value* value) override
+		{
+			throw UnexpectedException();
+		}
+
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			throw UnexpectedException();
+		}
+
+		virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			throw UnexpectedException();
+		}
+
+		virtual llvm::BasicBlock* GetEndOfScopeBlock(llvm::LLVMContext* context) override
+		{
+			throw UnexpectedException();
+		}
+	};
+
+	// Default uses the basic codegenerator
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::SymbolBinding::GetCodeGen()
+	{
+		if (_codeGen == nullptr)
+		{
+			_codeGen = CreateCodeGen();
+		}
+		return _codeGen;
+	}
+
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::SymbolBinding::CreateCodeGen()
+	{
+		return std::make_shared<BasicCodeGenerator>();
+	}
+
+	/* Variable */
+	class VariableCodeGen : public BasicCodeGenerator
+	{
+	public:
+		VariableCodeGen(std::shared_ptr<TypeInfo> typeInfo) : _variableType(typeInfo)
+		{
+		}
+
+		virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		{
+			auto alloc = _variableType->CreateAllocation(name, builder, context);
+			_value = alloc;
+			return alloc;
+		}
+
+	private:
+		std::shared_ptr<TypeInfo> _variableType;
+	};
+	std::shared_ptr<SymbolCodeGenerator> SymbolTable::VariableBinding::CreateCodeGen()
+	{
+		return std::make_shared<VariableCodeGen>(_variableType);
+	}
+
+	/* Function */
+	class FunctionCodeGen : public BasicCodeGenerator
+	{
+	public:
+		FunctionCodeGen(std::shared_ptr<FunctionTypeInfo> typeInfo, std::shared_ptr<TypeInfo> classTypeInfo, const std::string& fullyQualifiedName, Visibility visibility) 
+			: _typeInfo(typeInfo), _classTypeInfo(classTypeInfo), _fullyQualifiedName(fullyQualifiedName), _visibility(visibility)
+		{
+		}
+		
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			if (_value != nullptr)
+				return _value;
+
+			std::vector<llvm::Type*> argTypes;
+			bool isMethod = !_typeInfo->_mods->IsStatic();
+			llvm::Type* ptrToThisType = nullptr;
+			if (isMethod)
+			{
+				// For non-static methods, add a pointer to "this" as the 1st argument
+				auto thisType = _classTypeInfo->GetIRType(context);
+				ptrToThisType = llvm::PointerType::get(thisType, 0);
+				argTypes.push_back(ptrToThisType);
+			}
+			if (_typeInfo->InputArgsType() != nullptr)
+				_typeInfo->InputArgsType()->AddIRTypesToVector(argTypes, context);
+
+			// Return type
+			llvm::Type* retType = llvm::Type::getVoidTy(*context);
+			auto outputArgsType = _typeInfo->OutputArgsType();
+			auto multiArgType = std::dynamic_pointer_cast<CompositeTypeInfo>(outputArgsType);
+			if (outputArgsType != nullptr)
+			{
+				if (outputArgsType->IsComposite())
+				{
+					retType = multiArgType->_thisType->GetIRType(context);
+					// LLVM doesn't support multiple return types, so we'll treat them as out
+					// paramaters
+					multiArgType->_next->AddIRTypesToVector(argTypes, context, true /*asOutput*/);
+				}
+				else
+				{
+					retType = outputArgsType->GetIRType(context);
+				}
+			}
+
+			auto name = _fullyQualifiedName;
+			if (name.compare("Program.main") == 0)
+				name = "main";
+
+			llvm::Function* function = llvm::Function::Create(llvm::FunctionType::get(retType, argTypes, false /*isVarArg*/), llvm::Function::ExternalLinkage /*TODO*/, name, module);
+			if (_visibility == PUBLIC)
+				function->setDLLStorageClass(llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
+			_value = function;
+			return _value;
+		}
+	private:
+		std::shared_ptr<FunctionTypeInfo> _typeInfo;
+		std::shared_ptr<TypeInfo> _classTypeInfo;
+		const std::string _fullyQualifiedName;
+		Visibility _visibility;
+	};
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::FunctionBinding::CreateCodeGen()
+	{
+		return std::make_shared<FunctionCodeGen>(_typeInfo, _classBinding->GetTypeInfo(), GetFullyQualifiedName(), _visibility);
+	}
+
+	/* OverloadedFunction */
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::OverloadedFunctionBinding::CreateCodeGen()
+	{
+		return std::make_shared<UnsupportedCodeGenerator>();
+	}
+
+	/* FunctionInstance */
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::FunctionInstanceBinding::CreateCodeGen()
+	{
+		return _functionBinding->GetCodeGen();
+	}
+
+	/* MemberInstance */
+	class MemberInstanceCodeGen : public BasicCodeGenerator
+	{
+	public:
+		MemberInstanceCodeGen(std::shared_ptr<SymbolCodeGenerator> reference, int index) : _reference(reference), _index(index)
+		{
+		}
+
+		llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module) override
+		{
+			std::vector<llvm::Value*> idxVec;
+			idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true)));
+			idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, _index, true)));
+			return builder->CreateGEP(_reference->GetIRValue(builder, context, module), idxVec);
+		}
+	private:
+		std::shared_ptr<SymbolCodeGenerator> _reference;
+		int _index;
+	};
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::MemberInstanceBinding::CreateCodeGen()
+	{
+		return std::make_shared<MemberInstanceCodeGen>(_reference->GetCodeGen(), _index);
+	}
+
+	/* Loop */
+	class LoopCodeGen : public BasicCodeGenerator
+	{
+	public:
+		virtual llvm::BasicBlock* GetEndOfScopeBlock(llvm::LLVMContext* context) override
+		{
+			if (_endOfScope == nullptr)
+				_endOfScope = llvm::BasicBlock::Create(*context);
+			return _endOfScope;
+		}
+
+	private:
+		llvm::BasicBlock* _endOfScope;
+	};
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::LoopBinding::CreateCodeGen()
+	{
+		return std::make_shared<LoopCodeGen>();
+	}
 
 	llvm::Value* CreateAssignment(std::shared_ptr<Ast::TypeInfo> expectedType, llvm::Value* lhs, llvm::Value* rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
@@ -37,13 +247,13 @@ namespace Ast {
 	llvm::Value* DeclareVariable::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		FileLocationContext locationContext(_location);
-		return _symbolBinding->CreateAllocationInstance(_name, builder, context);
+		return _symbolBinding->GetCodeGen()->CreateAllocationInstance(_name, builder, context);
 	}
 
 	llvm::Value* AssignFromReference::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		FileLocationContext locationContext(_location);
-		return _symbolBinding->GetIRValue(builder, context, module);
+		return _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module);
 	}
 
 	void AssignFrom::CodeGen(std::shared_ptr<Expression> rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
@@ -110,7 +320,7 @@ namespace Ast {
 	{
 		if (_functionTypeInfo == nullptr)
 			throw UnexpectedException();
-		auto function = _symbolBinding->GetIRValue(builder, context, module); // module->getFunction(_symbolBinding->GetFullyQualifiedName());
+		auto function = _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module); // module->getFunction(_symbolBinding->GetFullyQualifiedName());
 		if (function == nullptr)
 			throw UnexpectedException();
 		std::vector<llvm::Value*> args;
@@ -118,7 +328,7 @@ namespace Ast {
 		if (_functionTypeInfo->IsMethod())
 		{
 			// Push "this" ptr on first
-			auto val = _varBinding->GetIRValue(builder, context, module);
+			auto val = _varBinding->GetCodeGen()->GetIRValue(builder, context, module);
 			args.push_back(val);
 		}
 
@@ -340,10 +550,10 @@ namespace Ast {
 		auto typeInfo = _symbolBinding->GetTypeInfo();
 		if (typeInfo->IsPrimitiveType())
 		{
-			return builder->CreateLoad(_symbolBinding->GetIRValue(builder, context, module), _id);
+			return builder->CreateLoad(_symbolBinding->GetCodeGen()->GetIRValue(builder, context, module), _id);
 		}
 		else
-			return _symbolBinding->GetIRValue(builder, context, module);
+			return _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module);
 	}
 
 	llvm::Value* ExpressionList::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
@@ -702,7 +912,7 @@ namespace Ast {
 			throw UnexpectedException();
 		}
 		// Now store the result.
-		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		auto exprVal = _expr->SymbolBinding()->GetCodeGen()->GetIRValue(builder, context, module);
 		builder->CreateStore(result, exprVal);
 		return val; // Return the result before the increment
 	}
@@ -725,7 +935,7 @@ namespace Ast {
 			throw UnexpectedException();
 		}
 		// Now store the result.
-		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		auto exprVal = _expr->SymbolBinding()->GetCodeGen()->GetIRValue(builder, context, module);
 		builder->CreateStore(result, exprVal);
 		return val; // Return the result before the decrement
 	}
@@ -748,7 +958,7 @@ namespace Ast {
 			throw UnexpectedException();
 		}
 		// Now store the result.
-		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		auto exprVal = _expr->SymbolBinding()->GetCodeGen()->GetIRValue(builder, context, module);
 		builder->CreateStore(result, exprVal);
 		return result; // Return the result after the increment
 	}
@@ -771,7 +981,7 @@ namespace Ast {
 			throw UnexpectedException();
 		}
 		// Now store the result.
-		auto exprVal = _expr->SymbolBinding()->GetIRValue(builder, context, module);
+		auto exprVal = _expr->SymbolBinding()->GetCodeGen()->GetIRValue(builder, context, module);
 		builder->CreateStore(result, exprVal);
 		return result; // Return the result after the decrement
 	}
@@ -938,7 +1148,7 @@ namespace Ast {
 			retVal = classTypeInfo->CreateAllocation(_varName, builder, context);
 
 			// Bind the variable to this struct value
-			_varBinding->BindIRValue(retVal);
+			_varBinding->GetCodeGen()->BindIRValue(retVal);
 		}
 
 		// Now, run the c'tor
@@ -1037,7 +1247,7 @@ namespace Ast {
 		builder->CreateBr(conditionBlock);
 		builder->SetInsertPoint(conditionBlock);
 		auto loopBlock = llvm::BasicBlock::Create(*context);
-		builder->CreateCondBr(_condition->CodeGen(builder, context, module, BoolTypeInfo::Get()), loopBlock, _currentLoopBinding->GetEndOfScopeBlock(context));
+		builder->CreateCondBr(_condition->CodeGen(builder, context, module, BoolTypeInfo::Get()), loopBlock, _currentLoopBinding->GetCodeGen()->GetEndOfScopeBlock(context));
 		func->getBasicBlockList().push_back(loopBlock);
 		builder->SetInsertPoint(loopBlock);
 
@@ -1045,7 +1255,7 @@ namespace Ast {
 
 		builder->CreateBr(conditionBlock);
 
-		auto fallthrough = _currentLoopBinding->GetEndOfScopeBlock(context);
+		auto fallthrough = _currentLoopBinding->GetCodeGen()->GetEndOfScopeBlock(context);
 		func->getBasicBlockList().push_back(fallthrough);
 		builder->SetInsertPoint(fallthrough);
 
@@ -1063,7 +1273,7 @@ namespace Ast {
 		{
 			dtor->CodeGen(builder, context, module);
 		}
-		builder->CreateBr(_currentLoopBinding->GetEndOfScopeBlock(context));
+		builder->CreateBr(_currentLoopBinding->GetCodeGen()->GetEndOfScopeBlock(context));
 	}
 
 	void Ast::Assignment::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
@@ -1099,7 +1309,7 @@ namespace Ast {
 			// Return the 1st parameter, treat the rest as out parameters
 			auto exprList = std::dynamic_pointer_cast<ExpressionList>(_idList);
 
-			auto function = (llvm::Function*)_functionBinding->GetIRValue(builder, context, module);
+			auto function = (llvm::Function*)_functionBinding->GetCodeGen()->GetIRValue(builder, context, module);
 
 			// Get the number of input arguments
 			int inputArgCount = 0;
@@ -1238,7 +1448,7 @@ namespace Ast {
 
 	void Ast::FunctionDeclaration::CodeGenEnter(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, llvm::FunctionType ** ft, llvm::Function ** function)
 	{
-		*function = reinterpret_cast<llvm::Function*>(_functionBinding->GetIRValue(builder, context, module));
+		*function = reinterpret_cast<llvm::Function*>(_functionBinding->GetCodeGen()->GetIRValue(builder, context, module));
 
 		auto bb = llvm::BasicBlock::Create(*context, "", *function);
 		builder->SetInsertPoint(bb);
@@ -1267,15 +1477,15 @@ namespace Ast {
 			{
 				// Since "this" isn't a pointer that can be reassigned, there's no point in allocating a new pointer and storing it.
 				// We'll just always refer to the current pointer
-				_thisPtrBinding->BindIRValue(&arg);
+				_thisPtrBinding->GetCodeGen()->BindIRValue(&arg);
 			}
 			else
 			{
 				auto binding = _argBindings[i - (isMethod ? 1 : 0)];
 				// Create an allocation for the arg
-				auto alloc = binding->CreateAllocationInstance(currArg->_argument->_name, builder, context);
+				auto alloc = binding->GetCodeGen()->CreateAllocationInstance(currArg->_argument->_name, builder, context);
 				CreateAssignment(binding->GetTypeInfo(), alloc, &arg, builder, context, module);
-				binding->BindIRValue(alloc);
+				binding->GetCodeGen()->BindIRValue(alloc);
 				currArg = currArg->_next;
 				if (currArg == nullptr && _returnArgs != nullptr && _returnArgs->_next != nullptr)
 					currArg = _returnArgs->_next;
@@ -1339,13 +1549,13 @@ namespace Ast {
 				else if (!asClassType->IsValueType())
 				{
 					// Assign to nullptr
-					builder->CreateStore(asClassType->GetDefaultValue(context), memberBinding->GetIRValue(builder, context, module));
+					builder->CreateStore(asClassType->GetDefaultValue(context), memberBinding->GetCodeGen()->GetIRValue(builder, context, module));
 				}
 			}
 			else if (memberType->IsPrimitiveType())
 			{
 				// Give local members the default value
-				builder->CreateStore(memberBinding->GetTypeInfo()->GetDefaultValue(context), memberBinding->GetIRValue(builder, context, module));
+				builder->CreateStore(memberBinding->GetTypeInfo()->GetDefaultValue(context), memberBinding->GetCodeGen()->GetIRValue(builder, context, module));
 			}
 		}
 
@@ -1386,7 +1596,7 @@ namespace Ast {
 		}
 		auto type = llvm::StructType::create(*context, memberTypes, _name, true /*isPacked*/);
 
-		_classBinding->BindType(type);
+		_classBinding->_typeInfo->BindType(type);
 
 		// Now codegen the rest (basically just methods since members don't need to do anything)
 		if (_list != nullptr)

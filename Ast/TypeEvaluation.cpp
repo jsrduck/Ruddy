@@ -481,7 +481,7 @@ namespace Ast {
 	void ClassDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
 		symbolTable->Enter();
-		_classBinding = symbolTable->BindClass(_name, dynamic_pointer_cast<ClassDeclaration>(shared_from_this()), pass);
+		_classBinding = symbolTable->BindClass(_name, _visibility, pass);
 
 		if (pass >= METHOD_DECLARATIONS)
 		{
@@ -531,7 +531,7 @@ namespace Ast {
 				}
 			}
 
-			auto binding = symbolTable->BindMemberVariable(_name, dynamic_pointer_cast<ClassMemberDeclaration>(shared_from_this()), pass);
+			auto binding = symbolTable->BindMemberVariable(_name, _typeInfo, _visibility, _mods->Get(), pass);
 		}
 	}
 
@@ -569,7 +569,7 @@ namespace Ast {
 				throw ExpectedValueTypeException(_name);
 			}
 			_stackAssignment = std::make_shared<StackConstructionExpression>(_memberBinding, _expr, FileLocationContext::CurrentLocation());
-			symbolTable->BindInitializer(_name, _stackAssignment);
+			symbolTable->BindInitializer(_name);
 		}
 		_stackAssignment->Evaluate(symbolTable, true /*inInitializerList*/);
 	}
@@ -586,6 +586,26 @@ namespace Ast {
 		}
 	}
 
+	void FunctionDeclaration::GetInputAndOutputTypes()
+	{
+		// Get type for input/output
+		if (_inputArgs != nullptr)
+		{
+			if (_inputArgs->_next != nullptr)
+				_inputArgsType = std::make_shared<CompositeTypeInfo>(_inputArgs);
+			else
+				_inputArgsType = _inputArgs->_argument->_typeInfo;
+		}
+
+		if (_returnArgs != nullptr)
+		{
+			if (_returnArgs->_next != nullptr)
+				_outputArgsType = std::make_shared<CompositeTypeInfo>(_returnArgs);
+			else
+				_outputArgsType = _returnArgs->_argument->_typeInfo;
+		}
+	}
+
 	// TODO: Static analysis to make sure all code paths return a value (for non void return types)
 	// TODO: Static analysis to make sure there is no "unreachable" code (maybe that should be on "linestatements?"
 	void FunctionDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
@@ -593,7 +613,10 @@ namespace Ast {
 		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
 			symbolTable->Enter();
-			auto binding = symbolTable->BindFunction(std::dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
+
+			GetInputAndOutputTypes();
+
+			auto binding = symbolTable->BindFunction(_visibility, Name(), _inputArgsType, _outputArgsType, _mods->Get(), pass);
 
 			TypeCheckArgumentList(binding, symbolTable, pass);
 			if (pass == METHOD_BODIES)
@@ -645,7 +668,10 @@ namespace Ast {
 		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
 			symbolTable->Enter();
-			auto ctorBinding = symbolTable->BindConstructor(dynamic_pointer_cast<FunctionDeclaration>(shared_from_this()), pass);
+
+			GetInputAndOutputTypes();
+
+			auto ctorBinding = symbolTable->BindConstructor(_inputArgsType, _visibility, _mods, pass);
 
 			TypeCheckArgumentList(ctorBinding, symbolTable, pass);
 
@@ -704,7 +730,9 @@ namespace Ast {
 		{
 			symbolTable->Enter();
 
-			auto dtorBinding = symbolTable->BindDestructor(dynamic_pointer_cast<DestructorDeclaration>(shared_from_this()), pass);
+			GetInputAndOutputTypes();
+
+			auto dtorBinding = symbolTable->BindDestructor(pass);
 				//_classBinding->_dtor = std::dynamic_pointer_cast<DestructorDeclaration>(shared_from_this()); // TODO: This should be done through AddDestructorBinding method
 
 			TypeCheckArgumentList(dtorBinding, symbolTable, pass);

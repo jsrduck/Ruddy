@@ -10,6 +10,14 @@ namespace Ast
 		virtual std::string ToString() { return "NYI"; }
 	};
 
+	// DO NOT DELETE ENTRIES: reordering breaks our symbol table serialization
+	enum Visibility
+	{
+		PUBLIC,
+		PRIVATE,
+		PROTECTED
+	};
+
 	class Modifier : public Node
 	{
 	public:
