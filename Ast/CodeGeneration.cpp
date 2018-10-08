@@ -1141,7 +1141,7 @@ namespace Ast {
 	{
 		llvm::Value* retVal = nullptr;
 		// Only allocate local variables. Member variables are already allocated.
-		if (_varBinding->IsVariableBinding())
+		if (_varBinding->IsLocalVariableBinding())
 		{
 			// First, create the struct on the stack
 			auto classTypeInfo = std::make_shared<ClassTypeInfo>(_symbolBinding->GetTypeInfo(), true /*valueType*/);
@@ -1196,9 +1196,9 @@ namespace Ast {
 		_statement->CodeGen(builder, context, module);
 
 		// Run any d'tors from the if block going out of scope
-		for (auto& dtor : _ifStatementEndScopeDtors)
+		for (auto& dtorCall : _ifStatementEndScopeDtors)
 		{
-			dtor->CodeGen(builder, context, module);
+			dtorCall->CodeGen(builder, context, module);
 		}
 
 		// Add a branch to the continue block (after the if/else)
@@ -1217,9 +1217,9 @@ namespace Ast {
 			_elseStatement->CodeGen(builder, context, module);
 
 			// Run any d'tors from the else block going out of scope
-			for (auto& dtor : _elseStatementEndScopeDtors)
+			for (auto& dtorCall : _elseStatementEndScopeDtors)
 			{
-				dtor->CodeGen(builder, context, module);
+				dtorCall->CodeGen(builder, context, module);
 			}
 
 			// Add a branch to the continue block (after the if/else)
@@ -1260,18 +1260,18 @@ namespace Ast {
 		builder->SetInsertPoint(fallthrough);
 
 		// Run any d'tors from the while block going out of scope
-		for (auto& dtor : _endScopeDtors)
+		for (auto& dtorCall : _endScopeDtors)
 		{
-			dtor->CodeGen(builder, context, module);
+			dtorCall->CodeGen(builder, context, module);
 		}
 	}
 
 	void Ast::BreakStatement::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
 	{
 		// First run any d'tors from the while block going out of scope
-		for (auto& dtor : _endScopeDtors)
+		for (auto& dtorCall : _endScopeDtors)
 		{
-			dtor->CodeGen(builder, context, module);
+			dtorCall->CodeGen(builder, context, module);
 		}
 		builder->CreateBr(_currentLoopBinding->GetCodeGen()->GetEndOfScopeBlock(context));
 	}
@@ -1288,9 +1288,9 @@ namespace Ast {
 			_statements->CodeGen(builder, context, module);
 
 			// Run any d'tors from the while block going out of scope
-			for (auto& dtor : _endScopeDtors)
+			for (auto& dtorCall : _endScopeDtors)
 			{
-				dtor->CodeGen(builder, context, module);
+				dtorCall->CodeGen(builder, context, module);
 			}
 		}
 	}
@@ -1382,9 +1382,9 @@ namespace Ast {
 			val = GetValueToReturn(val, type, builder, context, module);
 
 			// Before returning, destroy locally allocated variables
-			for (auto& dtor : _endScopeDtors)
+			for (auto& dtorCall : _endScopeDtors)
 			{
-				dtor->CodeGen(builder, context, module);
+				dtorCall->CodeGen(builder, context, module);
 			}
 
 			builder->CreateRet(val); 
@@ -1395,9 +1395,9 @@ namespace Ast {
 			val = GetValueToReturn(val, _idList->_typeInfo, builder, context, module);
 
 			// Before returning, destroy locally allocated variables
-			for (auto& dtor : _endScopeDtors)
+			for (auto& dtorCall : _endScopeDtors)
 			{
-				dtor->CodeGen(builder, context, module);
+				dtorCall->CodeGen(builder, context, module);
 			}
 
 			builder->CreateRet(val);

@@ -20,11 +20,7 @@ Ast::SymbolTable::SymbolBinding::SymbolBinding(const std::string& name, const st
 	}
 }
 
-Ast::SymbolTable::VariableBinding::VariableBinding(const std::string& name, std::shared_ptr<TypeInfo> variableType)
-	: SymbolBinding(name, name, Visibility::PUBLIC), _variableType(variableType)
-{
-}
-
+/* NamespaceBinding */
 Ast::SymbolTable::NamespaceBinding::NamespaceBinding(const std::string& parentFullyQualifiedName, const std::string& name) :
 	SymbolBinding(name, parentFullyQualifiedName.empty() ? name : parentFullyQualifiedName + "." + name, Visibility::PUBLIC)
 {
@@ -40,6 +36,7 @@ std::shared_ptr<TypeInfo> Ast::SymbolTable::NamespaceBinding::GetTypeInfo()
 	throw UnexpectedException();
 }
 
+/* ClassBinding*/
 std::shared_ptr<SymbolTable::ConstructorBinding> SymbolTable::ClassBinding::AddConstructorBinding(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> inputArgs, Visibility visibility, std::shared_ptr<Modifier> mods)
 {
 	auto binding = std::make_shared<SymbolTable::ConstructorBinding>(_name, GetFullyQualifiedName(), visibility, inputArgs, mods, std::dynamic_pointer_cast<SymbolTable::ClassBinding>(shared_from_this()));
@@ -177,9 +174,9 @@ size_t Ast::SymbolTable::ClassBinding::NumMembers()
 	return _members.size();
 }
 
-std::shared_ptr<SymbolTable::MemberBinding> SymbolTable::ClassBinding::AddMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods)
+std::shared_ptr<SymbolTable::MemberBinding> SymbolTable::ClassBinding::AddMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, std::shared_ptr<ClassBinding> classBinding, Visibility visibility, Modifier::Modifiers mods)
 {
-	auto binding = std::make_shared<SymbolTable::MemberBinding>(name, typeInfo, std::dynamic_pointer_cast<SymbolTable::ClassBinding>(shared_from_this()), visibility, mods);
+	auto binding = std::make_shared<SymbolTable::MemberBinding>(name, typeInfo, classBinding, std::dynamic_pointer_cast<SymbolTable::ClassBinding>(shared_from_this()), visibility, mods);
 	if (std::any_of(_members.begin(), _members.end(), [&](std::shared_ptr<Ast::SymbolTable::MemberBinding> binding)
 	{
 		return binding->GetName().compare(name) == 0;
@@ -193,7 +190,7 @@ std::shared_ptr<SymbolTable::MemberBinding> SymbolTable::ClassBinding::AddMember
 
 std::shared_ptr<SymbolTable::MemberBinding> SymbolTable::ClassBinding::AddExternalMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods)
 {
-	auto binding = std::make_shared<SymbolTable::MemberBinding>(name, typeInfo, std::dynamic_pointer_cast<SymbolTable::ClassBinding>(shared_from_this()), visibility, mods);
+	auto binding = std::make_shared<SymbolTable::MemberBinding>(name, typeInfo, nullptr /*TODO, currentClassBinding*/,std::dynamic_pointer_cast<SymbolTable::ClassBinding>(shared_from_this()), visibility, mods);
 	if (std::any_of(_members.begin(), _members.end(), [&](std::shared_ptr<Ast::SymbolTable::MemberBinding> binding)
 	{
 		return binding->GetName().compare(name) == 0;
@@ -353,17 +350,43 @@ bool SymbolTable::ClassBinding::IsClassBinding()
 	return true;
 }
 
+/* BaseVariableBinding */
+Ast::SymbolTable::BaseVariableBinding::BaseVariableBinding(const std::string & name, const std::string & fullQualifiedName, Visibility visibility, std::shared_ptr<ClassBinding> classBinding)
+	: SymbolBinding(name, fullQualifiedName, visibility), _classBindingForVarType(classBinding)
+{
+}
+
+std::shared_ptr<Ast::SymbolTable::FunctionInstanceBinding> Ast::SymbolTable::BaseVariableBinding::GetDestructor()
+{
+	if (!GetTypeInfo()->IsClassType())
+		throw UnexpectedException();
+
+	auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(GetTypeInfo());
+	return std::make_shared<FunctionInstanceBinding>(_classBindingForVarType->_dtorBinding, shared_from_this());
+}
+
+bool Ast::SymbolTable::BaseVariableBinding::IsReferenceVariable()
+{
+	return GetTypeInfo()->IsClassType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(GetTypeInfo())->IsValueType();
+}
+
+/* VariableBinding */
+Ast::SymbolTable::VariableBinding::VariableBinding(const std::string& name, std::shared_ptr<TypeInfo> variableType, std::shared_ptr<ClassBinding> classBinding)
+	: BaseVariableBinding(name, name, Visibility::PUBLIC, classBinding), _variableType(variableType)
+{
+}
+
 /* MemberBinding */
-SymbolTable::MemberBinding::MemberBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, std::shared_ptr<ClassBinding> classBinding, Visibility visibility, Modifier::Modifiers mods)
-	: SymbolBinding(name, classBinding->GetFullyQualifiedName() + "." + name, visibility),
-	_classBinding(classBinding), _index(classBinding->NumMembers()), _modifier(std::make_shared<Modifier>(mods))
+SymbolTable::MemberBinding::MemberBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, std::shared_ptr<ClassBinding> classBindingForThisTypeIfNotPrimitive, std::shared_ptr<ClassBinding> classBindingForParentType, Visibility visibility, Modifier::Modifiers mods)
+	: BaseVariableBinding(name, classBindingForParentType->GetFullyQualifiedName() + "." + name, visibility, classBindingForThisTypeIfNotPrimitive),
+	_classBindingForParentType(classBindingForParentType), _index(classBindingForParentType->NumMembers()), _modifier(std::make_shared<Modifier>(mods))
 {
 	_typeInfo = typeInfo;
 }
 
 SymbolTable::MemberBinding::MemberBinding(std::shared_ptr<MemberBinding> other)
-	: SymbolBinding(other->GetName(), other->GetFullyQualifiedName(), other->GetVisibility()),
-	_classBinding(other->_classBinding), _index(other->_index)
+	: BaseVariableBinding(other->GetName(), other->GetFullyQualifiedName(), other->GetVisibility(), other->_classBindingForVarType),
+	_classBindingForParentType(other->_classBindingForParentType), _index(other->_index), _modifier(other->_modifier)
 {
 	_typeInfo = other->_typeInfo;
 }

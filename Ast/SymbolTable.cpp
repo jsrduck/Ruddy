@@ -21,16 +21,13 @@ namespace Ast
 			// We don't allow shadowing in Ruddy. It's evil.
 			throw SymbolAlreadyDefinedInThisScopeException(symbolName);
 		} // TODO: Check for class/namespace/member collisions in current namespace
-		auto binding = std::make_shared<VariableBinding>(symbolName, type);
+		std::shared_ptr<SymbolTable::ClassBinding> classBinding = nullptr;
 		if (type->IsClassType())
 		{
 			auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(type);
-			if (classTypeInfo->IsValueType())
-			{
-				auto classBinding = std::dynamic_pointer_cast<SymbolTable::ClassBinding>(Lookup(classTypeInfo->FullyQualifiedName(shared_from_this())));
-				binding->_onExit = classBinding->_dtorBinding->CreateCall(binding, FileLocationContext::CurrentLocation());
-			}
+			classBinding = std::dynamic_pointer_cast<SymbolTable::ClassBinding>(Lookup(classTypeInfo->FullyQualifiedName(shared_from_this())));
 		}
+		auto binding = std::make_shared<VariableBinding>(symbolName, type, classBinding);
 		_map[symbolName] = binding;
 		_aux_stack.push(binding);
 		return binding;
@@ -241,10 +238,17 @@ namespace Ast
 		{
 			throw VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException(variableName);
 		}
+
+		std::shared_ptr<SymbolTable::ClassBinding> classBinding = nullptr;
+		if (typeInfo->IsClassType())
+		{
+			auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo);
+			classBinding = std::dynamic_pointer_cast<SymbolTable::ClassBinding>(Lookup(classTypeInfo->FullyQualifiedName(shared_from_this())));
+		}
 		std::shared_ptr<MemberBinding> binding;
 		if (pass == CLASS_VARIABLES)
 		{
-			binding = _currentClass.top()->AddMemberVariableBinding(variableName, typeInfo, visibility, mods);
+			binding = _currentClass.top()->AddMemberVariableBinding(variableName, typeInfo, classBinding, visibility, mods);
 			if (_map.count(binding->GetFullyQualifiedName()) > 0)
 			{
 				throw UnexpectedException();
@@ -253,7 +257,7 @@ namespace Ast
 		}
 		else
 		{
-			binding = std::make_shared<SymbolTable::MemberBinding>(variableName, typeInfo, _currentClass.top(), visibility, mods);
+			binding = std::make_shared<SymbolTable::MemberBinding>(variableName, typeInfo, classBinding, _currentClass.top(), visibility, mods);
 			binding = std::dynamic_pointer_cast<MemberBinding>(_map[binding->GetFullyQualifiedName()]);
 		}
 		_aux_stack.push(binding);
@@ -291,7 +295,7 @@ namespace Ast
 			if (prefixSymbol == nullptr)
 				return nullptr;
 			auto resolvedPrefixSymbol = prefixSymbol;
-			if (prefixSymbol->IsVariableBinding() || prefixSymbol->IsClassMemberBinding())
+			if (prefixSymbol->IsLocalVariableBinding() || prefixSymbol->IsClassMemberBinding())
 			{
 				// We need the symbol for the class name
 				resolvedPrefixSymbol = Lookup(prefixSymbol->GetTypeInfo()->Name(), checkIsInitialized);
@@ -312,7 +316,7 @@ namespace Ast
 					// TODO: Static?
 				}
 			}
-			else if (retVal->IsFunctionBinding() && (prefixSymbol->IsVariableBinding() || prefixSymbol->IsClassMemberBinding()))
+			else if (retVal->IsFunctionBinding() && (prefixSymbol->IsLocalVariableBinding() || prefixSymbol->IsClassMemberBinding()))
 			{
 				auto asFunctionBinding = std::dynamic_pointer_cast<FunctionBinding>(retVal);
 				if (asFunctionBinding->IsMethod())
@@ -390,7 +394,7 @@ namespace Ast
 				auto memberBinding = std::dynamic_pointer_cast<MemberBinding>(binding);
 				if (!memberBinding)
 					throw UnexpectedException();
-				if (memberBinding->_classBinding == GetCurrentClass() && ctorBinding->_initializers.count(binding->GetName()) == 0)
+				if (memberBinding->_classBindingForParentType == GetCurrentClass() && ctorBinding->_initializers.count(binding->GetName()) == 0)
 				{
 					throw UninitializedVariableReferencedException(binding->GetName());
 				}
@@ -455,19 +459,25 @@ namespace Ast
 		_aux_stack.push(std::make_shared<ScopeMarker>());
 	}
 
-	std::vector<std::shared_ptr<FunctionCall>> SymbolTable::Exit()
+	std::vector<std::shared_ptr<SymbolTable::BaseVariableBinding>> SymbolTable::Exit()
 	{
 		std::shared_ptr<SymbolBinding> binding;
-		std::vector<std::shared_ptr<FunctionCall>> dtors;
+		std::vector<std::shared_ptr<BaseVariableBinding>> dtors;
 		do
 		{
 			if (_aux_stack.size() == 0)
 				throw UnexpectedException();
 			binding = _aux_stack.top();
 			_aux_stack.pop();
-			if (binding->_onExit != nullptr)
-				dtors.push_back(binding->_onExit);
 			if (binding->IsVariableBinding())
+			{
+				auto asVariable = std::dynamic_pointer_cast<BaseVariableBinding>(binding);
+				if (asVariable->IsReferenceVariable())
+				{
+					dtors.push_back(asVariable);
+				}
+			}
+			if (binding->IsLocalVariableBinding())
 			{
 				_map.erase(binding->GetFullyQualifiedName());
 			}
@@ -493,10 +503,10 @@ namespace Ast
 		return dtors;
 	}
 
-	std::vector<std::shared_ptr<FunctionCall>> SymbolTable::BreakFromCurrentLoop()
+	std::vector<std::shared_ptr<SymbolTable::BaseVariableBinding>> SymbolTable::BreakFromCurrentLoop()
 	{
 		std::shared_ptr<SymbolBinding> binding;
-		std::vector<std::shared_ptr<FunctionCall>> dtors;
+		std::vector<std::shared_ptr<BaseVariableBinding>> dtors;
 		std::stack<std::shared_ptr<SymbolBinding>> replacementStack;
 		bool leftScopeMarker = false;
 		do
@@ -511,8 +521,14 @@ namespace Ast
 				replacementStack.push(binding);
 			else
 				_map.erase(binding->GetFullyQualifiedName());
-			if (binding->_onExit != nullptr)
-				dtors.push_back(binding->_onExit);
+			if (binding->IsVariableBinding())
+			{
+				auto asVariable = std::dynamic_pointer_cast<BaseVariableBinding>(binding);
+				if (asVariable->IsReferenceVariable())
+				{
+					dtors.push_back(asVariable);
+				}
+			}
 		} while (!binding->IsLoopBinding());
 
 		while (replacementStack.size() > 0)
@@ -524,10 +540,10 @@ namespace Ast
 		return dtors;
 	}
 
-	std::vector<std::shared_ptr<FunctionCall>> SymbolTable::ReturnFromCurrentFunction()
+	std::vector<std::shared_ptr<SymbolTable::BaseVariableBinding>> SymbolTable::ReturnFromCurrentFunction()
 	{
 		std::shared_ptr<SymbolBinding> binding;
-		std::vector<std::shared_ptr<FunctionCall>> dtors;
+		std::vector<std::shared_ptr<BaseVariableBinding>> dtors;
 		std::stack<std::shared_ptr<SymbolBinding>> replacementStack;
 		bool leftScopeMarker = false;
 		do
@@ -542,8 +558,15 @@ namespace Ast
 				replacementStack.push(binding);
 			else
 				_map.erase(binding->GetFullyQualifiedName());
-			if (binding->_onExit != nullptr)
-				dtors.push_back(binding->_onExit);
+
+			if (binding->IsVariableBinding())
+			{
+				auto asVariable = std::dynamic_pointer_cast<BaseVariableBinding>(binding);
+				if (asVariable->IsReferenceVariable())
+				{
+					dtors.push_back(asVariable);
+				}
+			}
 		} while (!binding->IsFunctionBinding());
 
 		while (replacementStack.size() > 0)

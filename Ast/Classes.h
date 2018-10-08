@@ -147,7 +147,8 @@ namespace Ast
 		std::shared_ptr<Ast::SymbolTable::FunctionBinding> _functionBinding;
 		std::vector<std::shared_ptr<SymbolTable::SymbolBinding>> _argBindings;
 		std::shared_ptr<SymbolTable::SymbolBinding> _thisPtrBinding;
-		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
+		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _endScopeVars;
+		std::vector <std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
 	class ConstructorDeclaration : public FunctionDeclaration
@@ -180,8 +181,7 @@ namespace Ast
 
 		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
 
-		void AppendDtor(std::shared_ptr<FunctionCall> dtor);
-		//virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+		void AppendDtor(std::shared_ptr<Ast::SymbolTable::BaseVariableBinding> baseVar, std::shared_ptr<SymbolTable> symbolTable);
 	};
 
 	class ClassStatementList : public Statement

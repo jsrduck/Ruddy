@@ -133,7 +133,9 @@ namespace Ast
 		std::shared_ptr<Expression> _condition; 
 		std::shared_ptr<LineStatement> _statement; 
 		std::shared_ptr<LineStatement> _elseStatement;
+		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _ifStatementEndScopeVars;
 		std::vector<std::shared_ptr<FunctionCall>> _ifStatementEndScopeDtors;
+		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _elseStatementEndScopeVars;
 		std::vector<std::shared_ptr<FunctionCall>> _elseStatementEndScopeDtors;
 	};
 
@@ -154,6 +156,7 @@ namespace Ast
 		std::shared_ptr<Expression> _condition;
 		std::shared_ptr<LineStatement> _statement;
 		std::shared_ptr<Ast::SymbolTable::LoopBinding> _currentLoopBinding;
+		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _endScopeVars;
 		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
@@ -170,6 +173,7 @@ namespace Ast
 			return "BreakStatement";
 		}
 		std::shared_ptr<Ast::SymbolTable::LoopBinding> _currentLoopBinding;
+		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _endScopeVars;
 		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
@@ -294,6 +298,7 @@ namespace Ast
 		virtual std::string ToString() override { return "ScopedStatement"; }
 
 		std::shared_ptr<LineStatements> _statements;
+		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _endScopeVars;
 		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 
@@ -331,6 +336,7 @@ namespace Ast
 		std::shared_ptr<Expression> _idList;
 		std::shared_ptr<TypeInfo> _returnType;
 		std::shared_ptr<Ast::SymbolTable::FunctionBinding> _functionBinding;
+		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _endScopeVars;
 		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
 }

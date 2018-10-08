@@ -34,7 +34,7 @@ namespace Ast {
 			// This id isn't defined in the symbol table yet
 			throw SymbolNotDefinedException(_id);
 		}
-		if (!(_symbolBinding->IsVariableBinding() || _symbolBinding->IsClassMemberBinding()))
+		if (!(_symbolBinding->IsLocalVariableBinding() || _symbolBinding->IsClassMemberBinding()))
 		{
 			// This symbol exists, but it's not a variable so it can't be used as an expression
 			throw SymbolWrongTypeException(_id);
@@ -49,7 +49,7 @@ namespace Ast {
 			auto asMember = std::dynamic_pointer_cast<SymbolTable::MemberBinding>(_symbolBinding);
 			auto asMemberInstance = std::dynamic_pointer_cast<SymbolTable::MemberInstanceBinding>(_symbolBinding);
 			auto currentClass = symbolTable->GetCurrentClass();
-			if (asMember && currentClass && !asMemberInstance && asMember->_classBinding == currentClass)
+			if (asMember && currentClass && !asMemberInstance && asMember->_classBindingForParentType == currentClass)
 			{
 				throw NonStaticMemberReferencedFromStaticContextException(_symbolBinding->GetName());
 			}
@@ -249,17 +249,27 @@ namespace Ast {
 
 		symbolTable->Enter();
 		_statement->TypeCheck(symbolTable, pass);
-		_ifStatementEndScopeDtors = symbolTable->Exit();
-		for (auto& dtor : _ifStatementEndScopeDtors)
-			dtor->Evaluate(symbolTable);
+		_ifStatementEndScopeVars = symbolTable->Exit();
+		for (auto& varBinding : _ifStatementEndScopeVars)
+		{
+			auto dtorBinding = varBinding->GetDestructor();
+			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			dtorCall->Evaluate(symbolTable);
+			_ifStatementEndScopeDtors.push_back(dtorCall);
+		}
 
 		if (_elseStatement != nullptr)
 		{
 			symbolTable->Enter();
 			_elseStatement->TypeCheck(symbolTable, pass);
-			_elseStatementEndScopeDtors = symbolTable->Exit();
-			for (auto& dtor : _elseStatementEndScopeDtors)
-				dtor->Evaluate(symbolTable);
+			_elseStatementEndScopeVars = symbolTable->Exit();
+			for (auto& varBinding : _elseStatementEndScopeVars)
+			{
+				auto dtorBinding = varBinding->GetDestructor();
+				auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+				dtorCall->Evaluate(symbolTable);
+				_elseStatementEndScopeDtors.push_back(dtorCall);
+			}
 		}
 	}
 
@@ -276,19 +286,32 @@ namespace Ast {
 		}
 
 		_statement->TypeCheck(symbolTable, pass);
-		_endScopeDtors = symbolTable->Exit();
-		for (auto& dtor : _endScopeDtors)
-			dtor->Evaluate(symbolTable);
+		_endScopeVars = symbolTable->Exit();
+		for (auto& varBinding : _endScopeVars)
+		{
+			auto dtorBinding = varBinding->GetDestructor();
+			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			dtorCall->Evaluate(symbolTable);
+			_endScopeDtors.push_back(dtorCall);
+		}
 	}
 
 	void BreakStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
 		assert(pass == METHOD_BODIES);
 		_currentLoopBinding = symbolTable->GetCurrentLoop();
-		_endScopeDtors = symbolTable->BreakFromCurrentLoop();
 		if (_currentLoopBinding == nullptr)
 		{
 			throw BreakInWrongPlaceException();
+		}
+
+		_endScopeVars = symbolTable->BreakFromCurrentLoop();
+		for (auto& varBinding : _endScopeVars)
+		{
+			auto dtorBinding = varBinding->GetDestructor();
+			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			dtorCall->Evaluate(symbolTable);
+			_endScopeDtors.push_back(dtorCall);
 		}
 	}
 
@@ -352,7 +375,7 @@ namespace Ast {
 		{
 			throw SymbolNotDefinedException(_ref);
 		}
-		if (!_symbolBinding->IsClassMemberBinding() && !_symbolBinding->IsVariableBinding())
+		if (!_symbolBinding->IsClassMemberBinding() && !_symbolBinding->IsLocalVariableBinding())
 		{
 			throw SymbolWrongTypeException(_ref);
 		}
@@ -430,7 +453,14 @@ namespace Ast {
 			throw UnexpectedException();
 		if (!functionTypeInfo->OutputArgsType()->IsImplicitlyAssignableFrom(_returnType, symbolTable))
 			throw TypeMismatchException(functionTypeInfo->OutputArgsType(), _returnType);
-		_endScopeDtors = symbolTable->ReturnFromCurrentFunction();
+		_endScopeVars = symbolTable->ReturnFromCurrentFunction();
+		for (auto& varBinding : _endScopeVars)
+		{
+			auto dtorBinding = varBinding->GetDestructor();
+			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			dtorCall->Evaluate(symbolTable);
+			_endScopeDtors.push_back(dtorCall);
+		}
 	}
 
 	void GlobalStatements::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
@@ -467,9 +497,14 @@ namespace Ast {
 		symbolTable->Enter();
 		if (_statements != nullptr)
 			_statements->TypeCheck(symbolTable, pass);
-		_endScopeDtors = symbolTable->Exit();
-		for (auto& dtor : _endScopeDtors)
-			dtor->Evaluate(symbolTable);
+		_endScopeVars = symbolTable->Exit();
+		for (auto& varBinding : _endScopeVars)
+		{
+			auto dtorBinding = varBinding->GetDestructor();
+			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			dtorCall->Evaluate(symbolTable);
+			_endScopeDtors.push_back(dtorCall);
+		}
 	}
 
 	void ExpressionAsStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
@@ -625,12 +660,17 @@ namespace Ast {
 					_body->TypeCheck(symbolTable, pass);
 			}
 
-			_endScopeDtors = symbolTable->Exit();
+			_endScopeVars = symbolTable->Exit();
 
 			if (pass == METHOD_BODIES && _body != nullptr)
 			{
-				for (auto& dtor : _endScopeDtors)
-					dtor->Evaluate(symbolTable);
+				for (auto& varBinding : _endScopeVars)
+				{
+					auto dtorBinding = varBinding->GetDestructor();
+					auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+					dtorCall->Evaluate(symbolTable);
+					_endScopeDtors.push_back(dtorCall);
+				}
 			}
 		}
 	}
@@ -720,7 +760,18 @@ namespace Ast {
 					_body->TypeCheck(symbolTable, pass);
 			}
 
-			_endScopeDtors = symbolTable->Exit();
+			_endScopeVars = symbolTable->Exit();
+
+			if (pass == METHOD_BODIES && _body != nullptr)
+			{
+				for (auto& varBinding : _endScopeVars)
+				{
+					auto dtorBinding = varBinding->GetDestructor();
+					auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+					dtorCall->Evaluate(symbolTable);
+					_endScopeDtors.push_back(dtorCall);
+				}
+			}
 		}
 	}
 
@@ -748,33 +799,30 @@ namespace Ast {
 				{
 					auto memberBinding = *iter;
 					auto typeInfo = memberBinding->GetTypeInfo();
-					if (typeInfo->IsClassType())
+					if (memberBinding->IsReferenceVariable())
 					{
-						auto asClassTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo);
-						if (asClassTypeInfo == nullptr)
-							throw UnexpectedException();
-						if (asClassTypeInfo->IsValueType())
-						{
-							auto memberClassBinding = std::dynamic_pointer_cast<Ast::SymbolTable::ClassBinding>(symbolTable->Lookup(asClassTypeInfo->FullyQualifiedName(symbolTable)));
-							if (memberClassBinding == nullptr)
-								throw UnexpectedException();
-							auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding);
-							AppendDtor(memberClassBinding->_dtorBinding->CreateCall(instanceBinding, FileLocationContext::CurrentLocation()));
-						}
+						auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding);
+						AppendDtor(instanceBinding, symbolTable);
 					}
 				}
 			}
 
 			auto otherDtors = symbolTable->Exit();
 			for (auto& dtor : otherDtors)
-				AppendDtor(dtor);
+				AppendDtor(dtor, symbolTable);
 		}
 	}
 
-	void DestructorDeclaration::AppendDtor(std::shared_ptr<FunctionCall> dtor)
+	void DestructorDeclaration::AppendDtor(std::shared_ptr<Ast::SymbolTable::BaseVariableBinding> baseVar, std::shared_ptr<SymbolTable> symbolTable)
 	{
-		if (dtor != nullptr)
-			_endScopeDtors.push_back(dtor);
+		if (baseVar != nullptr)
+		{
+			_endScopeVars.push_back(baseVar);
+			auto dtorBinding = baseVar->GetDestructor();
+			auto dtorCall = dtorBinding->CreateCall(baseVar, FileLocationContext::CurrentLocation());
+			dtorCall->Evaluate(symbolTable);
+			_endScopeDtors.push_back(dtorCall);
+		}
 	}
 
 	void ClassStatementList::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)

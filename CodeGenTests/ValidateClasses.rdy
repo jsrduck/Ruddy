@@ -387,6 +387,7 @@ class Program
 		print(HasLocalVarsInFunctionCall.DoubleMeIfOdd(6)); // 066
 		print(HasLocalVarsInFunctionCall.DoubleMeIfOdd(7)); // 1714
 
+		// 555
 		{
 			// Should print:
 			// Value created here on stack
