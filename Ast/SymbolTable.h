@@ -25,7 +25,7 @@ namespace Ast
 		class SymbolBinding : public std::enable_shared_from_this<SymbolBinding>
 		{
 		public:
-			SymbolBinding(const std::string& name, const std::string& fullQualifiedName, Visibility visibility);
+			SymbolBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& name, const std::string& fullQualifiedName, Visibility visibility);
 
 			virtual bool IsScopeMarker() { return false; }
 
@@ -55,6 +55,8 @@ namespace Ast
 
 			Visibility GetVisibility() { return _visibility; }
 
+			std::shared_ptr<Ast::SymbolTable> SymbolTable() { return _symbolTable; }
+
 			virtual std::shared_ptr<Serializer> GetSerializer();
 			virtual std::shared_ptr<SymbolCodeGenerator> CreateCodeGen();
 
@@ -65,6 +67,7 @@ namespace Ast
 			Visibility _visibility;
 			std::shared_ptr<SymbolCodeGenerator> _codeGen;
 			std::shared_ptr<Serializer> _serializer;
+			std::shared_ptr<Ast::SymbolTable> _symbolTable;
 		};
 		
 		std::shared_ptr<SymbolBinding> Lookup(const std::string& symbolName, bool checkIsInitialized = false);
@@ -79,7 +82,7 @@ namespace Ast
 		class ScopeMarker : public SymbolBinding
 		{
 		public:
-			ScopeMarker() : SymbolBinding("", "", Visibility::PUBLIC) { }
+			ScopeMarker(std::shared_ptr<Ast::SymbolTable> symbolTable) : SymbolBinding(symbolTable, "", "", Visibility::PUBLIC) { }
 			bool IsScopeMarker() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
 		};
@@ -89,10 +92,12 @@ namespace Ast
 		class BaseVariableBinding : public SymbolBinding
 		{
 		public:
-			BaseVariableBinding(const std::string& name, const std::string& fullQualifiedName, Visibility visibility, std::shared_ptr<ClassBinding> classBinding);
+			BaseVariableBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& name, const std::string& fullQualifiedName, Visibility visibility);
 			virtual std::shared_ptr<FunctionInstanceBinding> GetDestructor();
 			virtual bool IsReferenceVariable();
-			std::shared_ptr<ClassBinding> _classBindingForVarType;
+			std::shared_ptr<ClassBinding> ClassBindingForThisType();
+		protected:
+			std::shared_ptr<ClassBinding> _classBindingForThisType;
 		};
 
 		/* Exit current scope */
@@ -103,7 +108,7 @@ namespace Ast
 		class VariableBinding : public BaseVariableBinding
 		{
 		public:
-			VariableBinding(const std::string& name, std::shared_ptr<TypeInfo> variableType, std::shared_ptr<ClassBinding> classBinding);
+			VariableBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& name, std::shared_ptr<TypeInfo> variableType);
 
 			virtual bool IsLocalVariableBinding() override { return true; }
 			virtual bool IsVariableBinding() override { return true; }
@@ -118,7 +123,7 @@ namespace Ast
 		class NamespaceBinding : public SymbolBinding
 		{
 		public:
-			NamespaceBinding(const std::string& parentFullyQualifiedName, const std::string& name);
+			NamespaceBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& parentFullyQualifiedName, const std::string& name);
 
 			bool IsNamespaceBinding() override;
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
@@ -131,9 +136,9 @@ namespace Ast
 		class FunctionBinding : public SymbolBinding
 		{
 		public:
-			FunctionBinding(const std::string& name, const std::string & fullyQualifiedClassName, Visibility visibility, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, std::shared_ptr<Modifier> mods, std::shared_ptr<ClassBinding> classBinding);
+			FunctionBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& name, const std::string & fullyQualifiedClassName, Visibility visibility, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, std::shared_ptr<Modifier> mods, std::shared_ptr<ClassBinding> classBinding);
 			bool IsFunctionBinding() override { return true; }
-			static bool HaveSameSignatures(std::shared_ptr<TypeInfo> inputArgs1, std::shared_ptr<TypeInfo> inputArgs2, std::shared_ptr<SymbolTable> symbolTable);
+			static bool HaveSameSignatures(std::shared_ptr<TypeInfo> inputArgs1, std::shared_ptr<TypeInfo> inputArgs2, std::shared_ptr<Ast::SymbolTable> symbolTable);
 			virtual bool IsOverridden() { return false; }
 			virtual std::shared_ptr<OverloadedFunctionBinding> GetOverloadedBinding();
 
@@ -158,7 +163,7 @@ namespace Ast
 		public:
 			OverloadedFunctionBinding(std::shared_ptr<FunctionBinding> functionBinding1, std::shared_ptr<FunctionBinding> functionBinding2);
 			void AddBinding(std::shared_ptr<FunctionBinding> functionBinding);
-			std::shared_ptr<FunctionBinding> GetMatching(std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<SymbolTable> symbolTable);
+			std::shared_ptr<FunctionBinding> GetMatching(std::shared_ptr<TypeInfo> inputArgs);
 
 			virtual bool IsOverridden();
 
@@ -197,7 +202,7 @@ namespace Ast
 		class ConstructorBinding : public FunctionBinding
 		{
 		public:
-			ConstructorBinding(const std::string& name, const std::string& fullyQualifiedClassName, Visibility visibility, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<Modifier> mods, std::shared_ptr<ClassBinding> classBinding);
+			ConstructorBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& name, const std::string& fullyQualifiedClassName, Visibility visibility, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<Modifier> mods, std::shared_ptr<ClassBinding> classBinding);
 
 			void AddInitializerBinding(const std::string& memberName);
 
@@ -210,7 +215,7 @@ namespace Ast
 		class MemberBinding : public BaseVariableBinding
 		{
 		public:
-			MemberBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, std::shared_ptr<ClassBinding> classBindingForThisTypeIfNotPrimitive, std::shared_ptr<ClassBinding> classBindingForParentType, Visibility visibility, Modifier::Modifiers mods);
+			MemberBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& name, std::shared_ptr<TypeInfo> typeInfo, std::shared_ptr<ClassBinding> classBindingForParentType, Visibility visibility, Modifier::Modifiers mods);
 			bool IsClassMemberBinding() override { return true; }
 			virtual bool IsVariableBinding() override { return true; }
 			std::shared_ptr<TypeInfo> GetTypeInfo() override;
@@ -243,15 +248,15 @@ namespace Ast
 		class ClassBinding : public SymbolBinding
 		{
 		public:
-			ClassBinding(const std::string& name, const std::string& fullyQualifiedNamespaceName, Visibility visibility);
+			ClassBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, const std::string& name, const std::string& fullyQualifiedNamespaceName, Visibility visibility);
 
-			std::shared_ptr<ConstructorBinding> AddConstructorBinding(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> inputArgs, Visibility visibility, std::shared_ptr<Modifier> mods);
-			std::shared_ptr<ConstructorBinding> AddExternalConstructorBinding(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<Modifier> mods);
-			std::shared_ptr<FunctionBinding> AddDestructorBinding(std::shared_ptr<SymbolTable> symbolTable);
-			std::shared_ptr<FunctionBinding> AddExternalDestructorBinding(std::shared_ptr<SymbolTable> symbolTable);
-			std::shared_ptr<FunctionBinding> AddFunctionBinding(std::shared_ptr<SymbolTable> symbolTable, Visibility visibility, const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, Modifier::Modifiers mods);
-			std::shared_ptr<FunctionBinding> AddExternalFunctionBinding(std::shared_ptr<SymbolTable> symbolTable, Visibility visibility, const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, Modifier::Modifiers mods);
-			std::shared_ptr<MemberBinding> AddMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, std::shared_ptr<ClassBinding> varClassBindingIfApplicable, Visibility visibility, Modifier::Modifiers mods);
+			std::shared_ptr<ConstructorBinding> AddConstructorBinding(std::shared_ptr<TypeInfo> inputArgs, Visibility visibility, std::shared_ptr<Modifier> mods);
+			std::shared_ptr<ConstructorBinding> AddExternalConstructorBinding(std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<Modifier> mods);
+			std::shared_ptr<FunctionBinding> AddDestructorBinding();
+			std::shared_ptr<FunctionBinding> AddExternalDestructorBinding();
+			std::shared_ptr<FunctionBinding> AddFunctionBinding(Visibility visibility, const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, Modifier::Modifiers mods);
+			std::shared_ptr<FunctionBinding> AddExternalFunctionBinding(Visibility visibility, const std::string& name, std::shared_ptr<TypeInfo> inputArgs, std::shared_ptr<TypeInfo> outputArgs, Modifier::Modifiers mods);
+			std::shared_ptr<MemberBinding> AddMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods);
 			std::shared_ptr<MemberBinding> AddExternalMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods);
 
 			virtual bool IsClassBinding() override;
@@ -274,7 +279,7 @@ namespace Ast
 		class LoopBinding : public SymbolBinding
 		{
 		public:
-			LoopBinding();
+			LoopBinding(std::shared_ptr<Ast::SymbolTable> symbolTable);
 
 			virtual std::shared_ptr<SymbolCodeGenerator> CreateCodeGen() override;
 

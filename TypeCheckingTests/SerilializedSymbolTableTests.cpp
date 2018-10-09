@@ -50,6 +50,10 @@ namespace TypeCheckingTests {
 		"			}"
 		"			private char _c;"
 		"			public A MyA;"
+		"			public B MyB;"
+		"		}"
+		"		class B"
+		"		{"
 		"		}"
 		"	}"
 		"}";
@@ -142,6 +146,11 @@ namespace TypeCheckingTests {
 		TEST_METHOD(UsePublicExternalClassMember)
 		{
 			TypeCheckAgainstDeserializedSymbolTable("class B { fun(external.A retVal) C(external.inner.AB a) { let b = a.MyA; a.MyA = new external.A(); return b; } }");
+		}
+
+		TEST_METHOD(UsePublicExternalClassMemberThatComesLater)
+		{
+			TypeCheckAgainstDeserializedSymbolTable("class B { fun(external.inner.B retVal) C(external.inner.AB a) { let b = a.MyB; a.MyB = new external.inner.B(); return b; } }");
 		}
 
 		TEST_METHOD(PrivateExternalClassMemberNotVisible)

@@ -190,7 +190,7 @@ namespace Ast {
 			if (asFunctionBinding->IsOverridden())
 			{
 				auto asOverloaded = asFunctionBinding->GetOverloadedBinding();
-				auto matchingBinding = asOverloaded->GetMatching(_argsExprTypeInfo, symbolTable);
+				auto matchingBinding = asOverloaded->GetMatching(_argsExprTypeInfo);
 				if (matchingBinding == nullptr)
 				{
 					throw NoMatchingFunctionSignatureFoundException(_argsExprTypeInfo);
@@ -801,7 +801,7 @@ namespace Ast {
 					auto typeInfo = memberBinding->GetTypeInfo();
 					if (memberBinding->IsReferenceVariable())
 					{
-						auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding);
+						auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>( memberBinding, _thisPtrBinding);
 						AppendDtor(instanceBinding, symbolTable);
 					}
 				}

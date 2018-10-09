@@ -126,11 +126,11 @@ std::shared_ptr<SymbolTable::ClassBinding> LoadClass(std::shared_ptr<Ast::Symbol
 		if (input)
 			inputArgTypeInfo = LoadTypeInfo(*input);
 
-		classBinding->AddExternalConstructorBinding(symbolTable, inputArgTypeInfo, std::make_shared<Modifier>(Modifier::Modifiers::NONE));
+		classBinding->AddExternalConstructorBinding(inputArgTypeInfo, std::make_shared<Modifier>(Modifier::Modifiers::NONE));
 	}
 
 	// Add dtor, since all classes have one
-	classBinding->AddExternalDestructorBinding(symbolTable);
+	classBinding->AddExternalDestructorBinding();
 
 	// Add Members
 	auto mems = classTree.get_child_optional("Mems");
