@@ -224,6 +224,11 @@ namespace Ast {
 		return _functionTypeInfo->OutputArgsType();
 	}
 
+	std::shared_ptr<FunctionCall> FunctionCall::CreateCall(std::shared_ptr<Ast::SymbolTable::SymbolBinding> funBinding, std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location, std::shared_ptr<Expression> expression)
+	{
+		return std::make_shared<FunctionCall>(std::dynamic_pointer_cast<FunctionTypeInfo>(funBinding->GetTypeInfo()), expression, funBinding, varBinding, location);
+	}
+
 	std::shared_ptr<TypeInfo> DebugPrintStatement::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
 		_expressionTypeInfo = _expression->Evaluate(symbolTable, inInitializerList);
@@ -253,7 +258,7 @@ namespace Ast {
 		for (auto& varBinding : _ifStatementEndScopeVars)
 		{
 			auto dtorBinding = varBinding->GetDestructor();
-			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 			dtorCall->Evaluate(symbolTable);
 			_ifStatementEndScopeDtors.push_back(dtorCall);
 		}
@@ -266,7 +271,7 @@ namespace Ast {
 			for (auto& varBinding : _elseStatementEndScopeVars)
 			{
 				auto dtorBinding = varBinding->GetDestructor();
-				auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+				auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 				dtorCall->Evaluate(symbolTable);
 				_elseStatementEndScopeDtors.push_back(dtorCall);
 			}
@@ -290,7 +295,7 @@ namespace Ast {
 		for (auto& varBinding : _endScopeVars)
 		{
 			auto dtorBinding = varBinding->GetDestructor();
-			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 			dtorCall->Evaluate(symbolTable);
 			_endScopeDtors.push_back(dtorCall);
 		}
@@ -309,7 +314,7 @@ namespace Ast {
 		for (auto& varBinding : _endScopeVars)
 		{
 			auto dtorBinding = varBinding->GetDestructor();
-			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 			dtorCall->Evaluate(symbolTable);
 			_endScopeDtors.push_back(dtorCall);
 		}
@@ -457,7 +462,7 @@ namespace Ast {
 		for (auto& varBinding : _endScopeVars)
 		{
 			auto dtorBinding = varBinding->GetDestructor();
-			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 			dtorCall->Evaluate(symbolTable);
 			_endScopeDtors.push_back(dtorCall);
 		}
@@ -501,7 +506,7 @@ namespace Ast {
 		for (auto& varBinding : _endScopeVars)
 		{
 			auto dtorBinding = varBinding->GetDestructor();
-			auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+			auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 			dtorCall->Evaluate(symbolTable);
 			_endScopeDtors.push_back(dtorCall);
 		}
@@ -667,7 +672,7 @@ namespace Ast {
 				for (auto& varBinding : _endScopeVars)
 				{
 					auto dtorBinding = varBinding->GetDestructor();
-					auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+					auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 					dtorCall->Evaluate(symbolTable);
 					_endScopeDtors.push_back(dtorCall);
 				}
@@ -767,7 +772,7 @@ namespace Ast {
 				for (auto& varBinding : _endScopeVars)
 				{
 					auto dtorBinding = varBinding->GetDestructor();
-					auto dtorCall = dtorBinding->CreateCall(varBinding, Location());
+					auto dtorCall = FunctionCall::CreateCall(dtorBinding, varBinding, Location());
 					dtorCall->Evaluate(symbolTable);
 					_endScopeDtors.push_back(dtorCall);
 				}
@@ -819,7 +824,7 @@ namespace Ast {
 		{
 			_endScopeVars.push_back(baseVar);
 			auto dtorBinding = baseVar->GetDestructor();
-			auto dtorCall = dtorBinding->CreateCall(baseVar, FileLocationContext::CurrentLocation());
+			auto dtorCall = FunctionCall::CreateCall(dtorBinding, baseVar, Location());
 			dtorCall->Evaluate(symbolTable);
 			_endScopeDtors.push_back(dtorCall);
 		}

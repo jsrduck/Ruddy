@@ -266,6 +266,8 @@ namespace Ast
 
 		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
+		static std::shared_ptr<FunctionCall> CreateCall(std::shared_ptr<Ast::SymbolTable::SymbolBinding> funBinding, std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location, std::shared_ptr<Expression> expression = nullptr);
+
 		const std::string _name;
 		std::shared_ptr<FunctionTypeInfo> _functionTypeInfo;
 		std::shared_ptr<Expression> _expression;

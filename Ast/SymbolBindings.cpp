@@ -1,7 +1,5 @@
 #include "stdafx.h"
 #include "SymbolTable.h"
-#include "Classes.h"
-#include "Statements.h"
 #include <algorithm>
 
 using namespace Ast;
@@ -231,11 +229,6 @@ bool Ast::SymbolTable::FunctionBinding::HaveSameSignatures(std::shared_ptr<TypeI
 		// Found it!
 		return true;
 	}
-}
-
-std::shared_ptr<FunctionCall> SymbolTable::FunctionBinding::CreateCall(std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location, std::shared_ptr<Expression> expression)
-{
-	return std::make_shared<FunctionCall>(std::dynamic_pointer_cast<FunctionTypeInfo>(GetTypeInfo()), expression, shared_from_this(), varBinding, location);
 }
 
 std::shared_ptr<SymbolTable::OverloadedFunctionBinding> SymbolTable::FunctionBinding::GetOverloadedBinding()

@@ -11,6 +11,7 @@
 
 namespace Ast
 {
+	class FunctionCall;
 	class VisibilityNode : public Node
 	{
 	public:

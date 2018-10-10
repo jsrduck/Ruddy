@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "SymbolTable.h"
-#include "Classes.h"
 
 namespace Ast
 {

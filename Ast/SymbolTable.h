@@ -11,8 +11,6 @@
 
 namespace Ast
 {
-	class FunctionCall;
-	class Expression;
 	class SymbolCodeGenerator;
 	class Serializer;
 	class SymbolTable : public std::enable_shared_from_this<SymbolTable>
@@ -143,8 +141,6 @@ namespace Ast
 			virtual std::shared_ptr<OverloadedFunctionBinding> GetOverloadedBinding();
 
 			virtual std::shared_ptr<Serializer> GetSerializer() override;
-
-			std::shared_ptr<FunctionCall> CreateCall(std::shared_ptr<SymbolBinding> varBinding, FileLocation& location, std::shared_ptr<Expression> expression = nullptr);
 
 			virtual bool IsMethod();
 
