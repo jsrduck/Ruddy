@@ -217,7 +217,7 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidatePrimitives.ll;ValidatePrimitives.obj;ValidatePrimitives.exe</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidatePrimitives.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidatePrimitives.rdy</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidatePrimitives.rdy</Command>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
@@ -227,7 +227,7 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateMixedPrimitives.ll;ValidateMixedPrimitives.obj;ValidateMixedPrimitives.exe</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateMixedPrimitives.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidateMixedPrimitives.rdy</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidateMixedPrimitives.rdy</Command>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
@@ -237,7 +237,7 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateFunctions.ll;ValidateFunctions.obj;ValidateFunctions.exe</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateFunctions.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidateFunctions.rdy</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidateFunctions.rdy</Command>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
@@ -257,7 +257,7 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateClasses.ll;ValidateClasses.obj;ValidateClasses.exe</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateClasses.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidateClasses.rdy</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidateClasses.rdy</Command>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>

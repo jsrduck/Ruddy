@@ -41,11 +41,9 @@
     <ClCompile Include="Ruddy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <CustomBuild Include="Ruddy-vs14-x86.bat">
+    <ClCompile Include="llc.cpp">
       <Filter>Source Files</Filter>
-    </CustomBuild>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="TestFile1.rdy">
@@ -54,5 +52,6 @@
     <None Include="TestFile2.rdy">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
