@@ -335,6 +335,17 @@ namespace Ast
 					return std::make_shared<FunctionInstanceBinding>(asMethod, thisSymbol);
 			}
 		}
+
+		// check external libraries if you can't find it here
+		if (retVal == nullptr)
+		{
+			for (auto& library : _externalLibraries)
+			{
+				retVal = library->Lookup(symbolName, checkIsInitialized);
+				if (retVal != nullptr)
+					break;
+			}
+		}
 		return retVal;
 	}
 
@@ -361,9 +372,23 @@ namespace Ast
 		{
 			name = symbolName;
 		}
+		std::shared_ptr<SymbolBinding> binding;
 		if (_map.count(name) == 0)
-			return nullptr;
-		auto binding = _map[name];
+		{
+			// Check external libs for this name
+			for (auto& library : _externalLibraries)
+			{
+				binding = library->Lookup(underNamespace, symbolName, checkIsInitialized);
+				if (binding != nullptr)
+					break;
+			}
+			if (binding == nullptr)
+				return nullptr;
+		}
+		else
+		{
+			binding = _map[name];
+		}
 		if (!IsVisibleFromCurrentContext(binding))
 		{
 			throw SymbolNotAccessableException(name);
@@ -561,5 +586,10 @@ namespace Ast
 			_aux_stack.push(binding);
 		}
 		return dtors;
+	}
+
+	void Ast::SymbolTable::AddExternalLibrary(std::shared_ptr<SymbolTable> otherLibrary)
+	{
+		_externalLibraries.push_back(otherLibrary);
 	}
 }

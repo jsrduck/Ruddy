@@ -33,12 +33,18 @@
     <ClInclude Include="cxxopts.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ArchiveSerialization.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Ruddy.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Serialization.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="llc.cpp">
@@ -49,9 +55,9 @@
     <None Include="TestFile1.rdy">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="TestFile2.rdy">
+    <None Include="packages.config" />
+    <None Include="MathClass.rdy">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="packages.config" />
   </ItemGroup>
 </Project>

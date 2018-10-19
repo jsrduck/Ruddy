@@ -20,6 +20,11 @@
 #include <llvm\Support\raw_ostream.h>
 #include <llvm\Support\FileSystem.h>
 
+#include "ArchiveSerialization.h"
+
+#include <boost\filesystem\path.hpp>
+#include <boost\algorithm\string.hpp>
+
 using namespace std;
 
 inline std::unique_ptr<Ast::GlobalStatements> ParseTree(std::string code)
@@ -50,31 +55,10 @@ void AddExternOsFunctions(llvm::Module* module, llvm::LLVMContext& context)
 	auto printfFunction = llvm::Function::Create(printfFunctionType, llvm::Function::ExternalLinkage, "_os_printf", module);
 }
 
-int llc(int argc, char **argv);
-int LLC(std::string &outputFileName, llvm::LLVMContext& context)
+int compileModule(const char * InputFilename, const char * OutputFilename, llvm::LLVMContext &Context);
+int LLC(std::string &outputIRFileName, std::string& outputObjFileName, llvm::LLVMContext& context)
 {
-	//-filetype = obj
-	char* args[3];
-
-	char* llcName = "llc";
-	std::string arg1 = "-filetype=obj";
-	char arg1Buff[_MAX_PATH];
-	if (strncpy_s(arg1Buff, _countof(arg1Buff), arg1.c_str(), arg1.size()+1) != 0)
-	{
-		return -11;
-	}
-
-	char arg2Buff[_MAX_PATH];
-	if (strncpy_s(arg2Buff, _countof(arg2Buff), outputFileName.c_str(), outputFileName.size() + 1) != 0)
-	{
-		return -12;
-	}
-
-	args[0] = llcName;
-	args[1] = arg1Buff;
-	args[2] = arg2Buff;
-
-	return llc(3, args);
+	return compileModule(outputIRFileName.c_str(), outputObjFileName.c_str(), context);
 }
 
 class CoInitializer
@@ -199,7 +183,7 @@ int ExecuteExe(std::wstring process, std::wstring& args)
 	return 0;
 }
 
-int RunLinker(std::string& objFileName, std::string& outputName)
+int RunLinker(std::vector<std::string>& objFileNames, std::string& outputName, std::vector<std::shared_ptr<Ruddy::Rib>>& ribs)
 {
 	// Get current working directory
 	wchar_t workingDir[_MAX_PATH];
@@ -230,15 +214,19 @@ int RunLinker(std::string& objFileName, std::string& outputName)
 	if (retval != 0)
 		return retval;
 
-	std::wstring linkCmdPath(cmdExePath);
-	linkCmdPath.append(L" /c \"");
-	linkCmdPath.append(installDir);
-	linkCmdPath.append(L"\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x86 & link ");
-	linkCmdPath.append(objFileName.begin(), objFileName.end());
-	linkCmdPath.append(L" ..\\WindowsImpl\\Debug\\IO.obj ..\\WindowsImpl\\Debug\\stdafx.obj /subsystem:console /OUT:");
-	linkCmdPath.append(outputName.begin(), outputName.end());
+	std::wstringstream linkCmdPath(cmdExePath);
+	linkCmdPath<< L" /c \"";
+	linkCmdPath << installDir;
+	linkCmdPath << L"\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x86 & link";
+	for (auto& objFileName : objFileNames)
+	{
+		linkCmdPath << L" ";
+		linkCmdPath << std::wstring(objFileName.begin(), objFileName.end());
+	}
+	linkCmdPath << L" ..\\WindowsImpl\\Debug\\IO.obj ..\\WindowsImpl\\Debug\\stdafx.obj /subsystem:console /OUT:";
+	linkCmdPath << std::wstring(outputName.begin(), outputName.end());
 
-	return ExecuteExe(cmdExePath, linkCmdPath);
+	return ExecuteExe(cmdExePath, linkCmdPath.str());
 }
 
 // Ruddy.exe produces the LLVM intermediate code representation. A batch file can be used as a full end-to-end compiler
@@ -248,7 +236,8 @@ int main(int argc, char* argv[])
 	options.allow_unrecognised_options()
 		.add_options()
 		("positional", "Positional arguemnts", cxxopts::value<std::vector<std::string>>())
-		("o,output", "output type (lib,dll,exe)", cxxopts::value<std::string>()->default_value("exe"));
+		("t,type", "output type (rib,dll,exe)", cxxopts::value<std::string>()->default_value("exe"))
+		("l,libs", "external libraries, semicolon-delimitted", cxxopts::value<std::string>());
 
 	options.parse_positional({ "positional" });
 	auto result = options.parse(argc, argv);
@@ -259,7 +248,14 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	auto& files = result["positional"].as<std::vector<std::string>>();
+	auto files = result["positional"].as<std::vector<std::string>>();
+
+	std::vector<std::string> libs;
+	if (result.count("libs"))
+	{
+		auto libsStr = result["libs"].as<std::string>();
+		boost::split(libs, libsStr, boost::is_any_of(";"));
+	}
 
 	try
 	{
@@ -285,6 +281,19 @@ int main(int argc, char* argv[])
 		// Type check
 		auto symbolTable = std::make_shared<Ast::SymbolTable>();
 
+		// Add any external libs first
+		std::vector<std::shared_ptr<Ruddy::Rib>> ribs;
+		for(auto& lib : libs)
+		{
+			ribs.push_back(std::make_shared<Ruddy::Rib>(lib.c_str()));
+		}
+
+		// TODO: Ribs and rincs should only load the symbol table if they are actually imported.
+		for (auto& rib : ribs)
+		{
+			symbolTable->AddExternalLibrary(rib->Rinc->GetSymbolTable());
+		}
+
 		// Code generation
 		llvm::LLVMContext TheContext {};
 		llvm::IRBuilder<> builder(TheContext);
@@ -298,28 +307,76 @@ int main(int argc, char* argv[])
 		masterList->CodeGen(&builder, &TheContext, &module);
 
 		// Now save it to a file
-		std::string fileName = argv[1];
-		auto outputFileName = fileName.substr(0, fileName.find_last_of('.'));
-		outputFileName.append(".ll");
+		std::string fileName = files[0];
+		boost::filesystem::path filePath(fileName);
+		auto basePath = filePath.parent_path();
+		auto libName = filePath.filename();
+		libName = libName.replace_extension();
+		auto outputIRFileName = fileName.substr(0, fileName.find_last_of('.'));
+		outputIRFileName.append(".ll");
 
 		std::error_code errInfo;
-		auto stream = std::make_unique<llvm::raw_fd_ostream>(outputFileName, errInfo, llvm::sys::fs::OpenFlags::F_RW);
+		auto stream = std::make_unique<llvm::raw_fd_ostream>(outputIRFileName, errInfo, llvm::sys::fs::OpenFlags::F_RW);
 		module.print(*stream.get(), nullptr);
 		stream->close();
 
-		auto retVal = LLC(outputFileName, TheContext);
-		if (retVal != 0)
-			return retVal;
-
-		auto objFileName = fileName.substr(0, fileName.find_last_of('.'));
-		auto exeFileName = objFileName;
-		objFileName.append(".obj");
-		exeFileName.append(".exe");
-		retVal = RunLinker(objFileName, exeFileName);
-		if (retVal != 0)
+		auto type = result["t"].as<std::string>();
+		auto rootFileName = fileName.substr(0, fileName.find_last_of('.'));
+		if (type.compare("exe") == 0)
 		{
-			std::cerr << "Failed to execute link.exe, cannot produce link files: " << GetLastError() << endl;
-			return retVal;
+			auto objFileName = rootFileName;
+			auto exeFileName = rootFileName;
+			objFileName.append(".obj");
+			exeFileName.append(".exe");
+
+			auto retVal = LLC(outputIRFileName, objFileName, TheContext);
+			if (retVal != 0)
+				return retVal;
+
+			std::vector<std::string> objFiles;
+			objFiles.push_back(objFileName);
+
+			for (auto& rib : ribs)
+			{
+				if (rib->WasAccessed())
+				{
+					// We need to compile this rib into obj code as well
+					auto ribLL = rib->WriteIRTo(basePath.string());
+					objFileName = ribLL.substr(0, ribLL.find_last_of('.'));
+					objFileName.append(".obj");
+					retVal = LLC(ribLL, objFileName, TheContext);
+					if (retVal != 0)
+						return retVal;
+					boost::filesystem::path objPath(ribLL);
+					objPath.replace_extension("obj");
+					objFiles.push_back(objPath.string());
+				}
+			}
+
+			retVal = RunLinker(objFiles, exeFileName, ribs);
+			if (retVal != 0)
+			{
+				std::cerr << "Failed to execute link.exe, cannot produce link files: " << GetLastError() << endl;
+				return retVal;
+			}
+		}
+		else if (type.compare("rib") == 0)
+		{
+			auto ribName = rootFileName;
+			ribName.append(".rib");
+			std::ofstream ofStream(ribName);
+
+			std::ifstream irStream(outputIRFileName);
+			
+			Ruddy::LibraryMetadata metadata(libName.string(), Ruddy::VersionNumber::CurrentVersion);
+			auto rinc = std::make_shared<Ruddy::Rinc>(symbolTable, metadata, basePath.string());
+			Ruddy::Rib rib(rinc, outputIRFileName);
+			rib.Serialize(ribName.c_str());
+		}
+		else
+		{
+			std::cerr << "Unknown type option: " << type << endl;
+			return -1;
 		}
 	}
 	catch (Ast::Exception& e)
@@ -327,9 +384,19 @@ int main(int argc, char* argv[])
 		std::cerr << e.Message() << endl;
 		return -1;
 	}
+	catch (Ruddy::CompilerException& e)
+	{
+		std::cerr << e.Message() << endl;
+		return -1;
+	}
 	catch (std::exception& e)
 	{
 		std::cerr << "Unhandled exception, bad Ruddy, bad: " << e.what() << endl;
+		return -1;
+	}
+	catch (...)
+	{
+		std::cerr << "Unhandled exception, bad Ruddy, bad " << endl;
 		return -1;
 	}
 	

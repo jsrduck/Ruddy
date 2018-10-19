@@ -65,24 +65,24 @@ namespace TypeCheckingTests {
 			auto tree = ParseTree(_externalCode);
 			auto table = std::make_shared<SymbolTable>();
 			tree->TypeCheck(table);
-			std::ostringstream ostream;
+			std::stringstream stream;
 			//std::ofstream ostream { "ExportedSymbolTable.txt" };
-			table->Serialize(ostream, "externalLib");
-			_serializedTable = ostream.str();
+			table->Serialize(stream, "externalLib");
+			stream.seekg(0);
+			_symbolTable = std::make_shared<SymbolTable>();
+			_symbolTable->LoadFrom(stream);
 		}
 
 		std::shared_ptr<SymbolTable> GetExternalTable()
 		{
-			std::istringstream istream { _serializedTable };
-			auto table = std::make_shared<SymbolTable>();
-			table->LoadFrom(istream);
-			return table;
+			return _symbolTable;
 		}
 
 		void TypeCheckAgainstDeserializedSymbolTable(const char* codeSample) 
 		{
 			auto tree = ParseTree(codeSample);
-			auto table = GetExternalTable();
+			auto table = std::make_shared<SymbolTable>();
+			table->AddExternalLibrary(GetExternalTable());
 			tree->TypeCheck(table);
 		}
 
@@ -168,9 +168,9 @@ namespace TypeCheckingTests {
 
 	private:
 		//static std::shared_ptr<SymbolTable> _deserializedTable;
-		static std::string _serializedTable;
+		static std::shared_ptr<SymbolTable> _symbolTable;
 	};
 
 	//std::shared_ptr<SymbolTable> SerializedSymbolTableTests::_deserializedTable;
-	std::string SerializedSymbolTableTests::_serializedTable;
+	std::shared_ptr<SymbolTable> SerializedSymbolTableTests::_symbolTable;
 }

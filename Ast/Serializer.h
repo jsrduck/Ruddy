@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SymbolTable.h"
 #include <boost\property_tree\json_parser.hpp>
 
 namespace Ast 
