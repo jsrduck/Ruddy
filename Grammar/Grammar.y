@@ -82,6 +82,7 @@ using namespace Ast;
 	Ast::Initializer* initer;
 	Ast::InitializerList* init_list;
 	Ast::InitializerStatement* init_stmt;
+	Ast::ImportDirective* import_dir;
 };
 
 %type <vis_node> visibility;
@@ -135,6 +136,7 @@ using namespace Ast;
 %type <initer> initializer;
 %type <init_list> initializer_list;
 %type <init_stmt> initializer_statement;
+%type <import_dir> import_directive;
 
 /*Bison declarations*/
 
@@ -213,6 +215,7 @@ using namespace Ast;
 %token TKN_PRIVATE;
 %token TKN_PROTECTED;
 %token TKN_STATIC;
+%token TKN_IMPORT;
 
 /* Operator precedence. Lowest precedence on top. */
 %left TKN_OPERATOR_ASSIGN_TO;
@@ -260,7 +263,8 @@ visibility :
 
 global_statement :
 	  class_declaration
-	| namespace_declaration;
+	| namespace_declaration
+	| import_directive;
 
 global_statements :
 	  global_statement global_statements 
@@ -504,6 +508,13 @@ class_statement :
 	| constructor
 	| destructor
 	| function_declaration;
+
+import_directive :
+	  TKN_IMPORT reference
+	  {
+		$$ = new ImportDirective($2->Id(), FileLocation(@1.first_line, @1.first_column));
+		delete $2;
+	  }
 
 class_declaration :
 	  visibility TKN_CLASS single_identifier TKN_BRACKET_OPEN class_statement_list TKN_BRACKET_CLOSE

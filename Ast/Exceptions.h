@@ -203,4 +203,25 @@ namespace Ast {
 			_message = "Operation not supported for auto type";
 		}
 	};
+
+	class DuplicateLibraryException : public Exception
+	{
+	public:
+		DuplicateLibraryException(const std::string& libName)
+		{
+			_message = "Can't disambiguate multiple libraries with the same name: ";
+			_message.append(libName);
+		}
+	};
+
+	class UnknownLibraryException : public Exception
+	{
+	public:
+		UnknownLibraryException(const std::string& libName)
+		{
+			_message = "Imported library \'";
+			_message.append(libName);
+			_message.append("\' unknown. Make sure ribs and rincs to link to are passed to the compiler.");
+		}
+	};
 }

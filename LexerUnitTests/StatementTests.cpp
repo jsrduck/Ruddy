@@ -116,5 +116,19 @@ namespace LexerUnitTests
 			AssertAreEqualTokenTypes({TKN_IDENTIFIER, TKN_PERIOD, TKN_IDENTIFIER, TKN_PAREN_OPEN, TKN_PAREN_CLOSE, 
 				TKN_IDENTIFIER, TKN_PERIOD, TKN_IDENTIFIER, TKN_PAREN_OPEN, TKN_CONSTANT_INT, TKN_COMMA, TKN_CONSTANT_FLOAT, TKN_PAREN_CLOSE }, tokens);
 		}
+
+		TEST_METHOD(ImportStatements)
+		{
+			vector<quex::Token> tokens;
+			Analyze("import libname", tokens);
+			AssertAreEqualTokenTypes({ TKN_IMPORT, TKN_IDENTIFIER }, tokens);
+		}
+
+		TEST_METHOD(ImportStatementsWithPeriods)
+		{
+			vector<quex::Token> tokens;
+			Analyze("import libname.more", tokens);
+			AssertAreEqualTokenTypes({ TKN_IMPORT, TKN_IDENTIFIER, TKN_PERIOD, TKN_IDENTIFIER }, tokens);
+		}
 	};
 }

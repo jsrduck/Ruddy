@@ -129,6 +129,7 @@ mode PROGRAM :
 	"protected"            => TKN_PROTECTED;
 	"static"               => TKN_STATIC;
 	"print"                => TKN_PRINT;
+	"import"               => TKN_IMPORT;
 	{IDENTIFIER}           => TKN_IDENTIFIER(Lexeme);
 	{STRING_DELIMITER}     => GOTO(STRING_READER);
 }

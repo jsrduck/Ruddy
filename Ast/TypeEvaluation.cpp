@@ -468,6 +468,11 @@ namespace Ast {
 		}
 	}
 
+	void ImportDirective::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
+	{
+		symbolTable->ActivateExternalLibrary(_libName);
+	}
+
 	void GlobalStatements::TypeCheck(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
 		if (pass == TYPE_CHECK_ALL)

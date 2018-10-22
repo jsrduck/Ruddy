@@ -82,41 +82,44 @@ namespace TypeCheckingTests {
 		{
 			auto tree = ParseTree(codeSample);
 			auto table = std::make_shared<SymbolTable>();
-			table->AddExternalLibrary(GetExternalTable());
+			table->AddExternalLibrary("ExternalLib", [this]()
+			{
+				return GetExternalTable();
+			});
 			tree->TypeCheck(table);
 		}
 
 	public:
 		TEST_METHOD(UseExternalClassDefaultCtor)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C() { let a = new external.A(); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C() { let a = new external.A(); } }");
 		}
 
 		TEST_METHOD(UseExternalClassDefaultCtorOnStack)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C() { external.A& a(); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C() { external.A& a(); } }");
 		}
 
 		TEST_METHOD(UseExternalClassOverloadedCtors)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C() { let a = new external.inner.AB(); let b = new external.inner.AB('y'); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C() { let a = new external.inner.AB(); let b = new external.inner.AB('y'); } }");
 		}
 
 		TEST_METHOD(UseExternalClassOverloadedCtorsOnStack)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C() { external.inner.AB& a(); external.inner.AB& b('x'); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C() { external.inner.AB& a(); external.inner.AB& b('x'); } }");
 		}
 
 		TEST_METHOD(UseExternalClassMethod)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C(external.inner.AB a) { a.DoStuff(); char x = a.DoMoreStuff('x'); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C(external.inner.AB a) { a.DoStuff(); char x = a.DoMoreStuff('x'); } }");
 		}
 
 		TEST_METHOD(ExternalClassMethodThrowsTypeExceptionWhenAssignmentDoesntMatch)
 		{
 			Assert::ExpectException<TypeMismatchException>([this]()
 			{
-				TypeCheckAgainstDeserializedSymbolTable("class B { fun C(external.inner.AB a) { a.DoStuff(); external.A x = a.DoMoreStuff('x'); } }");
+				TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C(external.inner.AB a) { a.DoStuff(); external.A x = a.DoMoreStuff('x'); } }");
 			});
 		}
 
@@ -124,46 +127,62 @@ namespace TypeCheckingTests {
 		{
 			Assert::ExpectException<TypeMismatchException>([this]()
 			{
-				TypeCheckAgainstDeserializedSymbolTable("class B { fun C(external.inner.AB a) { a.DoStuff(); let x = a.DoMoreStuff(a); } }");
+				TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C(external.inner.AB a) { a.DoStuff(); let x = a.DoMoreStuff(a); } }");
 			});
 		}
 
 		TEST_METHOD(UseExternalStaticFunction)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C() { external.A& a(); external.A& b = external.inner.AB.DoStaticValueStuff(a); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C() { external.A& a(); external.A& b = external.inner.AB.DoStaticValueStuff(a); } }");
 		}
 
 		TEST_METHOD(UseExternalStaticFunction2)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C() { let a = new external.A(); let b = external.inner.AB.DoStaticReferenceStuff(a); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C() { let a = new external.A(); let b = external.inner.AB.DoStaticReferenceStuff(a); } }");
 		}
 
 		TEST_METHOD(UseExternalClassMethodOverloaded)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C(external.inner.AB a) { int b, float c = a.ReturnInts(1, 2.3); int d, float64 e = a.ReturnInts(1, 2.3, 5.6); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C(external.inner.AB a) { int b, float c = a.ReturnInts(1, 2.3); int d, float64 e = a.ReturnInts(1, 2.3, 5.6); } }");
 		}
 
 		TEST_METHOD(UsePublicExternalClassMember)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun(external.A retVal) C(external.inner.AB a) { let b = a.MyA; a.MyA = new external.A(); return b; } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun(external.A retVal) C(external.inner.AB a) { let b = a.MyA; a.MyA = new external.A(); return b; } }");
 		}
 
 		TEST_METHOD(UsePublicExternalClassMemberThatComesLater)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun(external.inner.B retVal) C(external.inner.AB a) { let b = a.MyB; a.MyB = new external.inner.B(); return b; } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun(external.inner.B retVal) C(external.inner.AB a) { let b = a.MyB; a.MyB = new external.inner.B(); return b; } }");
 		}
 
 		TEST_METHOD(PrivateExternalClassMemberNotVisible)
 		{
 			Assert::ExpectException<SymbolNotDefinedException>([this]()
 			{
-				TypeCheckAgainstDeserializedSymbolTable("class B { fun C(external.inner.AB a) { let b = a._c; } }");
+				TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C(external.inner.AB a) { let b = a._c; } }");
 			});
 		}
 
 		TEST_METHOD(AllPrimitiveTypesInExternalCodeWork)
 		{
-			TypeCheckAgainstDeserializedSymbolTable("class B { fun C(external.inner.AB ab) { int a = 0; int64 b = 2147483648; uint c = 2147483648; uint64 d = 4294967296; float e = 1.1; float64 f = 3.40282e39; charbyte g = 'x'; char h = '\\u0058'; bool i = false; byte j = 0x2; ab.AllPrimitives(a,b,c,d,e,f,g,h,i,j); } }");
+			TypeCheckAgainstDeserializedSymbolTable("import ExternalLib class B { fun C(external.inner.AB ab) { int a = 0; int64 b = 2147483648; uint c = 2147483648; uint64 d = 4294967296; float e = 1.1; float64 f = 3.40282e39; charbyte g = 'x'; char h = '\\u0058'; bool i = false; byte j = 0x2; ab.AllPrimitives(a,b,c,d,e,f,g,h,i,j); } }");
+		}
+		
+		TEST_METHOD(ImportStatementRequiredToUseLibrary)
+		{
+			Assert::ExpectException<SymbolNotDefinedException>([this]()
+			{
+				TypeCheckAgainstDeserializedSymbolTable("class B { fun C() { let a = new external.A(); } }");
+			});
+		}
+
+		TEST_METHOD(UnknownLibraryNotFoundThrowsException)
+		{
+			Assert::ExpectException<UnknownLibraryException>([this]()
+			{
+				TypeCheckAgainstDeserializedSymbolTable("import UnknownLibrary");
+			});
 		}
 
 	private:

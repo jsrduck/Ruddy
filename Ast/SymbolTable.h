@@ -76,7 +76,8 @@ namespace Ast
 		/* Serialize for importing */
 		void Serialize(std::ostream& output, std::string libName);
 		void LoadFrom(std::istream& input);
-		void AddExternalLibrary(std::shared_ptr<SymbolTable> otherLibrary);
+		void AddExternalLibrary(const std::string& libName, std::function<std::shared_ptr<SymbolTable>()> GetSymbolTable);
+		void ActivateExternalLibrary(const std::string& libName);
 
 		class ScopeMarker : public SymbolBinding
 		{
@@ -298,6 +299,8 @@ namespace Ast
 		std::stack<std::shared_ptr<FunctionBinding>> _currentFunction;
 		std::stack<std::shared_ptr<LoopBinding>> _currentLoop;
 		std::vector<std::shared_ptr<SymbolBinding>> _currentAddressableNamespaces; // Anything addressable, ie, classes and namespaces
+		std::unordered_map<std::string, std::function<std::shared_ptr<SymbolTable>()>> _unactivatedExternalLibraries;
 		std::vector<std::shared_ptr<SymbolTable>> _externalLibraries;
+		std::unordered_set<std::string> _activatedLibraries;
 	};
 }

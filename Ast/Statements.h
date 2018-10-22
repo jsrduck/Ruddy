@@ -52,6 +52,23 @@ namespace Ast
 		virtual ~GlobalStatement() { }
 	};
 
+	class ImportDirective : public GlobalStatement
+	{
+	public:
+		ImportDirective(const std::string& libName, FileLocation& location) : _libName(libName), GlobalStatement(location)
+		{
+		}
+		const std::string _libName;
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override { }
+
+		virtual std::string ToString() override
+		{
+			return "ImportDirective";
+		}
+	};
+
 	class GlobalStatements : public GlobalStatement
 	{
 	public:

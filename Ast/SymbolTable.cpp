@@ -588,8 +588,22 @@ namespace Ast
 		return dtors;
 	}
 
-	void Ast::SymbolTable::AddExternalLibrary(std::shared_ptr<SymbolTable> otherLibrary)
+	void Ast::SymbolTable::AddExternalLibrary(const std::string& libName, std::function<std::shared_ptr<SymbolTable>()> GetSymbolTable)
 	{
-		_externalLibraries.push_back(otherLibrary);
+		if (_unactivatedExternalLibraries.count(libName) != 0)
+			throw DuplicateLibraryException(libName);
+		_unactivatedExternalLibraries[libName] = GetSymbolTable;
+	}
+
+	void Ast::SymbolTable::ActivateExternalLibrary(const std::string& libName)
+	{
+		if (_unactivatedExternalLibraries.count(libName) == 0)
+			throw UnknownLibraryException(libName);
+		if (_activatedLibraries.count(libName) == 0)
+		{
+			auto library = _unactivatedExternalLibraries[libName]();
+			_activatedLibraries.emplace(libName);
+			_externalLibraries.push_back(library);
+		}
 	}
 }

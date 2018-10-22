@@ -351,5 +351,21 @@ namespace ParserTests
 			auto stmts = dynamic_cast<LineStatements*>(bDeclaration->_body.get());
 			Assert::IsNotNull(dynamic_cast<ReturnStatement*>(stmts->_statement.get()));
 		}
+
+		TEST_METHOD(ImportDirectiveWorks)
+		{
+			auto tree = ParseTree("import libname");
+			auto import = dynamic_pointer_cast<ImportDirective>(tree->_stmt);
+			Assert::IsTrue(import != nullptr);
+			Assert::IsTrue(import->_libName.compare("libname") == 0);
+		}
+
+		TEST_METHOD(ImportDirectiveWithPeriodsWorks)
+		{
+			auto tree = ParseTree("import libname.stuff");
+			auto import = dynamic_pointer_cast<ImportDirective>(tree->_stmt);
+			Assert::IsTrue(import != nullptr);
+			Assert::IsTrue(import->_libName.compare("libname.stuff") == 0);
+		}
 	};
 }

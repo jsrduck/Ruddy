@@ -288,10 +288,12 @@ int main(int argc, char* argv[])
 			ribs.push_back(std::make_shared<Ruddy::Rib>(lib.c_str()));
 		}
 
-		// TODO: Ribs and rincs should only load the symbol table if they are actually imported.
 		for (auto& rib : ribs)
 		{
-			symbolTable->AddExternalLibrary(rib->Rinc->GetSymbolTable());
+			symbolTable->AddExternalLibrary(rib->Rinc->Metadata.Name, [rib]()
+			{
+				return rib->Rinc->GetSymbolTable();
+			});
 		}
 
 		// Code generation
