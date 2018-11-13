@@ -321,7 +321,7 @@ namespace Ast
 		return false;
 	}
 
-	llvm::AllocaInst * ClassDeclarationTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context)
+	llvm::Value * ClassDeclarationTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
 	{
 		// TODO
 		throw UnexpectedException();
@@ -389,7 +389,9 @@ namespace Ast
 
 	llvm::Value* ClassTypeInfo::GetDefaultValue(llvm::LLVMContext* context)
 	{
-		return llvm::ConstantPointerNull::get(this->GetIRType(context)->getPointerTo());
+		if (IsValueType())
+			throw UnexpectedException();
+		return llvm::ConstantPointerNull::get(this->GetIRType(context)->getPointerTo(GC_MANAGED_HEAP_ADDRESS_SPACE));
 	}
 
 	bool ClassTypeInfo::IsSameType(std::shared_ptr<TypeInfo> other)
@@ -416,7 +418,11 @@ namespace Ast
 
 	llvm::Type * ClassTypeInfo::GetIRType(llvm::LLVMContext * context, bool asOutput)
 	{
-		return _classDeclTypeInfo->GetIRType(context, asOutput);
+		auto structIRType = _classDeclTypeInfo->GetIRType(context, asOutput);
+		if (IsValueType())
+			return structIRType;
+		else
+			return structIRType->getPointerTo(GC_MANAGED_HEAP_ADDRESS_SPACE);
 	}
 
 	bool ClassTypeInfo::IsValueType()
@@ -495,11 +501,11 @@ namespace Ast
 		return true;
 	}
 
-	llvm::AllocaInst * UnresolvedClassTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context)
+	llvm::Value * UnresolvedClassTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
 	{
 		if (_resolvedType == nullptr)
 			throw UnexpectedException();
-		return _resolvedType->CreateAllocation(name, builder, context);
+		return _resolvedType->CreateAllocation(name, builder, context, module);
 	}
 
 	llvm::Type * UnresolvedClassTypeInfo::GetIRType(llvm::LLVMContext * context, bool asOutput)
@@ -642,7 +648,7 @@ namespace Ast
 		return false;
 	}
 
-	llvm::AllocaInst * CompositeTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context)
+	llvm::Value * CompositeTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
 	{
 		// TODO
 		throw UnexpectedException();
@@ -657,8 +663,6 @@ namespace Ast
 	void Ast::TypeInfo::AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext * context, bool asOutput)
 	{
 		auto irType = GetIRType(context, asOutput);
-		if (irType->isStructTy())
-			irType = irType->getPointerTo();
 		inputVector.push_back(irType);
 	}
 
@@ -715,7 +719,7 @@ namespace Ast
 	{
 		return false;
 	}
-	llvm::AllocaInst * FunctionTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context)
+	llvm::Value * FunctionTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
 	{
 		// TODO
 		throw UnexpectedException();
@@ -743,6 +747,14 @@ namespace Ast
 	bool BaseClassTypeInfo::IsClassType()
 	{
 		return true;
+	}
+
+	llvm::Value * BaseClassTypeInfo::GetDefaultValue(llvm::LLVMContext * context)
+	{
+		auto type = GetIRType(context);
+		if (!type->isPointerTy())
+			throw UnexpectedException();
+		return llvm::ConstantPointerNull::get(reinterpret_cast<llvm::PointerType*>(type));
 	}
 
 	/* TypeSpecifier */

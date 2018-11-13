@@ -25,6 +25,8 @@ namespace llvm {
 	class Type;
 }
 
+#define GC_MANAGED_HEAP_ADDRESS_SPACE 0
+
 namespace Ast
 {
 	class Operation;
@@ -42,7 +44,7 @@ namespace Ast
 		virtual bool IsImplicitlyAssignableToAnotherTypeThatSupportsOperation(Operation* operation, std::shared_ptr<TypeInfo>& implicitCastTypeOut) { return false; }
 		virtual bool IsAutoType() { return false; }
 		virtual bool NeedsResolution() { return false; }
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) = 0;
 		virtual bool IsPrimitiveType() { return false; }
 		virtual bool IsConstant() { return false; }
@@ -73,7 +75,7 @@ namespace Ast
 			return _name;
 		}
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
 		{
 			// TODO
 			throw UnexpectedException();
@@ -118,7 +120,7 @@ namespace Ast
 
 		virtual bool SupportsOperator(Operation* operation) override;
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
@@ -145,7 +147,7 @@ namespace Ast
 		// Operator logic
 		virtual bool SupportsOperator(Operation* operation); // For now, we don't support operators on functions.
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
@@ -171,6 +173,8 @@ namespace Ast
 		virtual bool IsValueType() = 0;
 
 		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) = 0;
+
+		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) override;
 	};
 
 	// Represents the TypeInfo for a class's declaration, which is equally valid for value or reference instantiations.
@@ -194,7 +198,7 @@ namespace Ast
 
 		virtual bool SupportsOperator(Operation* operation) override;
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
@@ -225,7 +229,7 @@ namespace Ast
 
 		virtual bool SupportsOperator(Operation* operation) override;
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
@@ -268,7 +272,7 @@ namespace Ast
 		
 		virtual bool NeedsResolution() override;
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override;
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 

@@ -17,8 +17,12 @@
 
 #include <llvm\IR\Module.h>
 #include <llvm\IR\IRBuilder.h>
+#include <llvm\IRReader\IRReader.h>
+#include <llvm\IR\Verifier.h>
 #include <llvm\Support\raw_ostream.h>
 #include <llvm\Support\FileSystem.h>
+#include <llvm\Support\SourceMgr.h>
+#include <llvm\Pass.h>
 
 #include "ArchiveSerialization.h"
 
@@ -46,19 +50,24 @@ void TestGrammar()
 	}
 }
 
-void AddExternOsFunctions(llvm::Module* module, llvm::LLVMContext& context)
+std::unique_ptr<llvm::Module> AddExternOsFunctions(llvm::LLVMContext& context, llvm::IRBuilder<>& builder)
 {
-	// printf
-	std::vector<llvm::Type*> printfArgTypes;
-	printfArgTypes.push_back(llvm::Type::getInt16PtrTy(context));
-	auto printfFunctionType = llvm::FunctionType::get(llvm::Type::getInt32Ty(context), printfArgTypes, true /*isVarArg*/);
-	auto printfFunction = llvm::Function::Create(printfFunctionType, llvm::Function::ExternalLinkage, "_os_printf", module);
+	llvm::SMDiagnostic err;
+	std::unique_ptr<llvm::Module> irModule = llvm::parseIRFile("runtime_shim.ll", err, context);
+	if (!irModule)
+	{
+		std::string what;
+		llvm::raw_string_ostream os(what);
+		err.print("error loading IR for runtime shim", os);
+		std::cerr << what;
+	}
+	return irModule;
 }
 
-int compileModule(const char * InputFilename, const char * OutputFilename, llvm::LLVMContext &Context);
-int LLC(std::string &outputIRFileName, std::string& outputObjFileName, llvm::LLVMContext& context)
+int compileModule(const char * InputFilename, const char * OutputFilename, llvm::LLVMContext &Context, llvm::IRBuilder<>& builder);
+int LLC(std::string &outputIRFileName, std::string& outputObjFileName, llvm::LLVMContext& context, llvm::IRBuilder<>& builder)
 {
-	return compileModule(outputIRFileName.c_str(), outputObjFileName.c_str(), context);
+	return compileModule(outputIRFileName.c_str(), outputObjFileName.c_str(), context, builder);
 }
 
 class CoInitializer
@@ -217,19 +226,21 @@ int RunLinker(std::vector<std::string>& objFileNames, std::string& outputName, s
 	std::wstringstream linkCmdPath(cmdExePath);
 	linkCmdPath<< L" /c \"";
 	linkCmdPath << installDir;
-	linkCmdPath << L"\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x86 & link";
+	linkCmdPath << L"\\VC\\Auxiliary\\Build\\vcvarsall.bat\" amd64 & link";
 	for (auto& objFileName : objFileNames)
 	{
 		linkCmdPath << L" ";
 		linkCmdPath << std::wstring(objFileName.begin(), objFileName.end());
 	}
-	linkCmdPath << L" ..\\WindowsImpl\\Debug\\IO.obj ..\\WindowsImpl\\Debug\\stdafx.obj /subsystem:console /OUT:";
+	// todo: make this platform/flavor independent. It's ok for now.
+	linkCmdPath << L" ..\\x64\\Debug\\WindowsImpl.lib ..\\x64\\Debug\\Runtime.lib /subsystem:console /OUT:";
 	linkCmdPath << std::wstring(outputName.begin(), outputName.end());
 
 	return ExecuteExe(cmdExePath, linkCmdPath.str());
 }
 
 // Ruddy.exe produces the LLVM intermediate code representation. A batch file can be used as a full end-to-end compiler
+int RunGCPass(llvm::Module& module);
 int main(int argc, char* argv[])
 {
 	cxxopts::Options options(argv[0]);
@@ -283,6 +294,7 @@ int main(int argc, char* argv[])
 
 		// Add any external libs first
 		std::vector<std::shared_ptr<Ruddy::Rib>> ribs;
+
 		for(auto& lib : libs)
 		{
 			ribs.push_back(std::make_shared<Ruddy::Rib>(lib.c_str()));
@@ -296,19 +308,6 @@ int main(int argc, char* argv[])
 			});
 		}
 
-		// Code generation
-		llvm::LLVMContext TheContext {};
-		llvm::IRBuilder<> builder(TheContext);
-		llvm::Module module("Module", TheContext);
-		// Generate extern statements for os code. In the future, this will be
-		// replaced by import statements so we're not generating everything
-		AddExternOsFunctions(&module, TheContext);
-		// Generate code from the input
-		masterList->TypeCheck(symbolTable);
-
-		masterList->CodeGen(&builder, &TheContext, &module);
-
-		// Now save it to a file
 		std::string fileName = files[0];
 		boost::filesystem::path filePath(fileName);
 		auto basePath = filePath.parent_path();
@@ -317,9 +316,32 @@ int main(int argc, char* argv[])
 		auto outputIRFileName = fileName.substr(0, fileName.find_last_of('.'));
 		outputIRFileName.append(".ll");
 
+		// Code generation
+		llvm::LLVMContext TheContext {};
+		llvm::IRBuilder<> builder(TheContext);
+		// Generate extern statements for os code. In the future, this will be
+		// replaced by import statements so we're not generating everything
+		auto module = AddExternOsFunctions(TheContext, builder);
+		if (!module)
+			return -1;
+		auto moduleName = libName.string();
+		module->setModuleIdentifier(moduleName);
+		module->setSourceFileName(filePath.filename().string());
+		// Generate code from the input
+		masterList->TypeCheck(symbolTable);
+
+		masterList->CodeGen(&builder, &TheContext, module.get());
+
+		// GC Passes
+		//if (RunGCPass(*module) != 0)
+		//{
+		//	return -1;
+		//}
+
+		// Now save it to a file
 		std::error_code errInfo;
 		auto stream = std::make_unique<llvm::raw_fd_ostream>(outputIRFileName, errInfo, llvm::sys::fs::OpenFlags::F_RW);
-		module.print(*stream.get(), nullptr);
+		module->print(*stream.get(), nullptr);
 		stream->close();
 
 		auto type = result["t"].as<std::string>();
@@ -331,7 +353,7 @@ int main(int argc, char* argv[])
 			objFileName.append(".obj");
 			exeFileName.append(".exe");
 
-			auto retVal = LLC(outputIRFileName, objFileName, TheContext);
+			auto retVal = LLC(outputIRFileName, objFileName, TheContext, builder);
 			if (retVal != 0)
 				return retVal;
 
@@ -346,7 +368,7 @@ int main(int argc, char* argv[])
 					auto ribLL = rib->WriteIRTo(basePath.string());
 					objFileName = ribLL.substr(0, ribLL.find_last_of('.'));
 					objFileName.append(".obj");
-					retVal = LLC(ribLL, objFileName, TheContext);
+					retVal = LLC(ribLL, objFileName, TheContext, builder);
 					if (retVal != 0)
 						return retVal;
 					boost::filesystem::path objPath(ribLL);

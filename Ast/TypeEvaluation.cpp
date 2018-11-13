@@ -82,21 +82,21 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> NewExpression::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
-		auto symbol = symbolTable->Lookup(_className, inInitializerList);
-		if (symbol == nullptr)
+		_symbolBinding = symbolTable->Lookup(_className, inInitializerList);
+		if (_symbolBinding == nullptr)
 		{
 			// This id isn't defined in the symbol table yet
 			throw SymbolNotDefinedException(_className);
 		}
-		if (!symbol->IsClassBinding())
+		if (!_symbolBinding->IsClassBinding())
 		{
 			// This symbol exists, but it's not the name of a class
-			throw SymbolWrongTypeException(symbol->GetFullyQualifiedName());
+			throw SymbolWrongTypeException(_symbolBinding->GetFullyQualifiedName());
 		}
 
 		// Check the c'tors for type match, find the right one
 		auto argsExpression = _expression ? _expression->Evaluate(symbolTable) : nullptr;
-		auto classBinding = dynamic_pointer_cast<SymbolTable::ClassBinding>(symbol);
+		auto classBinding = dynamic_pointer_cast<SymbolTable::ClassBinding>(_symbolBinding);
 		for (auto constructorSymbol : classBinding->_ctors)
 		{
 			auto functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(constructorSymbol->GetTypeInfo());
@@ -105,7 +105,10 @@ namespace Ast {
 			if (SymbolTable::FunctionBinding::HaveSameSignatures(argsExpression, functionTypeInfo->InputArgsType(), symbolTable))
 			{
 				// Found it!
-				return std::make_shared<ClassTypeInfo>(symbol->GetTypeInfo(), false /*valueType*/);
+				_ctorCall = std::make_shared<FunctionCall>(functionTypeInfo, _expression, constructorSymbol, nullptr /*varBinding*/, _location);
+				_ctorCall->Evaluate(symbolTable, inInitializerList /*false?*/);
+
+				return std::make_shared<ClassTypeInfo>(_symbolBinding->GetTypeInfo(), false /*valueType*/);
 			}
 		}
 		throw NoMatchingFunctionSignatureFoundException(argsExpression);
@@ -698,7 +701,7 @@ namespace Ast {
 			// If this is a method, bind the "this" variable
 			if (!_mods->IsStatic())
 			{
-				_thisPtrBinding = symbolTable->BindVariable("this", _classBinding->GetTypeInfo());
+				_thisPtrBinding = symbolTable->BindVariable("this", std::make_shared<ClassTypeInfo>(_classBinding->GetTypeInfo(), false /*valueType*/));
 			}
 
 			auto argumentList = _inputArgs;

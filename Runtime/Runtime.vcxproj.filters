@@ -13,12 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Header Files\OS">
-      <UniqueIdentifier>{669c616b-7776-41a8-8c7f-82589b9e1843}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -27,13 +21,13 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="os_io.h">
-      <Filter>Header Files\OS</Filter>
-    </ClInclude>
-    <ClInclude Include="cxxopts.hpp">
+    <ClInclude Include="Stackmap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ArchiveSerialization.h">
+    <ClInclude Include="StatepointUtilsApi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -41,26 +35,14 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Ruddy.cpp">
+    <ClCompile Include="GarbageCollection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Serialization.cpp">
+    <ClCompile Include="Generate.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="llc.cpp">
+    <ClCompile Include="Memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="TestFile1.rdy">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="packages.config" />
-    <None Include="MathClass.rdy">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="runtime_shim.ll">
-      <Filter>Source Files</Filter>
-    </None>
   </ItemGroup>
 </Project>

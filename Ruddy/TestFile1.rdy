@@ -1,8 +1,114 @@
+class Foo
+{
+	public Foo()
+	{
+		i = 3;
+		j = 7;
+	}
+
+	int64 j;
+	int i;
+}
+
+// Implicit c'tor
+class Bar
+{
+	uint i;
+	float64 j;
+}
+
+// Explicit c'tor with args
+class Baz
+{
+	public Baz(uint a, float b, char c)
+	{
+		i = a;
+		j = b;
+		k = c;
+	}
+
+	uint i;
+	float j;
+	char k;
+	Foo& _foo1;
+	Foo _foo2;
+}
+
 class Program 
 {
 	static fun(int ret) main()
 	{
-		print(MathClass.Factorial(5));
+		let baz = new Baz(1,2.5,'a');
+		// 12.5a3737
+		print(baz.i);
+		print(baz.j);
+		print(baz.k);
+		print(baz._foo1.i);
+		print(baz._foo1.j);
+		baz._foo2 = new Foo();
+		print(baz._foo2.i);
+		print(baz._foo2.j);
+		// 12.5a3737
+		let baz2 = baz;
+		print(baz2.i);
+		print(baz2.j);
+		print(baz2.k);
+		print(baz2._foo1.i);
+		print(baz2._foo1.j);
+		print(baz2._foo2.i);
+		print(baz2._foo2.j);
+		print("\r\n");
+		// 10039.288b57593173
+		baz = new Baz(100, 39.288,'b');
+		baz._foo1.i = 57;
+		baz._foo1.j = 59;
+		baz._foo2 = new Foo();
+		baz._foo2.i = 31;
+		baz._foo2.j = 73;
+		print(baz.i);
+		print(baz.j);
+		print(baz.k);
+		print(baz._foo1.i);
+		print(baz._foo1.j);
+		print(baz._foo2.i);
+		print(baz._foo2.j);
+		print("\r\n");
+		// 12.5a373737
+		print(baz2.i);
+		print(baz2.j);
+		print(baz2.k);
+		print(baz2._foo1.i);
+		print(baz2._foo1.j);
+		print(baz2._foo2.i);
+		print(baz2._foo2.j);
+		baz._foo2 = new Foo();
+		print(baz._foo2.i);
+		print(baz._foo2.j);
+		print("\r\n");
+
+		// 1317.25c3737
+		Baz& baz3(13, 17.25, 'c');
+		baz3._foo2 = baz._foo2;
+		print(baz3.i);
+		print(baz3.j);
+		print(baz3.k);
+		print(baz3._foo1.i);
+		print(baz3._foo1.j);
+		print(baz3._foo2.i);
+		print(baz3._foo2.j);
+		print("\r\n");
+
+		// 1317.25c3737
+		Baz& baz4 = baz3;
+		print(baz4.i);
+		print(baz4.j);
+		print(baz4.k);
+		print(baz4._foo1.i);
+		print(baz4._foo1.j);
+		print(baz4._foo2.i);
+		print(baz4._foo2.j);
+
+		//print(MathClass.Factorial(5));
 		return 0;
 	}
 }

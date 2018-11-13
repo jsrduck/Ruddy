@@ -239,10 +239,8 @@ namespace Ast
 		std::shared_ptr<Expression> _expression;
 
 	protected:
-		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override
-		{
-			throw UnexpectedException();
-		}
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
+		std::shared_ptr<FunctionCall> _ctorCall;
 	};
 
 	class FunctionCall : public Expression
@@ -271,7 +269,8 @@ namespace Ast
 		const std::string _name;
 		std::shared_ptr<FunctionTypeInfo> _functionTypeInfo;
 		std::shared_ptr<Expression> _expression;
-		std::vector<llvm::AllocaInst*> _outputValues;
+		std::vector<llvm::Value*> _outputValues;
+		llvm::Value* _thisPtr = nullptr;
 	protected:
 		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 		std::shared_ptr<TypeInfo> _argsExprTypeInfo;

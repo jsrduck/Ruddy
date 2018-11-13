@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "SymbolTable.h"
 
+#include <assert.h>
+
 namespace Ast
 {
 	SymbolTable::SymbolTable()
@@ -18,6 +20,7 @@ namespace Ast
 			// We don't allow shadowing in Ruddy. It's evil.
 			throw SymbolAlreadyDefinedInThisScopeException(symbolName);
 		} // TODO: Check for class/namespace/member collisions in current namespace
+		assert(std::dynamic_pointer_cast<ClassDeclarationTypeInfo>(type) == nullptr);
 		auto binding = std::make_shared<VariableBinding>(shared_from_this(), symbolName, type);
 		_map[symbolName] = binding;
 		_aux_stack.push(binding);

@@ -5,9 +5,17 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -23,7 +31,20 @@
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
@@ -36,7 +57,13 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -49,6 +76,14 @@
     </CustomBuildBeforeTargets>
     <IncludePath>$(QUEX_PATH);..\Ast;..\Grammar;$(IncludePath)</IncludePath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <RegistryView>RegistryView.Registry32</RegistryView>
+    <RegistryView Condition="$(Platform) == 'x64'">RegistryView.Registry64</RegistryView>
+    <PythonDir>$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Python\PythonCore\2.7\InstallPath', null, null, $(RegistryView)))</PythonDir>
+    <ExecutablePath>$(QUEX_PATH);$(ExecutablePath);$(PythonDir)</ExecutablePath>
+    <CustomBuildBeforeTargets />
+    <IncludePath>$(QUEX_PATH);..\Ast;..\Grammar;$(IncludePath)</IncludePath>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <RegistryView>RegistryView.Registry32</RegistryView>
     <RegistryView Condition="$(Platform) == 'x64'">RegistryView.Registry64</RegistryView>
@@ -56,7 +91,53 @@
     <IncludePath>$(QUEX_PATH);..\Ast;..\Grammar;$(IncludePath)</IncludePath>
     <ExecutablePath>$(QUEX_PATH);$(ExecutablePath);$(PythonDir)</ExecutablePath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <RegistryView>RegistryView.Registry32</RegistryView>
+    <RegistryView Condition="$(Platform) == 'x64'">RegistryView.Registry64</RegistryView>
+    <PythonDir>$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Python\PythonCore\2.7\InstallPath', null, null, $(RegistryView)))</PythonDir>
+    <IncludePath>$(QUEX_PATH);..\Ast;..\Grammar;$(IncludePath)</IncludePath>
+    <ExecutablePath>$(QUEX_PATH);$(ExecutablePath);$(PythonDir)</ExecutablePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <CustomBuildStep>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
+      <Outputs>
+      </Outputs>
+      <Inputs>
+      </Inputs>
+    </CustomBuildStep>
+    <CustomBuild>
+      <Command>quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0</Command>
+    </CustomBuild>
+    <CustomBuild>
+      <Message>Generating lexical analyzer...</Message>
+    </CustomBuild>
+    <CustomBuild>
+      <Outputs>GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
+    </CustomBuild>
+    <CustomBuild>
+      <AdditionalInputs>TokenRules.qx</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild>
+      <LinkObjects>false</LinkObjects>
+    </CustomBuild>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
@@ -127,6 +208,38 @@
       <LinkObjects>false</LinkObjects>
     </CustomBuild>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>QUEX_OPTION_ASSERTS_WARNING_MESSAGE_DISABLED;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <CustomBuild>
+      <Command>quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0</Command>
+    </CustomBuild>
+    <CustomBuild>
+      <Message>Generating lexical analyzer...</Message>
+    </CustomBuild>
+    <CustomBuild>
+      <Outputs>GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
+    </CustomBuild>
+    <CustomBuild>
+      <AdditionalInputs>TokenRules.qx</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild>
+      <LinkObjects>false</LinkObjects>
+    </CustomBuild>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
   </ItemGroup>
@@ -139,12 +252,16 @@
   <ItemGroup>
     <ClCompile Include="GeneratedLexer.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Lexer.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -155,15 +272,25 @@
     <CustomBuild Include="TokenRules.qx">
       <FileType>Document</FileType>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">TokenIds.h;Grammar.tab.h</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">TokenIds.h;Grammar.tab.h</AdditionalInputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">TokenIds.h;Grammar.tab.h</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">TokenIds.h;Grammar.tab.h</AdditionalInputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Generating lexical analyzer...</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating lexical analyzer...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedLexer;GeneratedLexer.cpp;GeneratedLexer-configuration;GeneratedLexer-token;GeneratedLexer-token_ids</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkObjects>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">quex -i TokenRules.qx -o GeneratedLexer --token-id-prefix TKN_ --foreign-token-id-file TokenIds.h --suppress 0 </Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Generating lexical analyzer...</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating lexical analyzer...</Message>
     </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

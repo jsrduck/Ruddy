@@ -24,7 +24,7 @@ namespace Ast {
 			return _value;
 		}
 
-		virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		virtual llvm::Value* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
 		{
 			throw UnexpectedException();
 		}
@@ -49,7 +49,7 @@ namespace Ast {
 			throw UnexpectedException();
 		}
 
-		virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		virtual llvm::Value* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
 		{
 			throw UnexpectedException();
 		}
@@ -83,15 +83,16 @@ namespace Ast {
 		{
 		}
 
-		virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		virtual llvm::Value* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
 		{
-			auto alloc = _variableType->CreateAllocation(name, builder, context);
+			auto alloc = _variableType->CreateAllocation(name, builder, context, module);
 			_value = alloc;
 			return alloc;
 		}
 
 	private:
 		std::shared_ptr<TypeInfo> _variableType;
+		std::shared_ptr<Reference> _variableReference;
 	};
 	std::shared_ptr<SymbolCodeGenerator> SymbolTable::VariableBinding::CreateCodeGen()
 	{
@@ -118,9 +119,14 @@ namespace Ast {
 			if (isMethod)
 			{
 				// For non-static methods, add a pointer to "this" as the 1st argument
-				auto thisType = _classTypeInfo->GetIRType(context);
-				ptrToThisType = llvm::PointerType::get(thisType, 0);
-				argTypes.push_back(ptrToThisType);
+				// TODO: This works right now when gc and stack are both in address space
+				// zero. We'll need another solution once they're in separate address spaces.
+
+				// Since this type info is for the class declaration rather than a specific value or reference
+				// allocation of this class, GetIRType can only return the struct type rather than the correct
+				// pointer type. So we have to create it manually.
+				auto thisType = _classTypeInfo->GetIRType(context)->getPointerTo(GC_MANAGED_HEAP_ADDRESS_SPACE);
+				argTypes.push_back(thisType);
 			}
 			if (_typeInfo->InputArgsType() != nullptr)
 				_typeInfo->InputArgsType()->AddIRTypesToVector(argTypes, context);
@@ -149,6 +155,7 @@ namespace Ast {
 				name = "main";
 
 			llvm::Function* function = llvm::Function::Create(llvm::FunctionType::get(retType, argTypes, false /*isVarArg*/), llvm::Function::ExternalLinkage /*TODO*/, name, module);
+			function->setGC("statepoint-example");
 			if (_visibility == PUBLIC)
 				function->setDLLStorageClass(llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
 			_value = function;
@@ -181,24 +188,34 @@ namespace Ast {
 	class MemberInstanceCodeGen : public BasicCodeGenerator
 	{
 	public:
-		MemberInstanceCodeGen(std::shared_ptr<SymbolCodeGenerator> reference, int index) : _reference(reference), _index(index)
+		MemberInstanceCodeGen(std::shared_ptr<SymbolCodeGenerator> reference, bool thisPtrIsValueType, int index) : _reference(reference), _thisPtrIsValueType(thisPtrIsValueType), _index(index)
 		{
 		}
 
 		llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module) override
 		{
+			// Get "this" pointer
+			auto irVal = _reference->GetIRValue(builder, context, module);
+
+			// If "this" is a reference type, we need to do a load first
+			if (!_thisPtrIsValueType)
+				irVal = builder->CreateLoad(irVal);
+
 			std::vector<llvm::Value*> idxVec;
 			idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true)));
 			idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, _index, true)));
-			return builder->CreateGEP(_reference->GetIRValue(builder, context, module), idxVec);
+			return builder->CreateGEP(irVal, idxVec);
 		}
 	private:
 		std::shared_ptr<SymbolCodeGenerator> _reference;
 		int _index;
+		bool _thisPtrIsValueType;
 	};
 	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::MemberInstanceBinding::CreateCodeGen()
 	{
-		return std::make_shared<MemberInstanceCodeGen>(_reference->GetCodeGen(), _index);
+		auto typeInfo = _reference->GetTypeInfo();
+		auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo);
+		return std::make_shared<MemberInstanceCodeGen>(_reference->GetCodeGen(), asClassType->IsValueType(), _index);
 	}
 
 	/* Loop */
@@ -220,22 +237,21 @@ namespace Ast {
 		return std::make_shared<LoopCodeGen>();
 	}
 
-	llvm::Value* CreateAssignment(std::shared_ptr<Ast::TypeInfo> expectedType, llvm::Value* lhs, llvm::Value* rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
+	void CreateAssignment(std::shared_ptr<Ast::TypeInfo> expectedType, llvm::Value* lhs, llvm::Value* rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		if (rhs->getType()->isPointerTy())
 		{
-			if (std::dynamic_pointer_cast<BaseClassTypeInfo>(expectedType)->IsValueType())
+			if (!expectedType->IsAutoType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(expectedType)->IsValueType())
 			{
 				auto asAllocInst = static_cast<llvm::AllocaInst*>(lhs);
 				if (asAllocInst == nullptr)
 					throw UnexpectedException();
-				auto llvmStructType = asAllocInst->getType()->getElementType();
 				auto size = module->getDataLayout().getTypeAllocSize(expectedType->GetIRType(context)); // TODO: Why doesn't this work if structs aren't packed? It's supposed to return the size including padding...
 				builder->CreateMemCpy(lhs, rhs, size, 0);
 			}
 			else
 			{
-				throw UnexpectedException(); // Not implemented yet
+				builder->CreateStore(rhs, lhs); // Heap memory assignment
 			}
 		}
 		else
@@ -247,7 +263,7 @@ namespace Ast {
 	llvm::Value* DeclareVariable::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		FileLocationContext locationContext(_location);
-		return _symbolBinding->GetCodeGen()->CreateAllocationInstance(_name, builder, context);
+		return _symbolBinding->GetCodeGen()->CreateAllocationInstance(_name, builder, context, module);
 	}
 
 	llvm::Value* AssignFromReference::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
@@ -328,8 +344,14 @@ namespace Ast {
 		if (_functionTypeInfo->IsMethod())
 		{
 			// Push "this" ptr on first
-			auto val = _varBinding->GetCodeGen()->GetIRValue(builder, context, module);
-			args.push_back(val);
+			if (_varBinding != nullptr)
+			{
+				args.push_back(_varBinding->GetCodeGen()->GetIRValue(builder, context, module));
+			}
+			else
+			{
+				args.push_back(_thisPtr);
+			}
 		}
 
 		auto exprList = _expression ? std::dynamic_pointer_cast<ExpressionList>(_expression) : nullptr;
@@ -394,10 +416,10 @@ namespace Ast {
 		auto outputAsComposite = std::dynamic_pointer_cast<CompositeTypeInfo>(_functionTypeInfo->OutputArgsType());
 		if (outputAsComposite != nullptr)
 			outputAsComposite = outputAsComposite->_next;
-		std::vector<llvm::AllocaInst*> outputVals;
+		std::vector<llvm::Value*> outputVals;
 		while (outputAsComposite != nullptr && outputAsComposite->_thisType != nullptr)
 		{
-			auto tempVal = outputAsComposite->_thisType->CreateAllocation(outputAsComposite->_name, builder, context);
+			auto tempVal = outputAsComposite->_thisType->CreateAllocation(outputAsComposite->_name, builder, context, module);
 			outputVals.push_back(tempVal);
 			args.push_back(tempVal);
 			outputAsComposite = outputAsComposite->_next;
@@ -418,7 +440,7 @@ namespace Ast {
 			{
 				auto loadInstr = builder->CreateLoad(tempVal);
 				auto castGuy = builder->CreateCast(static_cast<llvm::Instruction::CastOps>(outputAsComposite->_thisType->CreateCast(currentExpectedType)), loadInstr, currentExpectedType->GetIRType(context));
-				tempVal = currentExpectedType->CreateAllocation("", builder, context);
+				tempVal = currentExpectedType->CreateAllocation("", builder, context, module);
 				builder->CreateStore(castGuy, tempVal);
 			}
 			_outputValues.push_back(tempVal);
@@ -548,12 +570,15 @@ namespace Ast {
 	llvm::Value* Reference::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto typeInfo = _symbolBinding->GetTypeInfo();
-		if (typeInfo->IsPrimitiveType())
+		// Do we need to do a load? True for basically everything except value-ptrs
+		if (typeInfo->IsClassType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo)->IsValueType())
+		{
+			return _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module);
+		}
+		else
 		{
 			return builder->CreateLoad(_symbolBinding->GetCodeGen()->GetIRValue(builder, context, module), _id);
 		}
-		else
-			return _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module);
 	}
 
 	llvm::Value* ExpressionList::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
@@ -1145,7 +1170,7 @@ namespace Ast {
 		{
 			// First, create the struct on the stack
 			auto classTypeInfo = std::make_shared<ClassTypeInfo>(_symbolBinding->GetTypeInfo(), true /*valueType*/);
-			retVal = classTypeInfo->CreateAllocation(_varName, builder, context);
+			retVal = classTypeInfo->CreateAllocation(_varName, builder, context, module);
 
 			// Bind the variable to this struct value
 			_varBinding->GetCodeGen()->BindIRValue(retVal);
@@ -1157,9 +1182,29 @@ namespace Ast {
 		return retVal;
 	}
 
-	llvm::AllocaInst* ClassTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context)
+	llvm::Value * Ast::NewExpression::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		return builder->CreateAlloca(GetIRType(context), nullptr /*arraysize*/, name);
+		llvm::Value* retVal = nullptr;
+
+		// First, create the struct on the heap
+		auto classTypeInfo = std::make_shared<ClassTypeInfo>(_symbolBinding->GetTypeInfo(), false /*valueType*/);
+
+		std::vector<llvm::Value*> args;
+		args.push_back(llvm::ConstantInt::get(llvm::IntegerType::getInt32Ty(*context), module->getDataLayout().getTypeAllocSize(classTypeInfo->GetIRType(context))));
+		auto malloc = builder->CreateCall(module->getFunction("_heap_alloc"), args);
+		auto asClassPtr = builder->CreateBitCast(malloc, classTypeInfo->GetIRType(context));
+		retVal = asClassPtr;
+		_ctorCall->_thisPtr = retVal;
+
+		// Now, run the c'tor
+		_ctorCall->CodeGen(builder, context, module);
+
+		return retVal;
+	}
+
+	llvm::Value* ClassTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
+	{
+		return builder->CreateAlloca(GetIRType(context), GC_MANAGED_HEAP_ADDRESS_SPACE, nullptr /*arraysize*/, name);
 	}
 
 	/* Statements */
@@ -1475,15 +1520,15 @@ namespace Ast {
 			// Create bindings
 			if (i == 0 && isMethod)
 			{
-				// Since "this" isn't a pointer that can be reassigned, there's no point in allocating a new pointer and storing it.
-				// We'll just always refer to the current pointer
-				_thisPtrBinding->GetCodeGen()->BindIRValue(&arg);
+				auto alloc = _thisPtrBinding->GetCodeGen()->CreateAllocationInstance("this", builder, context, module);
+				CreateAssignment(_thisPtrBinding->GetTypeInfo(), alloc, &arg, builder, context, module);
+				_thisPtrBinding->GetCodeGen()->BindIRValue(alloc);
 			}
 			else
 			{
 				auto binding = _argBindings[i - (isMethod ? 1 : 0)];
 				// Create an allocation for the arg
-				auto alloc = binding->GetCodeGen()->CreateAllocationInstance(currArg->_argument->_name, builder, context);
+				auto alloc = binding->GetCodeGen()->CreateAllocationInstance(currArg->_argument->_name, builder, context, module);
 				CreateAssignment(binding->GetTypeInfo(), alloc, &arg, builder, context, module);
 				binding->GetCodeGen()->BindIRValue(alloc);
 				currArg = currArg->_next;

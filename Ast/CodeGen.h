@@ -13,7 +13,7 @@ namespace Ast {
 
 		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) = 0;
 
-		virtual llvm::AllocaInst* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) = 0;
+		virtual llvm::Value* CreateAllocationInstance(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module* module) = 0;
 
 		virtual llvm::BasicBlock* GetEndOfScopeBlock(llvm::LLVMContext* context) = 0;
 	};

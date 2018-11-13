@@ -87,7 +87,7 @@ std::shared_ptr<SymbolTable::ConstructorBinding> SymbolTable::ClassBinding::AddE
 
 std::shared_ptr<SymbolTable::FunctionBinding> SymbolTable::ClassBinding::AddDestructorBinding()
 {
-	auto binding = std::make_shared<SymbolTable::FunctionBinding>(_symbolTable, GetName(), GetFullyQualifiedName(), Visibility::PRIVATE, nullptr, nullptr, std::make_shared<Modifier>(Modifier::Modifiers::NONE), std::dynamic_pointer_cast<SymbolTable::ClassBinding>(shared_from_this()));
+	auto binding = std::make_shared<SymbolTable::FunctionBinding>(_symbolTable, "~" + GetName(), GetFullyQualifiedName(), Visibility::PRIVATE, nullptr, nullptr, std::make_shared<Modifier>(Modifier::Modifiers::NONE), std::dynamic_pointer_cast<SymbolTable::ClassBinding>(shared_from_this()));
 	_dtorBinding = binding;
 	return binding;
 }

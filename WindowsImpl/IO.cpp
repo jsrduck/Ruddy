@@ -6,7 +6,7 @@
 
 namespace OS
 {
-	extern "C" int _os_printf(wchar_t const* const _Format, ...)
+	extern "C" void _os_printf(wchar_t const* const _Format, ...)
 	{
 		::_setmode(_fileno(stdout), _O_U16TEXT);
 		int _Result;
@@ -14,6 +14,9 @@ namespace OS
 		__crt_va_start(_ArgList, _Format);
 		_Result = ::_vfwprintf_s_l(stdout, _Format, NULL, _ArgList);
 		__crt_va_end(_ArgList);
-		return _Result;
+		// returning void - a current limitation of the gc-statepoint pass we're using
+		// is that it doesn't support non-void vararg functions. Since nobody usually cares
+		// about the return result for printf, we're going to swallow the result for now.
+		//return _Result;
 	}
 }

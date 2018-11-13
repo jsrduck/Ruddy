@@ -92,7 +92,7 @@ namespace Ast
 	class ConstantType : public TypeInfo
 	{
 
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
 		{
 			// You can't have a variable with a constant type, it should be resolved to an actual type by then
 			throw UnexpectedException();
@@ -320,7 +320,7 @@ namespace Ast
 			{
 				// Check that we're not truncating any bits. If we are, that's an overflow exception.
 				auto bits = sizeof(INTEGERTYPE) * 8;
-				if ((_asHex >> bits != 0))
+				if (bits < 64 && (_asHex >> bits != 0)) // Since _asHex is 64 bit uint, shifting 64 bits is undefined behavior
 					throw OverflowException();
 				return static_cast<INTEGERTYPE>(_asHex);
 			}

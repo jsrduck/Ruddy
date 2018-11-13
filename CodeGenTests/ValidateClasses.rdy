@@ -15,7 +15,7 @@ class Foo
 class Bar
 {
 	uint i;
-	float j;
+	float64 j;
 }
 
 // Explicit c'tor with args

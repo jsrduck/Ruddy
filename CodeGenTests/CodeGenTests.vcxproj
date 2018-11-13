@@ -83,6 +83,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>..\ParserTests;..\Ast;..\Lexer;..\Parser;$(IncludePath)</IncludePath>
+    <ExecutablePath>$(OutDir);$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -132,12 +134,23 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <AdditionalIncludeDirectories>$(VCInstallDir)UnitTest\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UseFullPaths>true</UseFullPaths>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(VCInstallDir)UnitTest\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <CustomBuildStep>
+      <Command>ValidatePrimitives.exe &gt; $(TargetDir)ValidatePrimitives.txt
+ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt
+ValidateMixedPrimitives.exe &gt; $(TargetDir)ValidateMixedPrimitives.txt
+ValidateControlFlow.exe &gt; $(TargetDir)ValidateControlFlow.txt
+ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
+      <Message>Running test exes</Message>
+      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe;ValidateMixedPrimitives.rdy;ValidateMixedPrimitives.exe;ValidateControlFlow.rdy;ValidateControlFlow.exe;ValidateClasses.rdy;ValidateClasses.exe</Inputs>
+      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt;ValidateMixedPrimitives.txt;ValidateControlFlow.txt;ValidateClasses.txt</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -146,7 +159,7 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>$(LLVM_INCLUDE_PATH);$(VCInstallDir)UnitTest\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VCInstallDir)UnitTest\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UseFullPaths>true</UseFullPaths>
     </ClCompile>
@@ -155,7 +168,7 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(LLVM_BINARY_PATH)\Release\lib;$(VCInstallDir)UnitTest\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VCInstallDir)UnitTest\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>llvmcore.lib;llvmsupport.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -217,53 +230,53 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
   <ItemGroup>
     <CustomBuild Include="ValidatePrimitives.rdy">
       <FileType>Document</FileType>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidatePrimitives.ll;ValidatePrimitives.obj;ValidatePrimitives.exe</Outputs>
-      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidatePrimitives.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidatePrimitives.rdy</Command>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
+      <Outputs>ValidatePrimitives.ll;ValidatePrimitives.obj;ValidatePrimitives.exe</Outputs>
+      <LinkObjects>false</LinkObjects>
+      <Message>Compiling test file "ValidatePrimitives.rdy"</Message>
+      <Command>Ruddy.exe ValidatePrimitives.rdy</Command>
+      <DeploymentContent>true</DeploymentContent>
+      <ExcludedFromBuild>false</ExcludedFromBuild>
+      <TreatOutputAsContent>true</TreatOutputAsContent>
     </CustomBuild>
     <CustomBuild Include="ValidateMixedPrimitives.rdy">
       <FileType>Document</FileType>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateMixedPrimitives.ll;ValidateMixedPrimitives.obj;ValidateMixedPrimitives.exe</Outputs>
-      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateMixedPrimitives.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidateMixedPrimitives.rdy</Command>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
+      <Outputs>ValidateMixedPrimitives.ll;ValidateMixedPrimitives.obj;ValidateMixedPrimitives.exe</Outputs>
+      <LinkObjects>false</LinkObjects>
+      <Message>Compiling test file "ValidateMixedPrimitives.rdy"</Message>
+      <Command>Ruddy.exe ValidateMixedPrimitives.rdy</Command>
+      <DeploymentContent>true</DeploymentContent>
+      <ExcludedFromBuild>false</ExcludedFromBuild>
+      <TreatOutputAsContent>true</TreatOutputAsContent>
     </CustomBuild>
     <CustomBuild Include="ValidateFunctions.rdy">
       <FileType>Document</FileType>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateFunctions.ll;ValidateFunctions.obj;ValidateFunctions.exe</Outputs>
-      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateFunctions.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidateFunctions.rdy</Command>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
+      <Outputs>ValidateFunctions.ll;ValidateFunctions.obj;ValidateFunctions.exe</Outputs>
+      <LinkObjects>false</LinkObjects>
+      <Message>Compiling test file "ValidateFunctions.rdy"</Message>
+      <Command>Ruddy.exe ValidateFunctions.rdy</Command>
+      <DeploymentContent>true</DeploymentContent>
+      <ExcludedFromBuild>false</ExcludedFromBuild>
+      <TreatOutputAsContent>true</TreatOutputAsContent>
     </CustomBuild>
     <CustomBuild Include="ValidateControlFlow.rdy">
       <FileType>Document</FileType>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateControlFlow.ll;ValidateControlFlow.obj;ValidateControlFlow.exe</Outputs>
-      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateControlFlow.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy-vs14-x86.bat ValidateControlFlow.rdy</Command>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
+      <Outputs>ValidateControlFlow.ll;ValidateControlFlow.obj;ValidateControlFlow.exe</Outputs>
+      <LinkObjects>false</LinkObjects>
+      <Message>Compiling test file "ValidateControlFlow.rdy"</Message>
+      <Command>Ruddy.exe ValidateControlFlow.rdy</Command>
+      <DeploymentContent>true</DeploymentContent>
+      <ExcludedFromBuild>false</ExcludedFromBuild>
+      <TreatOutputAsContent>true</TreatOutputAsContent>
     </CustomBuild>
     <CustomBuild Include="ValidateClasses.rdy">
       <FileType>Document</FileType>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ValidateClasses.ll;ValidateClasses.obj;ValidateClasses.exe</Outputs>
-      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling test file "ValidateClasses.rdy"</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Ruddy.exe ValidateClasses.rdy</Command>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</TreatOutputAsContent>
+      <Outputs>ValidateClasses.ll;ValidateClasses.obj;ValidateClasses.exe</Outputs>
+      <LinkObjects>false</LinkObjects>
+      <Message>Compiling test file "ValidateClasses.rdy"</Message>
+      <Command>Ruddy.exe ValidateClasses.rdy</Command>
+      <DeploymentContent>true</DeploymentContent>
+      <ExcludedFromBuild>false</ExcludedFromBuild>
+      <TreatOutputAsContent>true</TreatOutputAsContent>
     </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

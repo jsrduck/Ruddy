@@ -17,6 +17,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/CodeGen/MIRParser/MIRParser.h"
@@ -27,14 +28,18 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Pass.h"
+#include "llvm/PassRegistry.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -49,6 +54,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include <llvm\IR\IRBuilder.h>
 #include <memory>
 using namespace llvm;
 
@@ -75,7 +81,29 @@ struct LLCDiagnosticHandler : public DiagnosticHandler
 	}
 };
 
-int compileModule(const char * InputFilename, const char * OutputFilename, LLVMContext &Context)
+int RunGCPass(llvm::Module& module)
+{
+	auto registry = PassRegistry::getPassRegistry();
+	initializeCore(*registry);
+	initializeTransformUtils(*registry);
+	initializeScalarOpts(*registry);
+	legacy::PassManager PM;
+
+	//todo: NEED gc.safepoint_poll method to add this
+	auto safepoints = llvm::createPlaceSafepointsPass();
+	PM.add(safepoints);
+
+	auto gcPass = llvm::createRewriteStatepointsForGCLegacyPass();
+	PM.add(gcPass);
+	if (!PM.run(module))
+	{
+		errs() << "Failed to run gc pass on module ";
+		return -1;
+	}
+	return 0;
+}
+
+int compileModule(const char * InputFilename, const char * OutputFilename, LLVMContext &Context, llvm::IRBuilder<>& builder)
 {
 	InitializeAllTargetInfos();
 	InitializeAllTargets();
@@ -107,8 +135,9 @@ int compileModule(const char * InputFilename, const char * OutputFilename, LLVMC
 
 	TheTriple = Triple(M->getTargetTriple());
 
+	auto TargetTriple = "x86_64-pc-windows-msvc"; //sys::getDefaultTargetTriple();
 	if (TheTriple.getTriple().empty())
-		TheTriple.setTriple(sys::getDefaultTargetTriple());
+		TheTriple.setTriple(TargetTriple);
 
 	// Get the target specific parser.
 	std::string Error;
@@ -138,12 +167,11 @@ int compileModule(const char * InputFilename, const char * OutputFilename, LLVMC
 	auto Features = "";
 	TargetOptions opt;
 	auto RM = Optional<Reloc::Model>();
-	auto TargetTriple = sys::getDefaultTargetTriple();
-	auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
-	auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-	assert(Target && "Could not allocate target machine!");
+	assert(TheTarget && "Could not allocate target machine!");
 	assert(M && "Should have exited if we didn't have a module!");
+
+	auto TargetMachine = TheTarget->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
 	// Figure out where we are going to send the output.
 	std::error_code EC;
@@ -160,9 +188,17 @@ int compileModule(const char * InputFilename, const char * OutputFilename, LLVMC
 
 	// Add the target data from the target machine, if it exists, or the module.
 	M->setDataLayout(TargetMachine->createDataLayout());
+	//auto funType = llvm::FunctionType::get(llvm::Type::getInt8PtrTy(Context), false /*isVarArg*/);
+	////auto fun = llvm::Function::Create(funType, llvm::GlobalValue::LinkageTypes::ExternalLinkage, "GetStackMapLocation", M.get());
+	//auto bb = llvm::BasicBlock::Create(Context, "", fun);
+	//builder.SetInsertPoint(bb);
+	//auto global = M->getGlobalVariable("__LLVM_STACKMAPS");
+	//builder.CreateLoad()
+	//builder.CreateCall(rtSafepointPollFunction);
+	//builder.CreateRetVoid();
+	//llvm::verifyFunction(*safepointPollFunction);
 
 	{
-
 		if (TargetMachine->addPassesToEmitFile(PM, dest, FileType))
 		{
 			errs() << "TheTargetMachine can't emit a file of this type";

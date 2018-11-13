@@ -10,7 +10,7 @@ namespace Ast {
 		virtual const std::string& Name() override; \
 		virtual bool SupportsOperator(Operation* operation) override; \
 		static std::shared_ptr<TypeInfo> Get() { return _staticInstance; }; \
-		virtual llvm::AllocaInst* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context) override; \
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module* module) override; \
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool isOutput = false) override; \
 		virtual std::string SerializedName(std::shared_ptr<SymbolTable> symbolTable) override; \
 	private: \
