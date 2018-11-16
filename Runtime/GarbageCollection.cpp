@@ -28,7 +28,6 @@ namespace Runtime {
 
 BYTE* GetStackMapSection(DWORD* sizeOfData)
 	{
-		debugprint(L"entered MemoryManager\r\n");
 		BYTE* dataPtr = nullptr;
 		HMODULE hModule = GetModuleHandle(NULL); // module of the exe
 		MODULEINFO module_info; 
@@ -83,12 +82,11 @@ BYTE* GetStackMapSection(DWORD* sizeOfData)
 	public:
 		MemoryManager()
 		{
-			debugprint(L"Entering Memory Manager.\r\n");
 			DWORD size;
 			BYTE* stackmapSection = GetStackMapSection(&size);
 			if (stackmapSection == nullptr)
 			{
-				debugprint(L"Could not find stackmap, sad...");
+				debugprint(L"Could not find stackmap, sad...\r\n");
 				return;
 			}
 			

@@ -230,14 +230,39 @@ namespace Ast
 		std::shared_ptr<MemberBinding> BindMemberVariable(const std::string& variableName, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods, TypeCheckPass pass);
 		std::shared_ptr<MemberBinding> BindExternalMemberVariable(std::shared_ptr<ClassBinding> classBinding, const std::string& variableName, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods);
 
+		/*
+		* MemberOfThisBinding
+		* Represents a field of the current class.
+		* We treat this special and different from a MemberInstanceBinding because accessing a member of "this" involves
+		* determining which of the two "this" values we are accessing - the one in the heap address space, or the one in
+		* the stack address space...
+		*/
+		class MemberOfThisBinding : public MemberBinding
+		{
+		public:
+			MemberOfThisBinding(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<SymbolBinding> thisRefPtr, std::shared_ptr<SymbolBinding> thisValPtr);
+
+			virtual std::shared_ptr<SymbolCodeGenerator> CreateCodeGen() override;
+
+		protected:
+			std::shared_ptr<SymbolBinding> _thisRefPtr;
+			std::shared_ptr<SymbolBinding> _thisValPtr;
+		};
+
+		/*
+		* MemberInstance
+		* Represents a field of a class on a known instance of that class, ie:
+		* Foo f = new Foo();
+		* return f.var;
+		*
+		* In this case, var is the member, and the instance is f, a known variable.
+		*/
 		class MemberInstanceBinding : public MemberBinding
 		{
 		public:
 			MemberInstanceBinding(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<SymbolBinding> reference);
 
 			virtual std::shared_ptr<SymbolCodeGenerator> CreateCodeGen() override;
-
-			bool IsReferenceToThisPointer();
 
 		protected:
 			std::shared_ptr<SymbolBinding> _reference;

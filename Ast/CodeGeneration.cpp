@@ -14,6 +14,7 @@ namespace Ast {
 	/* SymbolCodeGenerator */
 	class BasicCodeGenerator : public SymbolCodeGenerator
 	{
+	public:
 		virtual void BindIRValue(llvm::Value* value) override
 		{
 			_value = value;
@@ -119,14 +120,17 @@ namespace Ast {
 			if (isMethod)
 			{
 				// For non-static methods, add a pointer to "this" as the 1st argument
-				// TODO: This works right now when gc and stack are both in address space
-				// zero. We'll need another solution once they're in separate address spaces.
+				// Since "this" could come from either the heap OR the stack, we actually
+				// need two arguments. The first is from the heap address space, the 2nd from
+				// the stack address space. We'll do a null check to decide which to use.
 
 				// Since this type info is for the class declaration rather than a specific value or reference
 				// allocation of this class, GetIRType can only return the struct type rather than the correct
 				// pointer type. So we have to create it manually.
-				auto thisType = _classTypeInfo->GetIRType(context)->getPointerTo(GC_MANAGED_HEAP_ADDRESS_SPACE);
-				argTypes.push_back(thisType);
+				auto thisTypeGCSpace = _classTypeInfo->GetIRType(context)->getPointerTo(GC_MANAGED_HEAP_ADDRESS_SPACE);
+				auto thisTypeStackSpace = _classTypeInfo->GetIRType(context)->getPointerTo();
+				argTypes.push_back(thisTypeGCSpace);
+				argTypes.push_back(thisTypeStackSpace);
 			}
 			if (_typeInfo->InputArgsType() != nullptr)
 				_typeInfo->InputArgsType()->AddIRTypesToVector(argTypes, context);
@@ -188,19 +192,17 @@ namespace Ast {
 	class MemberInstanceCodeGen : public BasicCodeGenerator
 	{
 	public:
-		MemberInstanceCodeGen(std::shared_ptr<SymbolCodeGenerator> reference, bool thisPtrIsValueType, int index) : _reference(reference), _thisPtrIsValueType(thisPtrIsValueType), _index(index)
+		MemberInstanceCodeGen(std::shared_ptr<SymbolCodeGenerator> reference, bool referenceIsValueType, int index) : _reference(reference), _referenceIsValueType(referenceIsValueType), _index(index)
 		{
 		}
 
 		llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module) override
 		{
-			// Get "this" pointer
 			auto irVal = _reference->GetIRValue(builder, context, module);
 
-			// If "this" is a reference type, we need to do a load first
-			if (!_thisPtrIsValueType)
+			// If ref is a reference type, we need to do a load first
+			if (!_referenceIsValueType)
 				irVal = builder->CreateLoad(irVal);
-
 			std::vector<llvm::Value*> idxVec;
 			idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true)));
 			idxVec.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, _index, true)));
@@ -209,13 +211,81 @@ namespace Ast {
 	private:
 		std::shared_ptr<SymbolCodeGenerator> _reference;
 		int _index;
-		bool _thisPtrIsValueType;
+		bool _referenceIsValueType;
 	};
 	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::MemberInstanceBinding::CreateCodeGen()
 	{
 		auto typeInfo = _reference->GetTypeInfo();
 		auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo);
 		return std::make_shared<MemberInstanceCodeGen>(_reference->GetCodeGen(), asClassType->IsValueType(), _index);
+	}
+
+
+	class MemberOfThisCodeGen : public BasicCodeGenerator
+	{
+	public:
+		MemberOfThisCodeGen(std::shared_ptr<SymbolCodeGenerator> thisRefPtr, std::shared_ptr<SymbolCodeGenerator> thisValPtr, int index) : _thisRefPtr(thisRefPtr), _thisValPtr(thisValPtr), _index(index)
+		{
+		}
+
+		llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module) override
+		{
+			/* 
+			 * This is one of the larger compromises of Ruddy...
+			 * We want garbage collection, and we also want to allow programmers
+			 * to allocate on the stack as well as the heap and to pass any class as
+			 * a reference or value type. The problem is that class methods implicitly pass
+			 * a pointer to "this" as an argument. However, we need to distinguish between
+			 * GC-managed address space and stack address space. This distinction even has
+			 * type safety in LLVM. This means you cannot just willy nilly pass either type
+			 * of pointer as the "this" argument. The compromise is to pass two args; the
+			 * reference type (which is always in the gc managed address space) and the 
+			 * value type. TODO: What about value objects in the heap address space? Don't
+			 * they need relocation semantics too? UGH. I think we need to pass it as the first
+			 * param... so really it's about address space more than value/reference
+			 *
+			 * The ugly part is that since they're typed differently, every member variable lookup
+			 * expands to a branch. This is the price we pay, for now.
+			 */
+			auto func = builder->GetInsertBlock()->getParent();
+			auto refVal = _thisRefPtr->GetIRValue(builder, context, module);
+			refVal = builder->CreateLoad(refVal);
+			auto isNotNullVal = builder->CreateIsNotNull(refVal, "RefPtrTypeNotNull");
+			auto ifBlock = llvm::BasicBlock::Create(*context, "ifRefPtrType", func);
+			auto elseBlock = llvm::BasicBlock::Create(*context, "elseIsValPtrType", func);
+			auto contBlock = llvm::BasicBlock::Create(*context, "ptrPickercont", func);
+			builder->CreateCondBr(isNotNullVal, ifBlock, elseBlock);
+			builder->SetInsertPoint(ifBlock);
+
+			std::vector<llvm::Value*> idxVec1;
+			idxVec1.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true)));
+			idxVec1.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, _index, true)));
+			auto ifRefPtrDerefVal = builder->CreateGEP(refVal, idxVec1);
+			builder->CreateBr(contBlock);
+
+			builder->SetInsertPoint(elseBlock);
+			auto valPtrVal = _thisValPtr->GetIRValue(builder, context, module);
+			std::vector<llvm::Value*> idxVec2;
+			idxVec2.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true)));
+			idxVec2.push_back(llvm::ConstantInt::get(*context, llvm::APInt(32, _index, true)));
+			auto ifValPtrDerefVal = builder->CreateGEP(valPtrVal, idxVec2);
+			builder->CreateBr(contBlock);
+
+			builder->SetInsertPoint(contBlock);
+			auto phiNode = builder->CreatePHI(ifRefPtrDerefVal->getType(), 2, "thisPtr");
+			phiNode->addIncoming(ifRefPtrDerefVal, ifBlock);
+			phiNode->addIncoming(ifValPtrDerefVal, elseBlock);
+			return phiNode;
+		}
+	private:
+		std::shared_ptr<SymbolCodeGenerator> _thisRefPtr;
+		std::shared_ptr<SymbolCodeGenerator> _thisValPtr;
+		int _index;
+		bool _thisPtrIsValueType;
+	};
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::MemberOfThisBinding::CreateCodeGen()
+	{
+		return std::make_shared<MemberOfThisCodeGen>(_thisRefPtr->GetCodeGen(), _thisValPtr->GetCodeGen(), _index);
 	}
 
 	/* Loop */
@@ -346,11 +416,18 @@ namespace Ast {
 			// Push "this" ptr on first
 			if (_varBinding != nullptr)
 			{
-				args.push_back(_varBinding->GetCodeGen()->GetIRValue(builder, context, module));
+				// Value case: pass "null" for the heap addrspace pointer
+				auto val = _varBinding->GetCodeGen()->GetIRValue(builder, context, module);
+				auto null = llvm::ConstantPointerNull::get((llvm::PointerType*)val->getType());
+				args.push_back(null);
+				args.push_back(val);
 			}
 			else
 			{
+				// Ref case: pass "null" for the stack addrspace pointer
 				args.push_back(_thisPtr);
+				auto null = llvm::ConstantPointerNull::get((llvm::PointerType*)_thisPtr->getType());
+				args.push_back(null);
 			}
 		}
 
@@ -1204,7 +1281,10 @@ namespace Ast {
 
 	llvm::Value* ClassTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
-		return builder->CreateAlloca(GetIRType(context), GC_MANAGED_HEAP_ADDRESS_SPACE, nullptr /*arraysize*/, name);
+		if (IsValueType())
+			return builder->CreateAlloca(GetIRType(context), nullptr /*arraysize*/, name);
+		else
+			return builder->CreateAlloca(GetIRType(context), GC_MANAGED_HEAP_ADDRESS_SPACE, nullptr /*arraysize*/, name);
 	}
 
 	/* Statements */
@@ -1495,7 +1575,7 @@ namespace Ast {
 	{
 		*function = reinterpret_cast<llvm::Function*>(_functionBinding->GetCodeGen()->GetIRValue(builder, context, module));
 
-		auto bb = llvm::BasicBlock::Create(*context, "", *function);
+		auto bb = llvm::BasicBlock::Create(*context, "entry", *function);
 		builder->SetInsertPoint(bb);
 		bool isMethod = !_mods->IsStatic();
 
@@ -1506,10 +1586,12 @@ namespace Ast {
 		{
 			if (i == 0 && isMethod)
 				arg.setName("this");
+			else if (i == 1 && isMethod)
+				arg.setName("this&");
 			else
 				arg.setName(currArg->_argument->_name);
 
-			if (i >= _argBindings.size() + (isMethod ? 1 : 0))
+			if (i >= _argBindings.size() + (isMethod ? 2 : 0))
 			{
 				// We've reached output args, we don't need to bind them.
 				currArg = currArg->_next;
@@ -1520,13 +1602,18 @@ namespace Ast {
 			// Create bindings
 			if (i == 0 && isMethod)
 			{
-				auto alloc = _thisPtrBinding->GetCodeGen()->CreateAllocationInstance("this", builder, context, module);
-				CreateAssignment(_thisPtrBinding->GetTypeInfo(), alloc, &arg, builder, context, module);
-				_thisPtrBinding->GetCodeGen()->BindIRValue(alloc);
+				auto alloc = _thisRefPtrBinding->GetCodeGen()->CreateAllocationInstance("this", builder, context, module);
+				CreateAssignment(_thisRefPtrBinding->GetTypeInfo(), alloc, &arg, builder, context, module);
+				_thisRefPtrBinding->GetCodeGen()->BindIRValue(alloc);
+			}
+			else if (i == 1 && isMethod)
+			{
+				// Just bind to the arg pointer, since it can't move
+				_thisValPtrBinding->GetCodeGen()->BindIRValue(&arg);
 			}
 			else
 			{
-				auto binding = _argBindings[i - (isMethod ? 1 : 0)];
+				auto binding = _argBindings[i - (isMethod ? 2 : 0)];
 				// Create an allocation for the arg
 				auto alloc = binding->GetCodeGen()->CreateAllocationInstance(currArg->_argument->_name, builder, context, module);
 				CreateAssignment(binding->GetTypeInfo(), alloc, &arg, builder, context, module);
@@ -1568,7 +1655,7 @@ namespace Ast {
 		// Are there any uninitialized value-types? Go ahead and initialize them, if we can
 		for (auto& memberBinding : _classBinding->_members)
 		{
-			memberBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>(memberBinding, _thisPtrBinding); // Create a binding capable of referring to this ptr
+			memberBinding = std::make_shared<Ast::SymbolTable::MemberOfThisBinding>(memberBinding, _thisRefPtrBinding, _thisValPtrBinding); // Create a binding capable of referring to this ptr
 			auto memberType = memberBinding->GetTypeInfo();
 			if (memberType->IsClassType())
 			{

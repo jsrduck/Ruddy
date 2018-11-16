@@ -406,9 +406,11 @@ SymbolTable::MemberInstanceBinding::MemberInstanceBinding(std::shared_ptr<Member
 {
 }
 
-bool SymbolTable::MemberInstanceBinding::IsReferenceToThisPointer()
+SymbolTable::MemberOfThisBinding::MemberOfThisBinding(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<SymbolBinding> thisRefPtr, std::shared_ptr<SymbolBinding> thisValPtr) :
+	MemberBinding(memberBinding),
+	_thisRefPtr(thisRefPtr),
+	_thisValPtr(thisValPtr)
 {
-	return _reference->IsFunctionBinding();
 }
 
 /* LoopBinding */

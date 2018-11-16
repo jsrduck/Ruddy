@@ -25,7 +25,7 @@ namespace llvm {
 	class Type;
 }
 
-#define GC_MANAGED_HEAP_ADDRESS_SPACE 0
+#define GC_MANAGED_HEAP_ADDRESS_SPACE 1
 
 namespace Ast
 {

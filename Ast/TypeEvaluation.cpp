@@ -598,7 +598,7 @@ namespace Ast {
 			{
 				throw SymbolWrongTypeException(_name);
 			}
-			_memberBinding = std::dynamic_pointer_cast<Ast::SymbolTable::MemberInstanceBinding>(symbol);
+			_memberBinding = std::dynamic_pointer_cast<Ast::SymbolTable::MemberOfThisBinding>(symbol);
 			if (_memberBinding == nullptr)
 				throw UnexpectedException();
 
@@ -699,9 +699,12 @@ namespace Ast {
 		else if (pass == METHOD_BODIES)
 		{
 			// If this is a method, bind the "this" variable
+			// Note we have one of each. That's because methods 
+			// could be called from either address space.
 			if (!_mods->IsStatic())
 			{
-				_thisPtrBinding = symbolTable->BindVariable("this", std::make_shared<ClassTypeInfo>(_classBinding->GetTypeInfo(), false /*valueType*/));
+				_thisRefPtrBinding = symbolTable->BindVariable("this", std::make_shared<ClassTypeInfo>(_classBinding->GetTypeInfo(), false /*valueType*/));
+				_thisValPtrBinding = symbolTable->BindVariable("this&", std::make_shared<ClassTypeInfo>(_classBinding->GetTypeInfo(), true /*valueType*/));
 			}
 
 			auto argumentList = _inputArgs;
@@ -814,7 +817,7 @@ namespace Ast {
 					auto typeInfo = memberBinding->GetTypeInfo();
 					if (memberBinding->IsReferenceVariable())
 					{
-						auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberInstanceBinding>( memberBinding, _thisPtrBinding);
+						auto instanceBinding = std::make_shared<Ast::SymbolTable::MemberOfThisBinding>(memberBinding, _thisRefPtrBinding, _thisValPtrBinding);
 						AppendDtor(instanceBinding, symbolTable);
 					}
 				}

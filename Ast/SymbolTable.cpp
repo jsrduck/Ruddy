@@ -323,8 +323,9 @@ namespace Ast
 			{
 				// Must be a binding to "this"
 				auto thisSymbol = Lookup("this");
-				if (thisSymbol)
-					return std::make_shared<MemberInstanceBinding>(asClassMember, thisSymbol);
+				auto valThisSymbol = Lookup("this&");
+				if (thisSymbol && valThisSymbol)
+					return std::make_shared<MemberOfThisBinding>(asClassMember, thisSymbol, valThisSymbol);
 			}
 		}
 		else if (retVal != nullptr && retVal->IsFunctionBinding())
@@ -333,6 +334,7 @@ namespace Ast
 			if (asMethod != nullptr && asMethod->IsMethod())
 			{
 				// Must be a binding to "this"
+				// TODO: Do we need the ref val here?
 				auto thisSymbol = Lookup("this");
 				if (thisSymbol)
 					return std::make_shared<FunctionInstanceBinding>(asMethod, thisSymbol);
@@ -485,7 +487,7 @@ namespace Ast
 			if (binding->IsVariableBinding())
 			{
 				auto asVariable = std::dynamic_pointer_cast<BaseVariableBinding>(binding);
-				if (asVariable->IsReferenceVariable())
+				if (asVariable->IsReferenceVariable() && asVariable->GetName().compare("this&") != 0)
 				{
 					dtors.push_back(asVariable);
 				}

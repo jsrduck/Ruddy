@@ -81,7 +81,7 @@ namespace Ast
 
 		std::string _name;
 		Expression* _expr;
-		std::shared_ptr<Ast::SymbolTable::MemberInstanceBinding> _memberBinding;
+		std::shared_ptr<Ast::SymbolTable::MemberOfThisBinding> _memberBinding;
 		std::shared_ptr<StackConstructionExpression> _stackAssignment;
 	};
 
@@ -146,7 +146,8 @@ namespace Ast
 		void CodeGenLeave(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, llvm::FunctionType* ft, llvm::Function* function);
 		std::shared_ptr<Ast::SymbolTable::FunctionBinding> _functionBinding;
 		std::vector<std::shared_ptr<SymbolTable::SymbolBinding>> _argBindings;
-		std::shared_ptr<SymbolTable::SymbolBinding> _thisPtrBinding;
+		std::shared_ptr<SymbolTable::SymbolBinding> _thisRefPtrBinding;
+		std::shared_ptr<SymbolTable::SymbolBinding> _thisValPtrBinding;
 		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _endScopeVars;
 		std::vector <std::shared_ptr<FunctionCall>> _endScopeDtors;
 	};
@@ -286,7 +287,7 @@ namespace Ast
 		{
 		}
 
-		StackConstructionExpression(std::shared_ptr<Ast::SymbolTable::MemberInstanceBinding> varBinding, Expression* argumentExp, FileLocation& location) :
+		StackConstructionExpression(std::shared_ptr<Ast::SymbolTable::MemberOfThisBinding> varBinding, Expression* argumentExp, FileLocation& location) :
 			Expression(location),
 			_className(varBinding->GetTypeInfo()->Name()),
 			_varName(varBinding->GetName()),
