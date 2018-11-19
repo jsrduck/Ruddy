@@ -1204,7 +1204,8 @@ namespace Ast {
 
 	llvm::Value* ClassTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
-		return builder->CreateAlloca(GetIRType(context), GC_MANAGED_HEAP_ADDRESS_SPACE, nullptr /*arraysize*/, name);
+		// We may be storing a pointer to the gc address space, but the pointer is stored on the stack
+		return builder->CreateAlloca(GetIRType(context), 0/*GC_MANAGED_HEAP_ADDRESS_SPACE*/, nullptr /*arraysize*/, name);
 	}
 
 	/* Statements */

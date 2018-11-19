@@ -56,6 +56,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <llvm\IR\IRBuilder.h>
 #include <memory>
+
+#include "RewriteStatepointsForGCRuddy.h"
 using namespace llvm;
 
 struct LLCDiagnosticHandler : public DiagnosticHandler
@@ -87,13 +89,24 @@ int RunGCPass(llvm::Module& module)
 	initializeCore(*registry);
 	initializeTransformUtils(*registry);
 	initializeScalarOpts(*registry);
+	initializeRewriteStatepointsForGC_RuddyLegacyPassPass(*registry);
 	legacy::PassManager PM;
 
 	//todo: NEED gc.safepoint_poll method to add this
 	auto safepoints = llvm::createPlaceSafepointsPass();
 	PM.add(safepoints);
 
-	auto gcPass = llvm::createRewriteStatepointsForGCLegacyPass();
+	// This requires us to differentiate a gc-managed address space
+	// from the stack one. Unfortunately, this has huge implications
+	// on what we can do as far as the "this" pointer is concerned.
+	// For now, we're going to ignore compaction in the GC anyway,
+	// and forget lowering for now. In the future, we'll have to use
+	// one of these techniques, probably:
+	// 1. Have two versions of every method (ugh)
+	// 2. Just let the mutator analyze stack allocated data and eat the 
+	// cost of the exra work.
+	// At the moment we let it go just so we can have a stackmap
+	auto gcPass = llvm::createRewriteStatepointsForGC_RuddyLegacyPass();
 	PM.add(gcPass);
 	if (!PM.run(module))
 	{
@@ -187,7 +200,9 @@ int compileModule(const char * InputFilename, const char * OutputFilename, LLVMC
 	PM.add(new TargetLibraryInfoWrapperPass(TLII));
 
 	// Add the target data from the target machine, if it exists, or the module.
-	M->setDataLayout(TargetMachine->createDataLayout());
+	auto dataLayout = TargetMachine->createDataLayout();
+	auto asStr = dataLayout.getStringRepresentation();
+	M->setDataLayout(dataLayout);
 	//auto funType = llvm::FunctionType::get(llvm::Type::getInt8PtrTy(Context), false /*isVarArg*/);
 	////auto fun = llvm::Function::Create(funType, llvm::GlobalValue::LinkageTypes::ExternalLinkage, "GetStackMapLocation", M.get());
 	//auto bb = llvm::BasicBlock::Create(Context, "", fun);

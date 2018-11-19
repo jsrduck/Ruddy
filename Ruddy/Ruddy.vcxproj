@@ -178,11 +178,13 @@
     <ClInclude Include="cxxopts.hpp" />
     <ClInclude Include="os_io.h" />
     <ClInclude Include="ArchiveSerialization.h" />
+    <ClInclude Include="RewriteStatepointsForGCRuddy.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="llc.cpp" />
+    <ClCompile Include="RewriteStatepointsForGC.cpp" />
     <ClCompile Include="Ruddy.cpp" />
     <ClCompile Include="Serialization.cpp" />
     <ClCompile Include="stdafx.cpp">

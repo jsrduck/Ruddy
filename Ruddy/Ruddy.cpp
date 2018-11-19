@@ -333,10 +333,10 @@ int main(int argc, char* argv[])
 		masterList->CodeGen(&builder, &TheContext, module.get());
 
 		// GC Passes
-		//if (RunGCPass(*module) != 0)
-		//{
-		//	return -1;
-		//}
+		if (RunGCPass(*module) != 0)
+		{
+			return -1;
+		}
 
 		// Now save it to a file
 		std::error_code errInfo;
