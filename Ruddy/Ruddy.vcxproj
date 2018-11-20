@@ -207,9 +207,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="runtime_shim.ll">
+    <Content Include="runtime_shim.ll">
       <DeploymentContent>true</DeploymentContent>
-    </None>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="packages.config" />
     <None Include="TestFile1.rdy" />
     <None Include="MathClass.rdy" />

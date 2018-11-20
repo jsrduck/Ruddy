@@ -85,6 +85,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\ParserTests;..\Ast;..\Lexer;..\Parser;$(IncludePath)</IncludePath>
     <ExecutablePath>$(OutDir);$(ExecutablePath)</ExecutablePath>
+    <ReferencePath>$(VC_ReferencesPath_x64);</ReferencePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>

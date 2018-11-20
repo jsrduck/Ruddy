@@ -663,6 +663,8 @@ namespace Ast
 	void Ast::TypeInfo::AddIRTypesToVector(std::vector<llvm::Type*>& inputVector, llvm::LLVMContext * context, bool asOutput)
 	{
 		auto irType = GetIRType(context, asOutput);
+		if (IsClassType())
+			irType = irType->getPointerTo();
 		inputVector.push_back(irType);
 	}
 

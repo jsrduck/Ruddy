@@ -59,8 +59,8 @@
     <None Include="MathClass.rdy">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="runtime_shim.ll">
+    <Content Include="runtime_shim.ll">
       <Filter>Source Files</Filter>
-    </None>
+    </Content>
   </ItemGroup>
 </Project>

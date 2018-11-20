@@ -50,10 +50,33 @@ void TestGrammar()
 	}
 }
 
+char* runtime_shim =
+
+"; target datalayout = \"A1\"\r\n"
+
+"declare void @_os_printf(i16*, ...) \"gc-leaf-function\"\r\n"
+
+"; addrspace should match GC_MANAGED_HEAP_ADDRESS_SPACE\r\n"
+"declare i8 addrspace(0)* @_heap_alloc(i32)\r\n"
+
+"declare void @runtime_safepoint_poll()\r\n"
+
+"; Read the stack pointer and pass it to our polling function(assumes x64)\r\n"
+"define void @gc.safepoint_poll()\r\n"
+"{\r\n"
+"	call void @runtime_safepoint_poll()\r\n"
+"	ret void\r\n"
+"}\r\n"
+
+"attributes #1 = { \"gc-leaf-function\" nounwind readnone }\r\n";
+
 std::unique_ptr<llvm::Module> AddExternOsFunctions(llvm::LLVMContext& context, llvm::IRBuilder<>& builder)
 {
 	llvm::SMDiagnostic err;
-	std::unique_ptr<llvm::Module> irModule = llvm::parseIRFile("runtime_shim.ll", err, context);
+	// Using the file is handy for debugging, but we want to ship with the text inline
+	//std::unique_ptr<llvm::Module> irModule = llvm::parseIRFile("runtime_shim.ll", err, context);
+	auto memBuf = llvm::MemoryBuffer::getMemBuffer(runtime_shim);
+	std::unique_ptr<llvm::Module> irModule = llvm::parseIR(memBuf->getMemBufferRef(), err, context);
 	if (!irModule)
 	{
 		std::string what;
