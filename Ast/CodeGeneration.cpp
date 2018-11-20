@@ -1190,7 +1190,7 @@ namespace Ast {
 		auto classTypeInfo = std::make_shared<ClassTypeInfo>(_symbolBinding->GetTypeInfo(), false /*valueType*/);
 
 		std::vector<llvm::Value*> args;
-		args.push_back(llvm::ConstantInt::get(llvm::IntegerType::getInt32Ty(*context), module->getDataLayout().getTypeAllocSize(classTypeInfo->GetIRType(context))));
+		args.push_back(llvm::ConstantInt::get(llvm::IntegerType::getInt32Ty(*context), module->getDataLayout().getTypeAllocSize(classTypeInfo->GetIRType(context)->getPointerElementType())));
 		auto malloc = builder->CreateCall(module->getFunction("_heap_alloc"), args);
 		auto asClassPtr = builder->CreateBitCast(malloc, classTypeInfo->GetIRType(context));
 		retVal = asClassPtr;
