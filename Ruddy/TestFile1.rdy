@@ -38,6 +38,75 @@ class Program
 {
 	static fun(int ret) main()
 	{
+		unsafe
+		{
+			// 0123456789
+			int a[10];
+			int counter = 0;
+			while (counter < 10)
+			{
+				a[counter] = counter;
+				counter++;
+			}
+			counter = 0;
+			while (counter < 10)
+			{
+				print(a[counter]);
+				counter++;
+			}
+
+			// aaaaa
+			char c[5];
+			counter = 0;
+			while (counter < 5)
+			{
+				c[counter] = 'a'; // TODO When casting is supported: (char)(((int)'a')+counter);
+				counter++;
+			}
+			counter = 0;
+			while (counter < 5)
+			{
+				print(c[counter]);
+				counter++;
+			}
+
+			// 3737373737
+			Foo d[5];
+			counter = 0;
+			while (counter < 5)
+			{
+				d[counter] = new Foo();
+				counter++;
+			}
+			counter = 0;
+			while (counter < 5)
+			{
+				print(d[counter].i);
+				print(d[counter].j);
+				counter++;
+			}
+
+			// 00.5x3711.5x3722.5x3733.5x3744.5x37
+			Baz& e[5];
+			counter = 0;
+			while (counter < 5)
+			{
+				Baz& f((uint)counter, (float)counter + 0.5, 'x');
+				e[counter] = f;
+				counter++;
+			}
+			counter = 0;
+			while (counter < 5)
+			{
+				print(e[counter].i);
+				print(e[counter].j);
+				print(e[counter].k);
+				print(e[counter]._foo1.i);
+				print(e[counter]._foo1.j);
+				counter++;
+			}
+		}
+
 		let baz = new Baz(1,2.5,'a');
 		// 12.5a3737
 		print(baz.i);

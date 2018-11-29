@@ -55,6 +55,12 @@ namespace Ast {
 		TypeAlreadyExistsException(std::shared_ptr<TypeInfo> type);
 	};
 
+	class TypeNotAssignableException : public Exception
+	{
+	public:
+		TypeNotAssignableException(std::shared_ptr<TypeInfo> type);
+	};
+
 	class NoMatchingFunctionSignatureFoundException : public Exception
 	{
 	public:
@@ -70,158 +76,120 @@ namespace Ast {
 	class FunctionMustBeDeclaredInClassScopeException : public Exception
 	{
 	public:
-		FunctionMustBeDeclaredInClassScopeException(const std::string& functionName) : Exception()
-		{
-			_message = "Function can only be declared inside class scope: " + functionName;
-		}
+		FunctionMustBeDeclaredInClassScopeException(const std::string& functionName);
 	};
 
 	class ReturnStatementMustBeDeclaredInFunctionScopeException : public Exception
 	{
 	public:
-		ReturnStatementMustBeDeclaredInFunctionScopeException()
-		{
-			_message = "Return statements must be declared inside function scope";
-		}
+		ReturnStatementMustBeDeclaredInFunctionScopeException();
 	};
 
 	class VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException : public Exception
 	{
 	public:
-		VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException(const std::string& varName)
-		{
-			_message = "Variables must be declared inside class or function scope: " + varName;
-		}
+		VariablesCannotBeDeclaredOutsideOfScopesOrFunctionsException(const std::string& varName);
 	};
 
 	class VariablesMustBeInitializedException : public Exception
 	{
 	public:
-		VariablesMustBeInitializedException(const std::string& varName)
-		{
-			_message = "Variables must be initialized: " + varName;
-		}
+		VariablesMustBeInitializedException(const std::string& varName);
 	};
 
 	class SymbolNotAccessableException : public Exception
 	{
 	public:
-		SymbolNotAccessableException(const std::string& symbolName)
-		{
-			_message = "Symbol \"" + symbolName + "\" not accessable from this location.";
-		}
+		SymbolNotAccessableException(const std::string& symbolName);
 	};
 
 	class SymbolAlreadyDefinedInThisScopeException : public Exception
 	{
 	public:
-		SymbolAlreadyDefinedInThisScopeException(const std::string& symbolName)
-		{
-			_message = "Symbol \"" + symbolName + "\" already defined in this scope";
-		}
+		SymbolAlreadyDefinedInThisScopeException(const std::string& symbolName);
 	};
 
 	class SymbolNotDefinedException : public Exception
 	{
 	public:
-		SymbolNotDefinedException(const std::string& symbolName)
-		{
-			_message = "Symbol \"" + symbolName + "\" not defined";
-		}
+		SymbolNotDefinedException(const std::string& symbolName);
 	};
 
 	class SymbolWrongTypeException : public Exception
 	{
 	public:
-		SymbolWrongTypeException(const std::string& symbolName)
-		{
-			_message = "Symbol \"" + symbolName + "\" exists, but is the wrong type here.";
-		}
+		SymbolWrongTypeException(const std::string& symbolName);
+	};
+
+	class OnlyClassTypesCanBeDerefencedException : public Exception
+	{
+	public:
+		OnlyClassTypesCanBeDerefencedException(const std::string& actualType);
 	};
 
 	class NonStaticMemberReferencedFromStaticContextException : public Exception
 	{
 	public:
-		NonStaticMemberReferencedFromStaticContextException(const std::string& symbolName)
-		{
-			_message = "Non static member variable \"" + symbolName + "\" cannot be referenced from a non-static context.";
-		}
+		NonStaticMemberReferencedFromStaticContextException(const std::string& symbolName);
 	};
 
 	class BreakInWrongPlaceException : public Exception
 	{
 	public:
-		BreakInWrongPlaceException()
-		{
-			_message = "Break statement can only be declared inside loop scope";
-		}
+		BreakInWrongPlaceException();
 	};
 
 	class ExpectedValueTypeException : public Exception
 	{
 	public:
-		ExpectedValueTypeException(const std::string& symbolName)
-		{
-			_message = "Expected symbol with a value type, found reference type instead: " + symbolName;
-		}
+		ExpectedValueTypeException(const std::string& symbolName);
 	};
 
 	class CannotReinitializeMemberException : public Exception
 	{
 	public:
-		CannotReinitializeMemberException(const std::string& symbolName)
-		{
-			_message = "Member variable already initiailzed: " + symbolName;
-		}
+		CannotReinitializeMemberException(const std::string& symbolName);
 	};
 
 	class UninitializedVariableReferencedException : public Exception
 	{
 	public:
-		UninitializedVariableReferencedException(const std::string& symbolName)
-		{
-			_message = "Must initialize reference variable before referencing it: " + symbolName;
-		}
+		UninitializedVariableReferencedException(const std::string& symbolName);
 	};
 
 	class ValueTypeMustBeInitializedException : public Exception
 	{
 	public:
-		ValueTypeMustBeInitializedException(const std::string& symbolName)
-		{
-			_message =
-				"Class has reference-value member with no default constructor - it must be explicitly initialized in the initializer list: " 
-				+ symbolName;
-		}
+		ValueTypeMustBeInitializedException(const std::string& symbolName);
 	};
 
 	class NotSupportedByAutoTypeException : public Exception
 	{
 	public:
-		NotSupportedByAutoTypeException()
-		{
-			_message = "Operation not supported for auto type";
-		}
+		NotSupportedByAutoTypeException();
 	};
 
 	class DuplicateLibraryException : public Exception
 	{
 	public:
-		DuplicateLibraryException(const std::string& libName)
-		{
-			_message = "Can't disambiguate multiple libraries with the same name: ";
-			_message.append(libName);
-		}
+		DuplicateLibraryException(const std::string& libName);
 	};
 
 	class UnknownLibraryException : public Exception
 	{
 	public:
-		UnknownLibraryException(const std::string& libName)
-		{
-			_message = "Imported library \'";
-			_message.append(libName);
-			_message.append("\' unknown. Make sure ribs and rincs to link to are passed to the compiler.");
-		}
+		UnknownLibraryException(const std::string& libName);
+	};
+
+	class CannotNestUnsafeContextsException : public Exception
+	{
+	public:
+		CannotNestUnsafeContextsException();
+	};
+
+	class CannotCallUnsafeFunctionFromSafeContextException : public Exception
+	{
+	public:
+		CannotCallUnsafeFunctionFromSafeContextException(const std::string& functionName);
 	};
 }

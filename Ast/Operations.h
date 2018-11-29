@@ -506,16 +506,48 @@ namespace Ast
 			return false;
 		}
 
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override
-		{
-			// TODO: What about types that can't be cast at all?
-			_castFrom = _expression->Evaluate(symbolTable, inInitializer);
-			return _castTo;
-		}
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override;
 
 		std::shared_ptr<TypeInfo> _castTo;
 		std::shared_ptr<Expression> _expression;
 		std::shared_ptr<TypeInfo> _castFrom;
+
+	protected:
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+	};
+
+	class IndexOperation : public Operation
+	{
+	public:
+		IndexOperation(Expression* referenceExpression, Expression* indexerExpression, bool isWrite, FileLocation& location) :
+			Operation(location), _refExpression(referenceExpression), _indexExpression(indexerExpression), _isWrite(isWrite)
+		{
+		}
+
+		static const int Id = 0x800000;
+
+		virtual const int OperatorId() override
+		{
+			return Id;
+		}
+
+		virtual std::string OperatorString() override
+		{
+			return "[]";
+		}
+
+		virtual bool IsBinary() override
+		{
+			return false;
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer) override;
+
+		std::shared_ptr<Expression> _refExpression;
+		std::shared_ptr<TypeInfo> _refTypeInfo;
+		std::shared_ptr<Expression> _indexExpression;
+		std::shared_ptr<TypeInfo> _indexTypeInfo;
+		bool _isWrite;
 
 	protected:
 		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;

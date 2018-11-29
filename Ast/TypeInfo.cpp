@@ -312,7 +312,7 @@ namespace Ast
 	std::shared_ptr<TypeInfo> ClassDeclarationTypeInfo::EvaluateOperation(std::shared_ptr<TypeInfo>& implicitCastTypeOut, Operation* operation, std::shared_ptr<TypeInfo> rhs, std::shared_ptr<SymbolTable> symbolTable)
 	{
 		// This would depend on operator overloading
-		return nullptr;
+		throw OperationNotDefinedException(operation->ToString(), shared_from_this());
 	}
 
 	bool ClassDeclarationTypeInfo::SupportsOperator(Operation* operation)
@@ -487,7 +487,7 @@ namespace Ast
 	{
 		// This would depend on operator overloading
 		EnsureResolved(symbolTable);
-		return nullptr;
+		return _resolvedType->EvaluateOperation(implicitCastTypeOut, operation, rhs, symbolTable);
 	}
 
 	bool UnresolvedClassTypeInfo::SupportsOperator(Operation* operation)
@@ -715,8 +715,6 @@ namespace Ast
 		return _name;
 	}
 
-	// Operator logic
-
 	bool FunctionTypeInfo::SupportsOperator(Operation * operation)
 	{
 		return false;
@@ -735,6 +733,10 @@ namespace Ast
 	{
 		return !_mods->IsStatic();
 	}
+	bool Ast::FunctionTypeInfo::IsOverloadTypeInfo()
+	{
+		return false;
+	}
 	bool FunctionTypeInfo::IsSameType(std::shared_ptr<TypeInfo> other)
 	{
 		auto otherAsFunction = std::dynamic_pointer_cast<FunctionTypeInfo>(other);
@@ -743,6 +745,23 @@ namespace Ast
 
 		// TODO: Is it enough for a function to have a matching signature to be the same type?
 		return InputArgsType()->IsSameType(otherAsFunction->InputArgsType()) && OutputArgsType()->IsSameType(otherAsFunction->OutputArgsType());
+	}
+
+	/* OverloadedFunctionTypeInfo */
+	Ast::OverloadedFunctionTypeInfo::OverloadedFunctionTypeInfo(const std::string & name) : FunctionTypeInfo(name, nullptr, nullptr, nullptr)
+	{
+	}
+	bool Ast::OverloadedFunctionTypeInfo::IsMethod()
+	{
+		throw UnexpectedException();
+	}
+	bool Ast::OverloadedFunctionTypeInfo::IsOverloadTypeInfo()
+	{
+		return true;
+	}
+	bool Ast::OverloadedFunctionTypeInfo::IsSameType(std::shared_ptr<TypeInfo> other)
+	{
+		throw UnexpectedException();
 	}
 
 	/* BaseClassTypeInfo */
@@ -773,4 +792,38 @@ namespace Ast
 	{
 		return _resolvedType;
 	}
+
+	/* UnsafeArray */
+	UnsafeArrayTypeInfo::UnsafeArrayTypeInfo(std::shared_ptr<TypeInfo> elementTypeInfo, std::shared_ptr<IntegerConstant> rank) : _elementTypeInfo(elementTypeInfo), _rank(rank)
+	{
+		_name = _elementTypeInfo->Name() + "[]";
+	}
+
+	bool UnsafeArrayTypeInfo::IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable)
+	{
+		// TODO: Do we actually want to allow array assignment? Would that be a copy? I'm thinking no?
+		return false;
+	}
+
+	bool Ast::UnsafeArrayTypeInfo::IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable)
+	{
+		return false;
+	}
+
+	const std::string & Ast::UnsafeArrayTypeInfo::Name()
+	{
+		return _name;
+	}
+
+	bool Ast::UnsafeArrayTypeInfo::IsSameType(std::shared_ptr<TypeInfo> other)
+	{
+		auto asUnsafeArray = std::dynamic_pointer_cast<UnsafeArrayTypeInfo>(other);
+		return asUnsafeArray && asUnsafeArray->_elementTypeInfo->IsSameType(_elementTypeInfo) && asUnsafeArray->_rank == _rank;
+	}
+
+	bool Ast::UnsafeArrayTypeInfo::SupportsOperator(Operation * operation)
+	{
+		return operation->OperatorId() == IndexOperation::Id;
+	}
+
 }

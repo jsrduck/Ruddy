@@ -130,5 +130,19 @@ namespace LexerUnitTests
 			Analyze("import libname.more", tokens);
 			AssertAreEqualTokenTypes({ TKN_IMPORT, TKN_IDENTIFIER, TKN_PERIOD, TKN_IDENTIFIER }, tokens);
 		}
+
+		TEST_METHOD(UnsafeStatements)
+		{
+			vector<quex::Token> tokens;
+			Analyze("unsafe { }", tokens);
+			AssertAreEqualTokenTypes({ TKN_UNSAFE, TKN_BRACKET_OPEN, TKN_BRACKET_CLOSE }, tokens);
+		}
+
+		TEST_METHOD(ArrayDeclarationStatement)
+		{
+			vector<quex::Token> tokens;
+			Analyze("int buffer[5];", tokens);
+			AssertAreEqualTokenTypes({ TKN_TYPE_INT, TKN_IDENTIFIER, TKN_SQUARE_BRACKET_OPEN, TKN_CONSTANT_INT, TKN_SQUARE_BRACKET_CLOSE, TKN_SEMICOLON }, tokens);
+		}
 	};
 }

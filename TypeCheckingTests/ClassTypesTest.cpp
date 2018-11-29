@@ -217,6 +217,20 @@ namespace TypeCheckingTests
 				tree->TypeCheck(table);
 			});
 		}
+
+		TEST_METHOD(OperationOnClassMemberSucceeds)
+		{
+			auto tree = ParseTree("class A { fun B() { _i++; } int _i; }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(OperationOnOtherClassMemberSucceeds)
+		{
+			auto tree = ParseTree("class Y { int _j; } class A { fun B() { let y = new Y(); y._j++; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
 	};
 
 	TEST_CLASS(NamespaceTests)
@@ -250,6 +264,26 @@ namespace TypeCheckingTests
 			auto tree = ParseTree("class A { int i; } class B { fun C() { i = 0; }} ");
 			auto table = std::make_shared<SymbolTable>();
 			Assert::ExpectException<SymbolNotDefinedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(UnaryOperationOnClassTypeFails)
+		{
+			auto tree = ParseTree("class A { } class B { fun C() { let a = new A(); a++; }} ");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<OperationNotDefinedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(UnaryOperationOnClassTypeMemberFails)
+		{
+			auto tree = ParseTree("class A { A _a; } class B { fun C() { let a = new A(); a._a++; }} ");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<OperationNotDefinedException>([this, &tree, &table]()
 			{
 				tree->TypeCheck(table);
 			});
@@ -597,6 +631,65 @@ namespace TypeCheckingTests
 			{
 				tree->TypeCheck(table);
 			});
+		}
+
+		TEST_METHOD(UnsafeFunctionCallFromUnsafeContextSucceeds)
+		{
+			auto tree = ParseTree("class A { unsafe fun B() { } fun C() { unsafe { B(); } } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(UnsafeFunctionCallFromSafeContextFails)
+		{
+			auto tree = ParseTree("class A { unsafe fun B() { } fun C() { B();} }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<CannotCallUnsafeFunctionFromSafeContextException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(FunctionThatReturnsRefClassCanBeDereferenced)
+		{
+			auto tree = ParseTree("class A { int _i; fun(A outVal) C() { return new A(); } fun(int retVal) D() { return C()._i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionThatReturnsRefClassCanBeDereferencedEndsWithFunction)
+		{
+			auto tree = ParseTree("class A { int _i; A _a; fun(A outVal) C() { return new A(); } fun(A retVal) D() { return C()._a.C(); } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionThatReturnsRefClassCanBeDereferencedEndsWithDerefOfDeref)
+		{
+			auto tree = ParseTree("class A { int _i; A _a; fun(A outVal) C() { return new A(); } fun(int retVal) D() { return C()._a.C()._a._i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionThatReturnsValClassCanBeDereferenced)
+		{
+			auto tree = ParseTree("class A { int _i; fun(A& outVal) C() { A& a(); return a; } fun(int retVal) D() { return C()._i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionThatReturnsRefClassCanBeDereferencedAndAssigned)
+		{
+			auto tree = ParseTree("class A { int _i; fun(A outVal) C() { return new A(); } fun D(int val) { C()._i = val; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(FunctionThatReturnsValClassCanBeDereferencedAndAssigned)
+		{
+			auto tree = ParseTree("class A { int _i; fun(A& outVal) C() {  A& a(); return a; } fun D(int val) { C()._i = val; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
 		}
 	};
 

@@ -192,10 +192,14 @@ namespace Ast {
 		{
 		}
 
+		MemberInstanceCodeGen(llvm::Value* value, bool thisPtrIsValueType, int index) : _value(value), _thisPtrIsValueType(thisPtrIsValueType), _index(index)
+		{
+		}
+
 		llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module) override
 		{
-			// Get "this" pointer
-			auto irVal = _reference->GetIRValue(builder, context, module);
+			// Get pointer to class instance
+			auto irVal = _reference ? _reference->GetIRValue(builder, context, module) : _value;
 
 			// If "this" is a reference type, we need to do a load first
 			if (!_thisPtrIsValueType)
@@ -208,6 +212,7 @@ namespace Ast {
 		}
 	private:
 		std::shared_ptr<SymbolCodeGenerator> _reference;
+		llvm::Value* _value;
 		int _index;
 		bool _thisPtrIsValueType;
 	};
@@ -216,6 +221,10 @@ namespace Ast {
 		auto typeInfo = _reference->GetTypeInfo();
 		auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo);
 		return std::make_shared<MemberInstanceCodeGen>(_reference->GetCodeGen(), asClassType->IsValueType(), _index);
+	}
+	std::shared_ptr<SymbolCodeGenerator> SymbolTable::MemberInstanceBinding::CreateCodeGenFromValue(llvm::Value* referenceValue, bool isClassValueType, std::shared_ptr<MemberBinding> memberBinding)
+	{
+		return std::make_shared<MemberInstanceCodeGen>(referenceValue, isClassValueType, memberBinding->Index());
 	}
 
 	/* Loop */
@@ -270,6 +279,12 @@ namespace Ast {
 	{
 		FileLocationContext locationContext(_location);
 		return _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module);
+	}
+
+	llvm::Value * Ast::AssignFromArrayIndex::GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		FileLocationContext locationContext(_location);
+		return _indexOperation->CodeGen(builder, context, module);
 	}
 
 	void AssignFrom::CodeGen(std::shared_ptr<Expression> rhs, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
@@ -354,7 +369,7 @@ namespace Ast {
 			}
 		}
 
-		auto exprList = _expression ? std::dynamic_pointer_cast<ExpressionList>(_expression) : nullptr;
+		auto exprList = _argExpr ? std::dynamic_pointer_cast<ExpressionList>(_argExpr) : nullptr;
 		if (exprList != nullptr)
 		{
 			auto argList = std::dynamic_pointer_cast<CompositeTypeInfo>(_functionTypeInfo->_inputArgs);
@@ -397,11 +412,11 @@ namespace Ast {
 				argList = argList->_next;
 			}
 		}
-		else if (_expression != nullptr)
+		else if (_argExpr != nullptr)
 		{
-			auto argsValue = _expression->CodeGen(builder, context, module, _functionTypeInfo->_inputArgs);
+			auto argsValue = _argExpr->CodeGen(builder, context, module, _functionTypeInfo->_inputArgs);
 			args.push_back(argsValue);
-			auto asFunctionCall = std::dynamic_pointer_cast<FunctionCall>(_expression);
+			auto asFunctionCall = std::dynamic_pointer_cast<FunctionCall>(_argExpr);
 			if (asFunctionCall != nullptr)
 			{
 				// Get the other output args, pass as input params
@@ -569,9 +584,9 @@ namespace Ast {
 
 	llvm::Value* Reference::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto typeInfo = _symbolBinding->GetTypeInfo();
 		// Do we need to do a load? True for basically everything except value-ptrs
-		if (typeInfo->IsClassType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(typeInfo)->IsValueType())
+		// The reason is that value pointers are not "stored." Reference types and integers, etc, are stored.
+		if ((_typeInfo->IsClassType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(_typeInfo)->IsValueType()) || _typeInfo->IsNativeArrayType())
 		{
 			return _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module);
 		}
@@ -581,10 +596,49 @@ namespace Ast {
 		}
 	}
 
+	// TODO: Rename Reference2 to something nice.
+	llvm::Value * Ast::Reference2::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		auto exprVal = _expr->CodeGen(builder, context, module);
+		auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(_exprTypeInfo);
+		if (classTypeInfo == nullptr)
+		{
+			throw UnexpectedException();
+		}
+		
+		// We expect exprVal to evaluate to a class, so now we can index into it to get the appropriate member binding.
+		auto memberBinding = std::dynamic_pointer_cast<SymbolTable::MemberBinding>(_symbolBinding);
+		if (memberBinding == nullptr)
+		{
+			throw UnexpectedException();
+		}
+		auto codeGen = SymbolTable::MemberInstanceBinding::CreateCodeGenFromValue(exprVal, classTypeInfo->IsValueType(), memberBinding);
+		auto val = codeGen->GetIRValue(builder, context, module);
+		// If it's a non class type, we should load it
+		/* TODO: Should native arrays hold pointer to pointers like when we store a reference in a variable? What if we want to do an assignment?
+		   Wouldn't that break if we don't? In other words, treat index entries as "variables."  If that's the case, we would also need to load
+		   reference types.
+
+		   Example:
+
+		   Foo buffer[2];
+		   let foo1 = new Foo(1);
+		   buffer[0] = foo1;
+		   print(foo1.i); // 1
+		   buffer[0] = new Foo(2);
+		   print(foo1.i); // 1
+		   print(buffer[0].i); // 2
+		*/
+		if (_typeInfo->IsPrimitiveType())
+		{
+			val = builder->CreateLoad(val);
+		}
+		return val;
+	}
+
 	llvm::Value* ExpressionList::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		throw UnexpectedException();
-		//return _symbol->GetAllocationInstance();
 	}
 
 	/*
@@ -1133,6 +1187,21 @@ namespace Ast {
 		return builder->CreateCast((llvm::Instruction::CastOps)_castFrom->CreateCast(_castTo), val, _castTo->GetIRType(context));
 	}
 
+	llvm::Value* Ast::IndexOperation::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		auto refVal = _refExpression->CodeGen(builder, context, module);
+		auto indexVal = _indexExpression->CodeGen(builder, context, module);
+
+		std::vector<llvm::Value*> idxVec;
+		idxVec.push_back(indexVal);
+		auto val = builder->CreateGEP(refVal, idxVec);
+		auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(_typeInfo);
+		if (_isWrite || asClassType)
+			return val;
+		else
+			return builder->CreateLoad(val);
+	}
+
 	llvm::Value* Expression::CodeGen(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		FileLocationContext locationContext(_location);
@@ -1202,9 +1271,29 @@ namespace Ast {
 		return retVal;
 	}
 
+	llvm::Value * Ast::StackArrayDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		return _varBinding->GetCodeGen()->CreateAllocationInstance(_varName, builder, context, module);
+	}
+
 	llvm::Value* ClassTypeInfo::CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
 	{
 		return builder->CreateAlloca(GetIRType(context), GC_MANAGED_HEAP_ADDRESS_SPACE, nullptr /*arraysize*/, name);
+	}
+
+	llvm::Value * UnsafeArrayTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		// Note that this does not "zero" the memory or call a default c'tor or anything for val types, which is allowed here since this is an unsafe context.
+		return builder->CreateAlloca(_elementTypeInfo->GetIRType(context), 0 /*addrspace*/, _rank->CodeGen(builder, context, module), name);
+	}
+
+	llvm::Type * UnsafeArrayTypeInfo::GetIRType(llvm::LLVMContext * context, bool asOutput)
+	{
+		if (_type == nullptr)
+		{
+			_type = llvm::ArrayType::get(_elementTypeInfo->GetIRType(context), _rank->AsUInt32());
+		}
+		return _type;
 	}
 
 	/* Statements */
@@ -1337,6 +1426,14 @@ namespace Ast {
 			{
 				dtorCall->CodeGen(builder, context, module);
 			}
+		}
+	}
+
+	void Ast::UnsafeStatements::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+		if (_statements != nullptr)
+		{
+			_statements->CodeGen(builder, context, module);
 		}
 	}
 

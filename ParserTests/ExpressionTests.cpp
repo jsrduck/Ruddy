@@ -103,6 +103,39 @@ public:
 		Assert::IsNotNull(ctor->_initializerStatement.get());
 		Assert::AreEqual("_b", ctor->_initializerStatement->_list->_thisInitializer->_name.c_str());
 	}
+
+	TEST_METHOD(UnsafeStatementInMethod)
+	{
+		auto tree = ParseTree("class A { fun B() { unsafe { return; } } }");
+		auto clssA = std::dynamic_pointer_cast<ClassDeclaration>(tree->_stmt);
+		Assert::IsNotNull(clssA.get());
+		auto list = SkipCtorsAndDtors(clssA);
+		auto funB = std::dynamic_pointer_cast<FunctionDeclaration>(list->_statement);
+		Assert::IsNotNull(funB.get());
+		auto stmts = std::dynamic_pointer_cast<LineStatements>(funB->_body);
+		Assert::IsNotNull(stmts.get());
+		auto unsafeStatement = std::dynamic_pointer_cast<UnsafeStatements>(stmts->_statement);
+		Assert::IsNotNull(unsafeStatement.get());
+	}
+	
+	TEST_METHOD(ArrayDeclaration)
+	{
+		auto tree = ParseTree("class A { fun B() { int buffer[5]; } }");
+		auto clssA = std::dynamic_pointer_cast<ClassDeclaration>(tree->_stmt);
+		Assert::IsNotNull(clssA.get());
+		auto list = SkipCtorsAndDtors(clssA);
+		auto funB = std::dynamic_pointer_cast<FunctionDeclaration>(list->_statement);
+		Assert::IsNotNull(funB.get());
+		auto stmts = std::dynamic_pointer_cast<LineStatements>(funB->_body);
+		Assert::IsNotNull(stmts.get());
+		auto exprStatement = std::dynamic_pointer_cast<ExpressionAsStatement>(stmts->_statement);
+		Assert::IsNotNull(exprStatement.get());
+		auto arrayStatement = std::dynamic_pointer_cast<StackArrayDeclaration>(exprStatement->_expr);
+		Assert::IsNotNull(arrayStatement.get());
+		Assert::IsTrue(arrayStatement->_elementTypeInfo->IsInteger());
+		Assert::AreEqual(5, arrayStatement->_rank->AsInt32());
+		Assert::AreEqual("buffer", arrayStatement->_varName.c_str());
+	}
 };
 
 }

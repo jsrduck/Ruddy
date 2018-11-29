@@ -246,16 +246,16 @@ namespace Ast
 	class FunctionCall : public Expression
 	{
 	public:
-		FunctionCall(const std::string& name, Expression* expression, FileLocation& location) :
+		FunctionCall(Expression* funExpr, Expression* argExpr, FileLocation& location) :
 			Expression(location),
-			_name(name), _expression(expression)
+			_funExpr(funExpr), _argExpr(argExpr)
 		{
 		}
 
-		FunctionCall(std::shared_ptr<FunctionTypeInfo> info, std::shared_ptr<Expression> expression, std::shared_ptr<Ast::SymbolTable::SymbolBinding> binding, std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location) :
+		FunctionCall(std::shared_ptr<FunctionTypeInfo> info, std::shared_ptr<Expression> argExpr, std::shared_ptr<Ast::SymbolTable::SymbolBinding> binding, std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location) :
 			Expression(info, location),
 			_functionTypeInfo(info),
-			_expression(expression),
+			_argExpr(argExpr),
 			_name(info->Name()),
 			_varBinding(varBinding)
 		{
@@ -266,9 +266,10 @@ namespace Ast
 
 		static std::shared_ptr<FunctionCall> CreateCall(std::shared_ptr<Ast::SymbolTable::SymbolBinding> funBinding, std::shared_ptr<Ast::SymbolTable::SymbolBinding> varBinding, FileLocation& location, std::shared_ptr<Expression> expression = nullptr);
 
-		const std::string _name;
+		std::string _name;
 		std::shared_ptr<FunctionTypeInfo> _functionTypeInfo;
-		std::shared_ptr<Expression> _expression;
+		std::shared_ptr<Expression> _funExpr;
+		std::shared_ptr<Expression> _argExpr;
 		std::vector<llvm::Value*> _outputValues;
 		llvm::Value* _thisPtr = nullptr;
 	protected:
@@ -304,5 +305,27 @@ namespace Ast
 		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 		std::shared_ptr<FunctionCall> _ctorCall;
 		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _varBinding;
+	};
+
+	class StackArrayDeclaration : public Expression
+	{
+	public:
+		StackArrayDeclaration(std::shared_ptr<TypeInfo> typeInfo, const std::string& variableName, IntegerConstant* rank, FileLocation& location) :
+			Expression(location),
+			_elementTypeInfo(typeInfo),
+			_varName(variableName),
+			_rank(rank)
+		{
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
+
+		std::shared_ptr<TypeInfo> _elementTypeInfo;
+		const std::string _varName;
+		std::shared_ptr<IntegerConstant> _rank;
+		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _varBinding;
+
+	protected:
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
 	};
 }

@@ -233,7 +233,7 @@ namespace Ast
 	class AssignFromReference : public AssignFromSingle
 	{
 	public: 
-		AssignFromReference(const std::string& ref, FileLocation& location) : AssignFromSingle(location), _ref(ref)
+		AssignFromReference(Expression* ref, FileLocation& location) : AssignFromSingle(location), _ref(ref)
 		{
 		}
 
@@ -248,7 +248,25 @@ namespace Ast
 
 		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
 
-		const std::string _ref;
+		std::shared_ptr<Expression> _ref;
+	};
+	
+	class IndexOperation;
+	class AssignFromArrayIndex : public AssignFromSingle
+	{
+	public:
+		AssignFromArrayIndex(IndexOperation* indexOperation, FileLocation& location);
+
+		std::shared_ptr<TypeInfo> Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr) override;
+
+		void Bind(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhs) override
+		{
+			// Not necessary, it's already been bound to a type
+		}
+
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
+		std::shared_ptr<IndexOperation> _indexOperation;
 	};
 
 	class DeclareVariable : public AssignFromSingle
@@ -318,6 +336,25 @@ namespace Ast
 		std::shared_ptr<LineStatements> _statements;
 		std::vector<std::shared_ptr<Ast::SymbolTable::BaseVariableBinding>> _endScopeVars;
 		std::vector<std::shared_ptr<FunctionCall>> _endScopeDtors;
+	};
+
+	class UnsafeStatements : public LineStatement
+	{
+	public:
+		UnsafeStatements(ScopedStatements* statements, FileLocation& location) : LineStatement(location), _statements(statements)
+		{
+		}
+
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
+		virtual std::string ToString() override
+		{
+			return "UnsafeStatement";
+		}
+
+		std::shared_ptr<ScopedStatements> _statements;
 	};
 
 	class ExpressionAsStatement : public LineStatement

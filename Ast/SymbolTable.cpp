@@ -20,7 +20,12 @@ namespace Ast
 			// We don't allow shadowing in Ruddy. It's evil.
 			throw SymbolAlreadyDefinedInThisScopeException(symbolName);
 		} // TODO: Check for class/namespace/member collisions in current namespace
-		assert(std::dynamic_pointer_cast<ClassDeclarationTypeInfo>(type) == nullptr);
+		if (std::dynamic_pointer_cast<ClassDeclarationTypeInfo>(type) != nullptr)
+		{
+			// Need full type info. This seems like someone's trying to do something funky like \
+			// bind a class declaration to a variable
+			throw SymbolWrongTypeException(symbolName);
+		}
 		auto binding = std::make_shared<VariableBinding>(shared_from_this(), symbolName, type);
 		_map[symbolName] = binding;
 		_aux_stack.push(binding);
@@ -465,6 +470,26 @@ namespace Ast
 		if (_currentLoop.size() == 0)
 			return nullptr;
 		return _currentLoop.top();
+	}
+
+	bool SymbolTable::EnterUnsafeContext()
+	{
+		if (_unsafeContext)
+			throw CannotNestUnsafeContextsException();
+		_unsafeContext = true;
+		return _unsafeContext;
+	}
+
+	void SymbolTable::ExitUnsafeContext()
+	{
+		if (!_unsafeContext)
+			throw UnexpectedException();
+		_unsafeContext = false;
+	}
+
+	bool SymbolTable::IsInUnsafeContext()
+	{
+		return _unsafeContext;
 	}
 
 	void SymbolTable::Enter()

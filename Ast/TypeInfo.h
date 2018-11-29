@@ -52,7 +52,9 @@ namespace Ast
 		virtual bool IsFloatingPoint() { return false; }
 		virtual bool IsComposite() { return false; }
 		virtual bool IsClassType() { return false; }
+		virtual bool IsNativeArrayType() { return false; }
 		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) = 0;
+		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) { throw UnexpectedException(); }
 
 		virtual int CreateCast(std::shared_ptr<TypeInfo> castTo) { throw UnexpectedException(); }
 
@@ -151,7 +153,8 @@ namespace Ast
 
 		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
 
-		bool IsMethod();
+		virtual bool IsMethod();
+		virtual bool IsOverloadTypeInfo();
 
 		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
 
@@ -163,6 +166,15 @@ namespace Ast
 		std::shared_ptr<Ast::Modifier> _mods;
 	};
 
+	class OverloadedFunctionTypeInfo : public FunctionTypeInfo
+	{
+	public:
+		OverloadedFunctionTypeInfo(const std::string& name);
+		virtual bool IsMethod() override;
+		virtual bool IsOverloadTypeInfo() override;
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
+	};
+
 	class BaseClassTypeInfo : public TypeInfo
 	{
 	public:
@@ -171,8 +183,6 @@ namespace Ast
 		virtual std::shared_ptr<TypeInfo> GetClassDeclarationTypeInfo(std::shared_ptr<SymbolTable> symbolTable) = 0;
 
 		virtual bool IsValueType() = 0;
-
-		virtual std::string FullyQualifiedName(std::shared_ptr<SymbolTable> symbolTable = nullptr) = 0;
 
 		virtual llvm::Value* GetDefaultValue(llvm::LLVMContext* context) override;
 	};
@@ -290,6 +300,37 @@ namespace Ast
 		std::string _name;
 		bool _valueType;
 		std::shared_ptr<ClassTypeInfo> _resolvedType;
+	};
+
+	class IntegerConstant;
+	class UnsafeArrayTypeInfo : public TypeInfo
+	{
+	public:
+		UnsafeArrayTypeInfo(std::shared_ptr<TypeInfo> elementTypeInfo, std::shared_ptr<Ast::IntegerConstant> rank);
+
+		virtual bool IsLegalTypeForAssignment(std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual bool IsImplicitlyAssignableFrom(std::shared_ptr<TypeInfo> other, std::shared_ptr<SymbolTable> symbolTable) override;
+
+		virtual bool SupportsOperator(Operation* operation) override;
+
+		virtual const std::string& Name() override;
+
+		virtual llvm::Value* CreateAllocation(const std::string& name, llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
+		virtual llvm::Type* GetIRType(llvm::LLVMContext* context, bool asOutput = false) override;
+
+		virtual bool IsSameType(std::shared_ptr<TypeInfo> other) override;
+		
+		virtual bool IsNativeArrayType() override { return true; }
+
+		std::shared_ptr<TypeInfo> GetElementTypeInfo() { return _elementTypeInfo; }
+
+	private:
+		std::shared_ptr<TypeInfo> _elementTypeInfo;
+		std::shared_ptr<IntegerConstant> _rank;
+		llvm::Type* _type;
+		std::string _name;
 	};
 
 	// Used in the grammar, as a step towards resolving towards an actual type.

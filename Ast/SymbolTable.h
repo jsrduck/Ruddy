@@ -236,6 +236,7 @@ namespace Ast
 			MemberInstanceBinding(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<SymbolBinding> reference);
 
 			virtual std::shared_ptr<SymbolCodeGenerator> CreateCodeGen() override;
+			static std::shared_ptr<SymbolCodeGenerator> CreateCodeGenFromValue(llvm::Value* referenceValue, bool isClassValueType, std::shared_ptr<MemberBinding> memberBinding);
 
 			bool IsReferenceToThisPointer();
 
@@ -257,11 +258,13 @@ namespace Ast
 			std::shared_ptr<MemberBinding> AddMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods);
 			std::shared_ptr<MemberBinding> AddExternalMemberVariableBinding(const std::string& name, std::shared_ptr<TypeInfo> typeInfo, Visibility visibility, Modifier::Modifiers mods);
 
+			std::shared_ptr<MemberBinding> GetMemberBinding(const std::string& member);
+			std::shared_ptr<FunctionBinding> GetMethodBinding(const std::string& member);
 			virtual bool IsClassBinding() override;
 			virtual std::shared_ptr<TypeInfo> GetTypeInfo() override;
 			size_t NumMembers();
 
-			virtual std::shared_ptr<Serializer> GetSerializer() override;;
+			virtual std::shared_ptr<Serializer> GetSerializer() override;
 
 			std::shared_ptr<ClassDeclarationTypeInfo> _typeInfo;
 			std::vector<std::shared_ptr<FunctionBinding>> _ctors;
@@ -287,6 +290,10 @@ namespace Ast
 		std::shared_ptr<LoopBinding> BindLoop();
 		std::shared_ptr<LoopBinding> GetCurrentLoop();
 
+		bool EnterUnsafeContext();
+		void ExitUnsafeContext();
+		bool IsInUnsafeContext();
+
 	private:
 		std::shared_ptr<SymbolTable::SymbolBinding> Lookup(const std::string& underNamespace, const std::string& symbolName, bool checkIsInitialized);
 		std::shared_ptr<SymbolTable::SymbolBinding> LookupInImplicitNamespaces(const std::string& symbolName, bool checkIsInitialized);
@@ -302,5 +309,6 @@ namespace Ast
 		std::unordered_map<std::string, std::function<std::shared_ptr<SymbolTable>()>> _unactivatedExternalLibraries;
 		std::vector<std::shared_ptr<SymbolTable>> _externalLibraries;
 		std::unordered_set<std::string> _activatedLibraries;
+		bool _unsafeContext = false;
 	};
 }

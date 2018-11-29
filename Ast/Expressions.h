@@ -69,6 +69,25 @@ namespace Ast
 		const std::string _id;
 	};
 
+	class Reference2 : public Expression
+	{
+	public:
+		Reference2(Expression* expr, const std::string& id, FileLocation& location) : Expression(location), _expr(expr), _id(id)
+		{
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
+
+		bool ExpectFunction = false;
+	protected:
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+
+	private:
+		std::shared_ptr<Expression> _expr;
+		std::shared_ptr<TypeInfo> _exprTypeInfo;
+		const std::string _id;
+	};
+
 	class ExpressionList : public Expression
 	{
 	public:

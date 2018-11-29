@@ -168,6 +168,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ArrayTests.cpp" />
     <ClCompile Include="ClassTypesTest.cpp" />
     <ClCompile Include="LoopTests.cpp" />
     <ClCompile Include="SerilializedSymbolTableTests.cpp" />

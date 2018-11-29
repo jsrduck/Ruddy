@@ -276,7 +276,7 @@ std::shared_ptr<Ast::SymbolTable::OverloadedFunctionBinding> Ast::SymbolTable::O
 
 std::shared_ptr<TypeInfo> Ast::SymbolTable::OverloadedFunctionBinding::GetTypeInfo()
 {
-	throw UnexpectedException();
+	return std::make_shared<OverloadedFunctionTypeInfo>(_name);
 }
 
 bool Ast::SymbolTable::OverloadedFunctionBinding::IsMethod()
@@ -336,6 +336,31 @@ SymbolTable::ClassBinding::ClassBinding(std::shared_ptr<Ast::SymbolTable> symbol
 std::shared_ptr<TypeInfo> SymbolTable::ClassBinding::GetTypeInfo()
 {
 	return _typeInfo;
+}
+
+std::shared_ptr<Ast::SymbolTable::MemberBinding> Ast::SymbolTable::ClassBinding::GetMemberBinding(const std::string & member)
+{
+	auto iter = std::find_if(_members.begin(), _members.end(), [&](const std::shared_ptr<Ast::SymbolTable::MemberBinding>& mem)
+	{
+		if (mem->GetName().compare(member) == 0)
+			return true;
+		return false;
+	});
+	if (iter != _members.end())
+	{
+		return *iter;
+	}
+	
+	return nullptr;
+}
+
+std::shared_ptr<Ast::SymbolTable::FunctionBinding> Ast::SymbolTable::ClassBinding::GetMethodBinding(const std::string & method)
+{
+	if (_functions.count(method) == 0)
+	{
+		return nullptr;
+	}
+	return _functions[method];
 }
 
 bool SymbolTable::ClassBinding::IsClassBinding()

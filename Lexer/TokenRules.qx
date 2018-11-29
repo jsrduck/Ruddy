@@ -111,6 +111,8 @@ mode PROGRAM :
 	"}"                    => TKN_BRACKET_CLOSE;
 	"("                    => TKN_PAREN_OPEN;
 	")"                    => TKN_PAREN_CLOSE;
+	"["                    => TKN_SQUARE_BRACKET_OPEN;
+	"]"                    => TKN_SQUARE_BRACKET_CLOSE;
 	"if"                   => TKN_IF;
 	"else"                 => TKN_ELSE;
 	"let"                  => TKN_LET;
@@ -130,6 +132,7 @@ mode PROGRAM :
 	"static"               => TKN_STATIC;
 	"print"                => TKN_PRINT;
 	"import"               => TKN_IMPORT;
+	"unsafe"               => TKN_UNSAFE;
 	{IDENTIFIER}           => TKN_IDENTIFIER(Lexeme);
 	{STRING_DELIMITER}     => GOTO(STRING_READER);
 }

@@ -3,6 +3,7 @@
 #include "Statements.h"
 #include "Classes.h"
 #include "Primitives.h"
+#include "Operations.h"
 #include <assert.h>
 using namespace std;
 
@@ -34,9 +35,9 @@ namespace Ast {
 			// This id isn't defined in the symbol table yet
 			throw SymbolNotDefinedException(_id);
 		}
-		if (!(_symbolBinding->IsLocalVariableBinding() || _symbolBinding->IsClassMemberBinding()))
+		if (!(_symbolBinding->IsLocalVariableBinding() || _symbolBinding->IsClassMemberBinding() || _symbolBinding->IsFunctionBinding()))
 		{
-			// This symbol exists, but it's not a variable so it can't be used as an expression
+			// This symbol exists, but it can't be used as an expression
 			throw SymbolWrongTypeException(_id);
 		}
 		auto currentFunction = symbolTable->GetCurrentFunction();
@@ -55,6 +56,55 @@ namespace Ast {
 			}
 		}
 		return _symbolBinding->GetTypeInfo();
+	}
+
+	std::shared_ptr<TypeInfo> Reference2::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
+	{
+		_exprTypeInfo = _expr->Evaluate(symbolTable, inInitializerList);
+		if (!_exprTypeInfo->IsClassType())
+		{
+			// TODO: Add unit test for this case
+			throw OnlyClassTypesCanBeDerefencedException(_exprTypeInfo->Name());
+		}
+
+		// Get the class binding for the type the expression returns
+		auto exprTypeBinding = symbolTable->Lookup(_exprTypeInfo->FullyQualifiedName(symbolTable));
+		if (!exprTypeBinding->IsClassBinding())
+		{
+			throw UnexpectedException();
+		}
+		auto classBinding = std::dynamic_pointer_cast<SymbolTable::ClassBinding>(exprTypeBinding);
+		if (classBinding == nullptr)
+		{
+			throw UnexpectedException();
+		}
+		if (ExpectFunction)
+		{
+			auto methodBinding = classBinding->GetMethodBinding(_id);
+			if (methodBinding == nullptr)
+			{
+				throw UnexpectedException();
+			}
+			auto instance = _expr->SymbolBinding();
+			if (instance == nullptr)
+			{
+				throw UnexpectedException();
+			}
+			_symbolBinding = std::make_shared<SymbolTable::FunctionInstanceBinding>(methodBinding, instance);
+			return _symbolBinding->GetTypeInfo();
+		}
+		else
+		{
+			auto memberBinding = classBinding->GetMemberBinding(_id);
+			if (memberBinding == nullptr)
+			{
+				throw UnexpectedException();
+			}
+			_symbolBinding = memberBinding;
+			// TODO: We can't use an instance binding here since we don't have a "binding" for all expressions that might evaluate
+			// to a class type (ie, an index operation). This is probably a sign that something ought to be cleaned up here...
+			return memberBinding->GetTypeInfo();
+		}
 	}
 
 	std::shared_ptr<TypeInfo> ExpressionList::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
@@ -167,26 +217,51 @@ namespace Ast {
 		throw NoMatchingFunctionSignatureFoundException(argsExpressionTypeInfo);
 	}
 
+	std::shared_ptr<TypeInfo> Ast::StackArrayDeclaration::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
+	{
+		if (symbolTable->IsInUnsafeContext())
+		{
+			// Unsafe native array
+			auto rankInt = _rank->AsUInt32(); // Test the value that it's not too big.
+			auto typeInfo = std::make_shared<UnsafeArrayTypeInfo>(_elementTypeInfo, _rank);
+			_varBinding = symbolTable->BindVariable(_varName, typeInfo);
+			return typeInfo;
+		}
+		else
+		{
+			// Array class
+			// Not implemented yet
+			throw UnexpectedException();
+		}
+	}
+
 	std::shared_ptr<TypeInfo> FunctionCall::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
-		_argsExprTypeInfo = _expression ? _expression->Evaluate(symbolTable) : nullptr;
+		_argsExprTypeInfo = _argExpr ? _argExpr->Evaluate(symbolTable) : nullptr;
 
 		if (_functionTypeInfo == nullptr)
 		{
-			auto originalBinding = symbolTable->Lookup(_name, inInitializerList);
-			if (originalBinding == nullptr)
+			auto asReference = std::dynamic_pointer_cast<Reference2>(_funExpr);
+			if (asReference)
 			{
-				// This id isn't defined in the symbol table yet
-				throw SymbolNotDefinedException(_name);
+				// A little hacky, but it's easiest to just tell the Reference that
+				// we're expecting a function rather than a member, since members
+				// and functions can have name collisions
+				asReference->ExpectFunction = true;
 			}
-			else if (!originalBinding->IsFunctionBinding())
+			auto typeInfo = _funExpr->Evaluate(symbolTable, inInitializerList);
+			_functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(typeInfo);
+			if (_functionTypeInfo == nullptr)
+			{
+				throw SymbolWrongTypeException(typeInfo->Name());
+			}
+			_symbolBinding = _funExpr->SymbolBinding();
+			if (!_symbolBinding->IsFunctionBinding())
 			{
 				// This symbol exists, but it's not the name of a function
-				throw SymbolWrongTypeException(originalBinding->GetFullyQualifiedName());
+				throw SymbolWrongTypeException(_symbolBinding->GetFullyQualifiedName());
 			}
-
-			_symbolBinding = originalBinding;
-
+			_name = _symbolBinding->GetFullyQualifiedName();
 			auto asFunctionBinding = std::dynamic_pointer_cast<SymbolTable::FunctionBinding>(_symbolBinding);
 			if (!asFunctionBinding)
 				throw UnexpectedException();
@@ -198,7 +273,15 @@ namespace Ast {
 				{
 					throw NoMatchingFunctionSignatureFoundException(_argsExprTypeInfo);
 				}
-				_symbolBinding = matchingBinding;
+				auto instance = std::dynamic_pointer_cast<SymbolTable::FunctionInstanceBinding>(_symbolBinding);
+				if (instance)
+				{
+					_symbolBinding = std::make_shared<SymbolTable::FunctionInstanceBinding>(matchingBinding, instance->_reference);
+				}
+				else
+				{
+					_symbolBinding = matchingBinding;
+				}
 			}
 
 			auto functionTypeInfo = std::dynamic_pointer_cast<FunctionTypeInfo>(_symbolBinding->GetTypeInfo());
@@ -206,14 +289,17 @@ namespace Ast {
 				throw UnexpectedException();
 			_functionTypeInfo = functionTypeInfo;
 
+			if (!symbolTable->IsInUnsafeContext() && _functionTypeInfo->_mods->IsUnsafe())
+			{
+				throw CannotCallUnsafeFunctionFromSafeContextException(_name);
+			}
 			if (!_functionTypeInfo->_mods->IsStatic())
 			{
-				auto functionInstanceBinding = std::dynamic_pointer_cast<Ast::SymbolTable::FunctionInstanceBinding>(originalBinding);
+				auto functionInstanceBinding = std::dynamic_pointer_cast<Ast::SymbolTable::FunctionInstanceBinding>(_symbolBinding);
 				_varBinding = functionInstanceBinding->_reference;
 			}
 		}
 
-		//_classBinding = symbolTable->GetCurrentClass();
 		if ((_argsExprTypeInfo == nullptr && _functionTypeInfo->InputArgsType() != nullptr) ||
 			(_argsExprTypeInfo != nullptr && _functionTypeInfo->InputArgsType() == nullptr))
 		{
@@ -378,17 +464,31 @@ namespace Ast {
 	std::shared_ptr<TypeInfo> AssignFromReference::Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr)
 	{
 		FileLocationContext locationContext(_location);
-		_symbolBinding = symbolTable->Lookup(_ref);
+		auto referenceType = _ref->Evaluate(symbolTable);
+		if (!referenceType->IsLegalTypeForAssignment(symbolTable))
+		{
+			throw TypeNotAssignableException(referenceType);
+		}
+		_symbolBinding = _ref->SymbolBinding();
 		if (_symbolBinding == nullptr)
 		{
-			throw SymbolNotDefinedException(_ref);
+			throw SymbolNotDefinedException(_ref->ToString());
 		}
 		if (!_symbolBinding->IsClassMemberBinding() && !_symbolBinding->IsLocalVariableBinding())
 		{
-			throw SymbolWrongTypeException(_ref);
+			throw SymbolWrongTypeException(_ref->ToString());
 		}
 
 		return _symbolBinding->GetTypeInfo();
+	}
+
+	Ast::AssignFromArrayIndex::AssignFromArrayIndex(IndexOperation * indexOperation, FileLocation & location) : AssignFromSingle(location), _indexOperation(indexOperation)
+	{
+	}
+
+	std::shared_ptr<TypeInfo> Ast::AssignFromArrayIndex::Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr)
+	{
+		return _indexOperation->Evaluate(symbolTable);
 	}
 
 	std::shared_ptr<TypeInfo> DeclareVariable::Resolve(std::shared_ptr<SymbolTable> symbolTable, std::shared_ptr<TypeInfo> rhsTypeInfo, std::shared_ptr<Expression> rhsExpr)
@@ -518,6 +618,15 @@ namespace Ast {
 			dtorCall->Evaluate(symbolTable);
 			_endScopeDtors.push_back(dtorCall);
 		}
+	}
+
+	void UnsafeStatements::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
+	{
+		assert(pass == METHOD_BODIES);
+		symbolTable->EnterUnsafeContext();
+		if (_statements)
+			_statements->TypeCheck(symbolTable, pass);
+		symbolTable->ExitUnsafeContext();
 	}
 
 	void ExpressionAsStatement::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
@@ -843,5 +952,30 @@ namespace Ast {
 		_statement->TypeCheck(symbolTable, pass);
 		if (_next != nullptr)
 			_next->TypeCheck(symbolTable, pass);
+	}
+
+	/* Operations */
+	std::shared_ptr<TypeInfo> Ast::CastOperation::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer)
+	{
+		// TODO: What about types that can't be cast at all?
+		_castFrom = _expression->Evaluate(symbolTable, inInitializer);
+		return _castTo;
+	}
+
+	std::shared_ptr<TypeInfo> Ast::IndexOperation::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializer)
+	{
+		_refTypeInfo = _refExpression->Evaluate(symbolTable, inInitializer);
+		if (!_refTypeInfo->SupportsOperator(this))
+		{
+			throw OperationNotDefinedException(OperatorString(), _refTypeInfo);
+		}
+		_indexTypeInfo = _indexExpression->Evaluate(symbolTable);
+		if (!_indexTypeInfo->IsInteger())
+		{
+			throw SymbolWrongTypeException(_indexTypeInfo->Name());
+		}
+		//_symbolBinding = _refExpression->SymbolBinding();
+		// For now, assume it's an unsafe array
+		return std::dynamic_pointer_cast<UnsafeArrayTypeInfo>(_refTypeInfo)->GetElementTypeInfo();
 	}
 }

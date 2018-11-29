@@ -24,7 +24,8 @@ namespace Ast
 		enum class Modifiers
 		{
 			NONE = 0x0,
-			STATIC = 0x1
+			STATIC = 0x1,
+			UNSAFE = 0x2
 		};
 
 		Modifier(Modifiers mods) : _mods(mods)
@@ -41,8 +42,32 @@ namespace Ast
 			return (int) _mods & (int) Modifiers::STATIC;
 		}
 
+		bool IsUnsafe()
+		{
+			return (int) _mods & (int) Modifiers::UNSAFE;
+		}
+
 	private:
 		Modifiers _mods;
+	};
+
+	class PeriodSeparatedId : public Node
+	{
+	public:
+		PeriodSeparatedId(const std::string& id) : _id(id)
+		{
+		}
+
+		PeriodSeparatedId(const std::string& lhs, const std::string& rhs) : _id(lhs + "." + rhs)
+		{
+		}
+
+		std::string Id()
+		{
+			return _id;
+		}
+	private:
+		const std::string _id;
 	};
 
 	enum TypeCheckPass

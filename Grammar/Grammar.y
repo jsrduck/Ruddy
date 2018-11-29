@@ -58,6 +58,7 @@ using namespace Ast;
 	Ast::GlobalStatements* gstmts_node;
 	Ast::GlobalStatement* gstmt_node;
 	Ast::NamespaceDeclaration* nmsp_node;
+	Ast::PeriodSeparatedId* id_node;
 	Ast::Reference* ref_node;
 	Ast::TypeSpecifier* type_node;
 	Ast::ConstantExpression* prim_node;
@@ -83,15 +84,20 @@ using namespace Ast;
 	Ast::InitializerList* init_list;
 	Ast::InitializerStatement* init_stmt;
 	Ast::ImportDirective* import_dir;
+	Ast::UnsafeStatements* unsafe_node;
+	Ast::IntegerConstant* int_cnst;
 };
 
 %type <vis_node> visibility;
 %type <gstmts_node> global_statements;
 %type <gstmt_node> global_statement;
 %type <nmsp_node> namespace_declaration;
-%type <ref_node> reference;
-%type <ref_node> single_identifier;
+%type <expr> expression_based_reference;
+%type <expr> reference;
+%type <id_node> single_identifier;
+%type <id_node> period_separated_id;
 %type <type_node> type;
+%type <type_node> unambiguous_type;
 %type <type_node> primitive_type;
 %type <type_node> class_type
 %type <type_node> value_class_type
@@ -115,17 +121,21 @@ using namespace Ast;
 %type <ln_stmt_node> assignment;
 %type <ln_stmt_node> return_statement;
 %type <scope_node> scoped_statement_list;
+%type <unsafe_node> unsafe_statement_list;
 %type <expr> expression;
 %type <expr> argument_expression;
 %type <expr> binary_arith_expression;
 %type <expr> unary_arith_expression;
+%type <expr> expression_that_could_evaluate_to_class_type;
 %type <expr> binary_comparison_expression;
 %type <expr> logical_expression;
 %type <expr> new_expression;
 %type <expr> function_call;
 %type <expr> print_statement;
 %type <expr> stack_construction;
+%type <expr> stack_array_declaration;
 %type <prim_node> number_literal;
+%type <int_cnst> unsigned_int_literal;
 %type <prim_node> bool_literal;
 %type <prim_node> char_literal;
 %type <prim_node> string_literal;
@@ -198,6 +208,8 @@ using namespace Ast;
 %token TKN_BRACKET_CLOSE;
 %token TKN_PAREN_OPEN;
 %token TKN_PAREN_CLOSE;
+%token TKN_SQUARE_BRACKET_OPEN;
+%token TKN_SQUARE_BRACKET_CLOSE;
 %token TKN_IF;
 %token TKN_ELSE;
 %token TKN_LET;
@@ -216,6 +228,7 @@ using namespace Ast;
 %token TKN_PROTECTED;
 %token TKN_STATIC;
 %token TKN_IMPORT;
+%token TKN_UNSAFE;
 
 /* Operator precedence. Lowest precedence on top. */
 %left TKN_OPERATOR_ASSIGN_TO;
@@ -286,37 +299,60 @@ namespace_declaration :
 single_identifier :
 	  TKN_IDENTIFIER
 	  {
-		$$ = new Reference(*$<id>1, FileLocation(@1.first_line, @1.first_column));
+		$$ = new PeriodSeparatedId(*$<id>1);
 		delete $<id>1;
 	  };
 
-reference : 
-	  single_identifier TKN_PERIOD reference
+period_separated_id : 
+	  single_identifier TKN_PERIOD period_separated_id
 	  {
-		$$ = new Reference($1->Id(), $3->Id(), FileLocation(@1.first_line, @1.first_column));
+		$$ = new PeriodSeparatedId($1->Id(), $3->Id());
 		delete $1;
 		delete $3;
 	  }
 	| single_identifier;
+
+expression_based_reference :
+	  expression_that_could_evaluate_to_class_type TKN_PERIOD single_identifier
+	  {
+		$$= new Reference2($1, $3->Id(), FileLocation(@1.first_line, @1.first_column));
+		delete $3;
+	  }
+	| expression_based_reference TKN_PERIOD single_identifier
+	  {
+		$$= new Reference2($1, $3->Id(), FileLocation(@1.first_line, @1.first_column));
+		delete $3;
+	  };
+
+reference : 
+	  period_separated_id
+	  {
+		$$= new Reference($1->Id(), FileLocation(@1.first_line, @1.first_column));
+		delete $1;
+	  }
+	| expression_based_reference;
 
 type :
 	  TKN_LET
 	  {
 		$$ = new TypeSpecifier();
 	  }
-	| class_type
+	| unambiguous_type;
+
+unambiguous_type:
+	  class_type
 	| value_class_type
 	| primitive_type;
 
 class_type : 
-	  reference
+	  period_separated_id
 	  {
 		$$ = new TypeSpecifier($1->Id(), false /*valueType*/);
 		delete $1;
 	  };
 
 value_class_type : 
-	  reference TKN_BITWISE_OPERATOR_AND
+	  period_separated_id TKN_BITWISE_OPERATOR_AND
 	  {
 		$$ = new TypeSpecifier($1->Id(), true /*valueType*/);
 		delete $1;
@@ -372,6 +408,11 @@ modifier:
 	  TKN_STATIC
 	  {
 		$$ = new Modifier(Modifier::Modifiers::STATIC);
+	  }
+	|
+	  TKN_UNSAFE
+	  {
+		$$ = new Modifier(Modifier::Modifiers::UNSAFE);
 	  };
 
 modifier_list:
@@ -510,7 +551,7 @@ class_statement :
 	| function_declaration;
 
 import_directive :
-	  TKN_IMPORT reference
+	  TKN_IMPORT period_separated_id
 	  {
 		$$ = new ImportDirective($2->Id(), FileLocation(@1.first_line, @1.first_column));
 		delete $2;
@@ -565,8 +606,11 @@ assign_from_single:
 	  }
 	| reference
 	  {
-		$$ = new AssignFromReference($1->Id(), FileLocation(@1.first_line, @1.first_column));
-		delete $1;
+		$$ = new AssignFromReference($1, FileLocation(@1.first_line, @1.first_column));
+	  }
+	| expression TKN_SQUARE_BRACKET_OPEN expression TKN_SQUARE_BRACKET_CLOSE
+	  {
+		$$ = new AssignFromArrayIndex(new IndexOperation($1, $3, true, FileLocation(@1.first_line, @1.first_column)), FileLocation(@1.first_line, @1.first_column));
 	  };
 
 assignment:
@@ -603,8 +647,15 @@ line_statement:
 	| while_statement
 	| break_statement
 	| scoped_statement_list
+	| unsafe_statement_list
 	| valid_expression_as_statement
 	| return_statement;
+
+unsafe_statement_list :
+	  TKN_UNSAFE scoped_statement_list
+	  {
+		$$ = new UnsafeStatements($2, FileLocation(@1.first_line, @1.first_column));
+	  };
 
 binary_arith_expression:
 	  expression TKN_ARITHMETIC_OPERATOR_PLUS expression
@@ -649,29 +700,25 @@ binary_arith_expression:
 	  };
 
 unary_arith_expression:
-	  single_identifier TKN_ARITHMETIC_OPERATOR_INCREMENT
+	  reference TKN_ARITHMETIC_OPERATOR_INCREMENT
 	  {
 		$$ = new PostIncrementOperation($1, FileLocation(@2.first_line, @2.first_column));
 	  }
-	| TKN_ARITHMETIC_OPERATOR_INCREMENT single_identifier
+	| TKN_ARITHMETIC_OPERATOR_INCREMENT reference
 	  {
 		$$ = new PreIncrementOperation($2, FileLocation(@1.first_line, @1.first_column));
 	  }
-	| single_identifier TKN_ARITHMETIC_OPERATOR_DECREMENT
+	| reference TKN_ARITHMETIC_OPERATOR_DECREMENT
 	  {
 		$$ = new PostDecrementOperation($1, FileLocation(@2.first_line, @2.first_column));
 	  }
-	| TKN_ARITHMETIC_OPERATOR_DECREMENT single_identifier 
+	| TKN_ARITHMETIC_OPERATOR_DECREMENT reference 
 	  {
 		$$ = new PreDecrementOperation($2, FileLocation(@1.first_line, @1.first_column));
 	  }
-	| TKN_BITWISE_OPERATOR_COMPLEMENT expression
+	| TKN_BITWISE_OPERATOR_COMPLEMENT reference
 	  {
 		$$ = new ComplementOperation($2, FileLocation(@1.first_line, @1.first_column));
-	  }
-	| TKN_PAREN_OPEN type TKN_PAREN_CLOSE expression
-	  {
-		$$ = new CastOperation($2->GetTypeInfo(), $4, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 valid_expression_as_statement:
@@ -690,7 +737,11 @@ valid_expression_as_statement:
 	| stack_construction TKN_SEMICOLON
 	  {
 		$$ = new ExpressionAsStatement($1, FileLocation(@1.first_line, @1.first_column));
-	  };
+	  }
+	| stack_array_declaration TKN_SEMICOLON
+	  {
+		$$ = new ExpressionAsStatement($1, FileLocation(@1.first_line, @1.first_column));
+	  }
 
 binary_comparison_expression:
 	  expression TKN_COMPARISON_OPERATOR_GREATER_THAN expression
@@ -733,7 +784,7 @@ logical_expression:
 	  };
 
 new_expression:
-	  TKN_NEW reference TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
+	  TKN_NEW period_separated_id TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
 		$$ = new NewExpression($2->Id(), $4, FileLocation(@1.first_line, @1.first_column));
 		delete $2;
@@ -748,8 +799,7 @@ print_statement:
 function_call:
 	  reference TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new FunctionCall($1->Id(), $3, FileLocation(@1.first_line, @1.first_column));
-		delete $1;
+		$$ = new FunctionCall($1, $3, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 stack_construction:
@@ -760,11 +810,26 @@ stack_construction:
 		delete $2;
 	  };
 
+stack_array_declaration:
+	  unambiguous_type single_identifier TKN_SQUARE_BRACKET_OPEN unsigned_int_literal TKN_SQUARE_BRACKET_CLOSE
+	  {
+		$$ = new StackArrayDeclaration($1->GetTypeInfo(), $2->Id(), $4, FileLocation(@2.first_line, @2.first_column));
+		delete $1;
+		delete $2;
+	  };
+
 literal:
 	  number_literal
 	| bool_literal 
 	| char_literal
 	| string_literal;
+
+unsigned_int_literal:
+	  TKN_CONSTANT_INT
+	  {
+		$$ = new IntegerConstant(*$<id>1, FileLocation(@1.first_line, @1.first_column));
+		delete $<id>1;
+	  };
 
 number_literal:
 	  TKN_ARITHMETIC_OPERATOR_MINUS TKN_CONSTANT_INT
@@ -777,11 +842,7 @@ number_literal:
 		$$ = new FloatingConstant(*$<id>2, FileLocation(@1.first_line, @1.first_column),  true /*negate*/);
 		delete $<id>2;
 	  }
-	| TKN_CONSTANT_INT
-	  {
-		$$ = new IntegerConstant(*$<id>1, FileLocation(@1.first_line, @1.first_column));
-		delete $<id>1;
-	  }
+	| unsigned_int_literal
 	| TKN_CONSTANT_FLOAT
 	  {
 		$$ = new FloatingConstant(*$<id>1, FileLocation(@1.first_line, @1.first_column));
@@ -822,18 +883,31 @@ argument_expression:
 	  {
 		$$ = NULL;
 	  };
-
-expression:
-	TKN_PAREN_OPEN expression TKN_PAREN_CLOSE
+	  
+/* We don't add reference to the following, since the whole point
+   of separating these is to allow it to be used in the reference grammar */
+expression_that_could_evaluate_to_class_type:
+	  TKN_PAREN_OPEN unambiguous_type TKN_PAREN_CLOSE expression
+	  {
+		$$ = new CastOperation($2->GetTypeInfo(), $4, FileLocation(@1.first_line, @1.first_column));
+	  }
+	| expression TKN_SQUARE_BRACKET_OPEN expression TKN_SQUARE_BRACKET_CLOSE
+	  {
+		$$ = new IndexOperation($1, $3, false, FileLocation(@1.first_line, @1.first_column));
+	  }
+	| TKN_PAREN_OPEN expression TKN_PAREN_CLOSE
 	  { 
 		$$ = $2; 
 	  }
-	| binary_arith_expression
+	| function_call;
+
+expression:
+	  binary_arith_expression
 	| unary_arith_expression
 	| binary_comparison_expression
 	| logical_expression
 	| literal
-	| reference 
+	| reference
 	| new_expression
-	| function_call
+	| expression_that_could_evaluate_to_class_type
 	| print_statement;
