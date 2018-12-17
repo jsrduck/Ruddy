@@ -315,12 +315,12 @@ period_separated_id :
 expression_based_reference :
 	  expression_that_could_evaluate_to_class_type TKN_PERIOD single_identifier
 	  {
-		$$= new Reference2($1, $3->Id(), FileLocation(@1.first_line, @1.first_column));
+		$$ = new DereferencedExpression($1, $3->Id(), FileLocation(@1.first_line, @1.first_column));
 		delete $3;
 	  }
 	| expression_based_reference TKN_PERIOD single_identifier
 	  {
-		$$= new Reference2($1, $3->Id(), FileLocation(@1.first_line, @1.first_column));
+		$$ = new DereferencedExpression($1, $3->Id(), FileLocation(@1.first_line, @1.first_column));
 		delete $3;
 	  };
 

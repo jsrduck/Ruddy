@@ -69,10 +69,10 @@ namespace Ast
 		const std::string _id;
 	};
 
-	class Reference2 : public Expression
+	class DereferencedExpression : public Expression
 	{
 	public:
-		Reference2(Expression* expr, const std::string& id, FileLocation& location) : Expression(location), _expr(expr), _id(id)
+		DereferencedExpression(Expression* expr, const std::string& id, FileLocation& location) : Expression(location), _expr(expr), _id(id)
 		{
 		}
 

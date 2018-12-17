@@ -58,7 +58,7 @@ namespace Ast {
 		return _symbolBinding->GetTypeInfo();
 	}
 
-	std::shared_ptr<TypeInfo> Reference2::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
+	std::shared_ptr<TypeInfo> DereferencedExpression::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
 		_exprTypeInfo = _expr->Evaluate(symbolTable, inInitializerList);
 		if (!_exprTypeInfo->IsClassType())
@@ -241,7 +241,7 @@ namespace Ast {
 
 		if (_functionTypeInfo == nullptr)
 		{
-			auto asReference = std::dynamic_pointer_cast<Reference2>(_funExpr);
+			auto asReference = std::dynamic_pointer_cast<DereferencedExpression>(_funExpr);
 			if (asReference)
 			{
 				// A little hacky, but it's easiest to just tell the Reference that

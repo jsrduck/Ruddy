@@ -596,8 +596,7 @@ namespace Ast {
 		}
 	}
 
-	// TODO: Rename Reference2 to something nice.
-	llvm::Value * Ast::Reference2::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	llvm::Value * Ast::DereferencedExpression::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto exprVal = _expr->CodeGen(builder, context, module);
 		auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(_exprTypeInfo);
