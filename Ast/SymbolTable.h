@@ -13,6 +13,7 @@ namespace Ast
 {
 	class SymbolCodeGenerator;
 	class Serializer;
+	class Expression;
 	class SymbolTable : public std::enable_shared_from_this<SymbolTable>
 	{
 	public:
@@ -242,6 +243,18 @@ namespace Ast
 
 		protected:
 			std::shared_ptr<SymbolBinding> _reference;
+		};
+
+		class MemberInstanceBindingFromExpression : public MemberBinding
+		{
+		public:
+			MemberInstanceBindingFromExpression(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<TypeInfo> exprTypeInfo, std::shared_ptr<Ast::Expression> expression);
+			virtual std::shared_ptr<SymbolCodeGenerator> CreateCodeGen() override;
+
+		protected:
+			std::shared_ptr<MemberBinding> _memberBinding;
+			std::shared_ptr<Expression> _expression;
+			std::shared_ptr<TypeInfo> _exprTypeInfo;
 		};
 
 		class ClassBinding : public SymbolBinding

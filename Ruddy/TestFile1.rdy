@@ -6,6 +6,12 @@ class Foo
 		j = 7;
 	}
 
+	public Foo(int in)
+	{
+		i = in;
+		j = 7;
+	}
+
 	int64 j;
 	int i;
 }
@@ -104,6 +110,36 @@ class Program
 				print(e[counter]._foo1.i);
 				print(e[counter]._foo1.j);
 				counter++;
+			}
+
+			{
+				Foo buffer[1];
+				let foo1 = new Foo(1);
+				buffer[0] = foo1;
+				print(foo1.i); // 1
+				buffer[0] = new Foo(2);
+				print(foo1.i); // 1
+				print(buffer[0].i); // 2
+				buffer[0] = foo1;
+				print(foo1.i); // 1
+				foo1.i = 3;
+				print(foo1.i); // 3
+				buffer[0].i = 6;
+				print(buffer[0].i); // 6
+			}
+
+			{
+				Foo& buffer[1]; // uninitialized foos! That works since this is "unsafe" code... but we'll need a solution for the safe case. Default c'tor required, probably? Supply a c'tor to the array initialization?
+				Foo& foo2(1);
+				buffer[0] = foo2; // copy
+			
+				print(foo2.i); // 1
+				print(buffer[0].i); // 1
+				buffer[0].i = 4;
+				foo2.i = 5;
+				print(foo2.i); // 5
+				print(buffer[0].i); // 4
+
 			}
 		}
 

@@ -436,6 +436,15 @@ bool SymbolTable::MemberInstanceBinding::IsReferenceToThisPointer()
 	return _reference->IsFunctionBinding();
 }
 
+/* MemberInstanceBindingFromExpression */
+Ast::SymbolTable::MemberInstanceBindingFromExpression::MemberInstanceBindingFromExpression(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<TypeInfo> exprTypeInfo, std::shared_ptr<Expression> expression) :
+	MemberBinding(memberBinding),
+	_expression(expression),
+	_memberBinding(memberBinding),
+	_exprTypeInfo(exprTypeInfo)
+{
+}
+
 /* LoopBinding */
 SymbolTable::LoopBinding::LoopBinding(std::shared_ptr<Ast::SymbolTable> symbolTable) : SymbolBinding(symbolTable, "", "", Visibility::PUBLIC)
 {

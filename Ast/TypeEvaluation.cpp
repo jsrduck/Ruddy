@@ -100,9 +100,7 @@ namespace Ast {
 			{
 				throw UnexpectedException();
 			}
-			_symbolBinding = memberBinding;
-			// TODO: We can't use an instance binding here since we don't have a "binding" for all expressions that might evaluate
-			// to a class type (ie, an index operation). This is probably a sign that something ought to be cleaned up here...
+			_symbolBinding = std::make_shared<SymbolTable::MemberInstanceBindingFromExpression>(memberBinding, _exprTypeInfo, _expr);			
 			return memberBinding->GetTypeInfo();
 		}
 	}

@@ -227,6 +227,32 @@ namespace Ast {
 		return std::make_shared<MemberInstanceCodeGen>(referenceValue, isClassValueType, memberBinding->Index());
 	}
 
+	/* MemberInstanceFromExpression */
+	class MemberInstanceFromExpressionCodeGen : public BasicCodeGenerator
+	{
+	public:
+		MemberInstanceFromExpressionCodeGen(std::shared_ptr<Ast::Expression> expression, std::shared_ptr<TypeInfo> exprTypeInfo, std::shared_ptr<Ast::SymbolTable::MemberBinding> memberBinding) : _expression(expression), _memberBinding(memberBinding), _exprTypeInfo(exprTypeInfo)
+		{
+		}
+
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
+		{
+			auto exprVal = _expression->CodeGen(builder, context, module);
+			auto memberInstanceCodeGen = SymbolTable::MemberInstanceBinding::CreateCodeGenFromValue(exprVal, _exprTypeInfo->IsClassType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(_exprTypeInfo)->IsValueType(), _memberBinding);
+			return memberInstanceCodeGen->GetIRValue(builder, context, module);
+		}
+
+	private:
+		std::shared_ptr<Ast::Expression> _expression;
+		std::shared_ptr<TypeInfo> _exprTypeInfo;
+		std::shared_ptr<Ast::SymbolTable::MemberBinding> _memberBinding;
+	};
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::MemberInstanceBindingFromExpression::CreateCodeGen()
+	{
+		return std::make_shared<MemberInstanceFromExpressionCodeGen>(_expression, _exprTypeInfo, _memberBinding);
+	}
+
+
 	/* Loop */
 	class LoopCodeGen : public BasicCodeGenerator
 	{
@@ -614,20 +640,6 @@ namespace Ast {
 		auto codeGen = SymbolTable::MemberInstanceBinding::CreateCodeGenFromValue(exprVal, classTypeInfo->IsValueType(), memberBinding);
 		auto val = codeGen->GetIRValue(builder, context, module);
 		// If it's a non class type, we should load it
-		/* TODO: Should native arrays hold pointer to pointers like when we store a reference in a variable? What if we want to do an assignment?
-		   Wouldn't that break if we don't? In other words, treat index entries as "variables."  If that's the case, we would also need to load
-		   reference types.
-
-		   Example:
-
-		   Foo buffer[2];
-		   let foo1 = new Foo(1);
-		   buffer[0] = foo1;
-		   print(foo1.i); // 1
-		   buffer[0] = new Foo(2);
-		   print(foo1.i); // 1
-		   print(buffer[0].i); // 2
-		*/
 		if (_typeInfo->IsPrimitiveType())
 		{
 			val = builder->CreateLoad(val);
