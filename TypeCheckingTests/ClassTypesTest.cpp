@@ -506,6 +506,43 @@ namespace TypeCheckingTests
 			});
 		}
 
+		TEST_METHOD(DerefFunctionThatReturnsObjectSucceeds)
+		{
+			auto tree = ParseTree("class A { int i; } class B { static fun(A a) GetA() { return new A(); } static fun AssignA() { int i = GetA().i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(DerefFunctionThatReturnsObjectWithoutThatMemberFails)
+		{
+			auto tree = ParseTree("class A { } class B { static fun(A a) GetA() { return new A(); } static fun AssignA() { int i = GetA().i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<SymbolNotDefinedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(DerefOfMultiTypeFunctionFails)
+		{
+			auto tree = ParseTree("class A { int i; } class B { static fun(A a, int j) GetA() { return new A(), 1; } static fun AssignA() { int i = GetA().i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<OnlyClassTypesCanBeDerefencedException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(DerefFunctionThatReturnsObjectAndAssignsToWrongTypeFails)
+		{
+			auto tree = ParseTree("class A { int i; } class B { static fun(A a) GetA() { return new A(); } static fun AssignA() { char c = GetA().i; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<TypeMismatchException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
 		TEST_METHOD(FunctionCallMultiReturnTypePlusAdditionalArgumentIsValidArgument)
 		{
 			auto tree = ParseTree("class A { fun(int i, char j) B { return 0,'a'; } fun C(int i, char j, int k) { } fun D() { C(B(), 1); } }");
@@ -734,6 +771,16 @@ namespace TypeCheckingTests
 			auto tree = ParseTree("class A { A(bool j) {} } class B { fun C() { A a = new A(0); } }");
 			auto table = std::make_shared<SymbolTable>();
 			Assert::ExpectException<NoMatchingFunctionSignatureFoundException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(CtorWithDifferentNameFails)
+		{
+			auto tree = ParseTree("class A { B() { } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<ConstructorMustHaveSameNameAsClassException>([this, &tree, &table]()
 			{
 				tree->TypeCheck(table);
 			});

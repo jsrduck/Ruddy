@@ -245,14 +245,15 @@ namespace Ast
 			std::shared_ptr<SymbolBinding> _reference;
 		};
 
-		class MemberInstanceBindingFromExpression : public MemberBinding
+		/* A binding that represents an expression that can't be bound to a symbol in the symbol table
+		   during the type-checking phase. The value must be computed during the code generation phase instead. */
+		class DeferredExpressionBinding : public SymbolBinding
 		{
 		public:
-			MemberInstanceBindingFromExpression(std::shared_ptr<MemberBinding> memberBinding, std::shared_ptr<TypeInfo> exprTypeInfo, std::shared_ptr<Ast::Expression> expression);
+			DeferredExpressionBinding(std::shared_ptr<Ast::SymbolTable> symbolTable, std::shared_ptr<Ast::Expression> expression, std::shared_ptr<TypeInfo> exprTypeInfo);
 			virtual std::shared_ptr<SymbolCodeGenerator> CreateCodeGen() override;
-
+			virtual std::shared_ptr<TypeInfo> GetTypeInfo() override;
 		protected:
-			std::shared_ptr<MemberBinding> _memberBinding;
 			std::shared_ptr<Expression> _expression;
 			std::shared_ptr<TypeInfo> _exprTypeInfo;
 		};

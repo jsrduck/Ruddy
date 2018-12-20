@@ -184,6 +184,27 @@ namespace Ast {
 		return _functionBinding->GetCodeGen();
 	}
 
+	/* DeferredExpression */
+	class DeferredExpressionCodeGen : public BasicCodeGenerator
+	{
+	public:
+		DeferredExpressionCodeGen(std::shared_ptr<Ast::Expression> expression, std::shared_ptr<TypeInfo> exprTypeInfo) : _expression(expression), _exprTypeInfo(exprTypeInfo)
+		{
+		}
+
+		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override
+		{
+			return _expression->CodeGen(builder, context, module);
+		}
+
+		std::shared_ptr<Ast::Expression> _expression;
+		std::shared_ptr<TypeInfo> _exprTypeInfo;
+	};
+	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::DeferredExpressionBinding::CreateCodeGen()
+	{
+		return std::make_shared<DeferredExpressionCodeGen>(_expression, _exprTypeInfo);
+	}
+
 	/* MemberInstance */
 	class MemberInstanceCodeGen : public BasicCodeGenerator
 	{
@@ -202,7 +223,12 @@ namespace Ast {
 			auto irVal = _reference ? _reference->GetIRValue(builder, context, module) : _value;
 
 			// If "this" is a reference type, we need to do a load first
-			if (!_thisPtrIsValueType)
+			// Note that there's an exception if reference is a function call that returns an object.
+			// In this case, the function call is returning an object that hasn't been "stored" yet as
+			// an intermediate step. It seems wasteful to store the object pointer just to load it, so we're
+			// going to just add an explicit exception here for that case.
+			bool isReferenceFunctionCall = _reference && std::dynamic_pointer_cast<DeferredExpressionCodeGen>(_reference) && std::dynamic_pointer_cast<FunctionCall>(std::dynamic_pointer_cast<DeferredExpressionCodeGen>(_reference)->_expression);
+			if (!_thisPtrIsValueType && !isReferenceFunctionCall)
 				irVal = builder->CreateLoad(irVal);
 
 			std::vector<llvm::Value*> idxVec;
@@ -226,32 +252,6 @@ namespace Ast {
 	{
 		return std::make_shared<MemberInstanceCodeGen>(referenceValue, isClassValueType, memberBinding->Index());
 	}
-
-	/* MemberInstanceFromExpression */
-	class MemberInstanceFromExpressionCodeGen : public BasicCodeGenerator
-	{
-	public:
-		MemberInstanceFromExpressionCodeGen(std::shared_ptr<Ast::Expression> expression, std::shared_ptr<TypeInfo> exprTypeInfo, std::shared_ptr<Ast::SymbolTable::MemberBinding> memberBinding) : _expression(expression), _memberBinding(memberBinding), _exprTypeInfo(exprTypeInfo)
-		{
-		}
-
-		virtual llvm::Value* GetIRValue(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module)
-		{
-			auto exprVal = _expression->CodeGen(builder, context, module);
-			auto memberInstanceCodeGen = SymbolTable::MemberInstanceBinding::CreateCodeGenFromValue(exprVal, _exprTypeInfo->IsClassType() && std::dynamic_pointer_cast<BaseClassTypeInfo>(_exprTypeInfo)->IsValueType(), _memberBinding);
-			return memberInstanceCodeGen->GetIRValue(builder, context, module);
-		}
-
-	private:
-		std::shared_ptr<Ast::Expression> _expression;
-		std::shared_ptr<TypeInfo> _exprTypeInfo;
-		std::shared_ptr<Ast::SymbolTable::MemberBinding> _memberBinding;
-	};
-	std::shared_ptr<SymbolCodeGenerator> Ast::SymbolTable::MemberInstanceBindingFromExpression::CreateCodeGen()
-	{
-		return std::make_shared<MemberInstanceFromExpressionCodeGen>(_expression, _exprTypeInfo, _memberBinding);
-	}
-
 
 	/* Loop */
 	class LoopCodeGen : public BasicCodeGenerator
@@ -387,7 +387,10 @@ namespace Ast {
 			// Push "this" ptr on first
 			if (_varBinding != nullptr)
 			{
-				args.push_back(_varBinding->GetCodeGen()->GetIRValue(builder, context, module));
+				auto val = _varBinding->GetCodeGen()->GetIRValue(builder, context, module);
+				if (!std::dynamic_pointer_cast<BaseClassTypeInfo>(_varBinding->GetTypeInfo())->IsValueType())
+					val = builder->CreateLoad(val);
+				args.push_back(val);
 			}
 			else
 			{
@@ -624,7 +627,6 @@ namespace Ast {
 
 	llvm::Value * Ast::DereferencedExpression::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
-		auto exprVal = _expr->CodeGen(builder, context, module);
 		auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(_exprTypeInfo);
 		if (classTypeInfo == nullptr)
 		{
@@ -637,8 +639,8 @@ namespace Ast {
 		{
 			throw UnexpectedException();
 		}
-		auto codeGen = SymbolTable::MemberInstanceBinding::CreateCodeGenFromValue(exprVal, classTypeInfo->IsValueType(), memberBinding);
-		auto val = codeGen->GetIRValue(builder, context, module);
+
+		auto val = _symbolBinding->GetCodeGen()->GetIRValue(builder, context, module);
 		// If it's a non class type, we should load it
 		if (_typeInfo->IsPrimitiveType())
 		{

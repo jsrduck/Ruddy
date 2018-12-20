@@ -168,4 +168,9 @@ namespace Ast {
 		_message = "Cannot dereference expression that evaluates to non-class type " + actualType;
 	}
 
+	ConstructorMustHaveSameNameAsClassException::ConstructorMustHaveSameNameAsClassException(const std::string & functionName, const std::string & className)
+	{
+		_message = "Constructor named " + functionName + " in class " + className + ". Constructor names must match class names.";
+	}
+
 }

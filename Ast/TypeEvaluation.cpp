@@ -98,9 +98,9 @@ namespace Ast {
 			auto memberBinding = classBinding->GetMemberBinding(_id);
 			if (memberBinding == nullptr)
 			{
-				throw UnexpectedException();
+				throw SymbolNotDefinedException(classBinding->GetFullyQualifiedName() + "." + _id);
 			}
-			_symbolBinding = std::make_shared<SymbolTable::MemberInstanceBindingFromExpression>(memberBinding, _exprTypeInfo, _expr);			
+			_symbolBinding = std::make_shared<SymbolTable::MemberInstanceBinding>(memberBinding, std::make_shared<SymbolTable::DeferredExpressionBinding>(symbolTable, _expr, _exprTypeInfo));
 			return memberBinding->GetTypeInfo();
 		}
 	}
@@ -825,6 +825,14 @@ namespace Ast {
 
 	void ConstructorDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
 	{
+		if (pass == METHOD_DECLARATIONS)
+		{
+			if (_name.compare(_classBinding->GetName()) != 0)
+			{
+				throw ConstructorMustHaveSameNameAsClassException(_name, _classBinding->GetName());
+			}
+		}
+
 		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
 			symbolTable->Enter();

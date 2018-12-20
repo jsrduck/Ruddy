@@ -40,6 +40,21 @@ class Baz
 	Foo _foo2;
 }
 
+class FooBar
+{
+	public FooBar()
+	{
+		_foo = new Foo();
+	}
+
+	public fun(Foo retVal) GetFoo()
+	{
+		return _foo;
+	}
+
+	private Foo _foo;
+}
+
 class Program 
 {
 	static fun(int ret) main()
@@ -141,6 +156,11 @@ class Program
 				print(buffer[0].i); // 4
 
 			}
+
+			FooBar foobar = new FooBar();
+			print(foobar.GetFoo().i); // 3
+			foobar.GetFoo().i = 9;
+			print(foobar.GetFoo().i); // 9
 		}
 
 		let baz = new Baz(1,2.5,'a');
