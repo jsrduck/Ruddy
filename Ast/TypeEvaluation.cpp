@@ -55,6 +55,10 @@ namespace Ast {
 				throw NonStaticMemberReferencedFromStaticContextException(_symbolBinding->GetName());
 			}
 		}
+		if (_symbolBinding->IsClassMemberBinding() && std::dynamic_pointer_cast<SymbolTable::MemberBinding>(_symbolBinding)->_modifier->IsUnsafe() && !symbolTable->IsInUnsafeContext())
+		{
+			throw CannotReferenceUnsafeMemberFromSafeContextException(_symbolBinding->GetName());
+		}
 		return _symbolBinding->GetTypeInfo();
 	}
 
@@ -217,7 +221,7 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> Ast::StackArrayDeclaration::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
-		if (symbolTable->IsInUnsafeContext())
+		if (symbolTable->IsInUnsafeContext() || _unsafeModifier)
 		{
 			// Unsafe native array
 			auto rankInt = _rank->AsUInt32(); // Test the value that it's not too big.
@@ -679,7 +683,7 @@ namespace Ast {
 				{
 					throw TypeMismatchException(_defaultValue->Evaluate(symbolTable), _typeInfo);
 				}
-				else if (_defaultValue == nullptr && !_typeInfo->IsLegalTypeForAssignment(symbolTable))
+				else if (_defaultValue == nullptr && !(_typeInfo->IsLegalTypeForAssignment(symbolTable) || _typeInfo->IsNativeArrayType()))
 				{
 					// We need to make sure that this is a legal type for assignment
 					throw SymbolWrongTypeException(_typeInfo->Name());
@@ -687,6 +691,18 @@ namespace Ast {
 			}
 
 			auto binding = symbolTable->BindMemberVariable(_name, _typeInfo, _visibility, _mods->Get(), pass);
+		}
+	}
+
+	void Ast::ClassMemberArrayDeclaration::TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass)
+	{
+		if (pass >= CLASS_VARIABLES)
+		{
+			if (pass == CLASS_VARIABLES)
+			{
+				_typeInfo = _arrayDecl->Evaluate(symbolTable);
+				ClassMemberDeclaration::TypeCheckInternal(symbolTable, pass);
+			}
 		}
 	}
 
@@ -768,6 +784,8 @@ namespace Ast {
 		if (pass == METHOD_DECLARATIONS || pass >= METHOD_BODIES)
 		{
 			symbolTable->Enter();
+			if (_mods->IsUnsafe())
+				symbolTable->EnterUnsafeContext();
 
 			GetInputAndOutputTypes();
 
@@ -780,6 +798,8 @@ namespace Ast {
 					_body->TypeCheck(symbolTable, pass);
 			}
 
+			if (_mods->IsUnsafe())
+				symbolTable->ExitUnsafeContext();
 			_endScopeVars = symbolTable->Exit();
 
 			if (pass == METHOD_BODIES && _body != nullptr)

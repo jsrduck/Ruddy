@@ -163,6 +163,13 @@ namespace Ast {
 		_message.append("\" is marked unsafe, and may only be called from an unsafe context.");
 	}
 
+	CannotReferenceUnsafeMemberFromSafeContextException::CannotReferenceUnsafeMemberFromSafeContextException(const std::string& unsafeMemberName)
+	{
+		_message = "Member \"";
+		_message.append(unsafeMemberName);
+		_message.append("\" is marked unsafe, and may only be called from an unsafe context.");
+	}
+
 	OnlyClassTypesCanBeDerefencedException::OnlyClassTypesCanBeDerefencedException(const std::string & actualType)
 	{
 		_message = "Cannot dereference expression that evaluates to non-class type " + actualType;

@@ -193,6 +193,12 @@ namespace Ast {
 		CannotCallUnsafeFunctionFromSafeContextException(const std::string& functionName);
 	};
 
+	class CannotReferenceUnsafeMemberFromSafeContextException : public Exception
+	{
+	public:
+		CannotReferenceUnsafeMemberFromSafeContextException(const std::string& unsafeMemberName);
+	};
+
 	class ConstructorMustHaveSameNameAsClassException : public Exception
 	{
 	public:

@@ -794,7 +794,7 @@ namespace Ast
 	}
 
 	/* UnsafeArray */
-	UnsafeArrayTypeInfo::UnsafeArrayTypeInfo(std::shared_ptr<TypeInfo> elementTypeInfo, std::shared_ptr<IntegerConstant> rank) : _elementTypeInfo(elementTypeInfo), _rank(rank)
+	UnsafeArrayTypeInfo::UnsafeArrayTypeInfo(std::shared_ptr<TypeInfo> elementTypeInfo, std::shared_ptr<IntegerConstant> rank) : _elementTypeInfo(elementTypeInfo), _rank(rank), _type(nullptr)
 	{
 		_name = _elementTypeInfo->Name() + "[]";
 	}

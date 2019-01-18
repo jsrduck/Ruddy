@@ -86,6 +86,7 @@ using namespace Ast;
 	Ast::ImportDirective* import_dir;
 	Ast::UnsafeStatements* unsafe_node;
 	Ast::IntegerConstant* int_cnst;
+	Ast::StackArrayDeclaration* stck_array_decl;
 };
 
 %type <vis_node> visibility;
@@ -133,7 +134,7 @@ using namespace Ast;
 %type <expr> function_call;
 %type <expr> print_statement;
 %type <expr> stack_construction;
-%type <expr> stack_array_declaration;
+%type <stck_array_decl> stack_array_declaration;
 %type <prim_node> number_literal;
 %type <int_cnst> unsigned_int_literal;
 %type <prim_node> bool_literal;
@@ -444,6 +445,11 @@ class_member:
 		delete $3;
 		delete $1;
 	  }
+	| visibility modifier_list stack_array_declaration TKN_SEMICOLON
+	  {
+		$$ = new ClassMemberArrayDeclaration($1->Get(), $2, $3, FileLocation(@3.first_line, @3.first_column));
+		delete $1;
+	  };
 	| visibility modifier_list type single_identifier TKN_OPERATOR_ASSIGN_TO literal TKN_SEMICOLON
 	  {
 		$$ = new ClassMemberDeclaration($1->Get(), $2, $3->GetTypeInfo(), $4->Id(), FileLocation(@4.first_line, @4.first_column), $6);

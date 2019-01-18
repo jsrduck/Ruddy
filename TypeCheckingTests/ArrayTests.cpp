@@ -116,5 +116,29 @@ namespace TypeCheckingTests {
 			auto table = std::make_shared<SymbolTable>();
 			tree->TypeCheck(table);
 		}
+
+		TEST_METHOD(UnsafeArrayCanBeReferencedInUnsafeContext)
+		{
+			auto tree = ParseTree("class A { unsafe int _buffer[10]; fun B() { unsafe { _buffer[0] = 1; } } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
+
+		TEST_METHOD(UnsafeArrayCannotBeReferencedOutsideUnsafeContext)
+		{
+			auto tree = ParseTree("class A { unsafe int _buffer[10]; fun B() { _buffer[0] = 1; } }");
+			auto table = std::make_shared<SymbolTable>();
+			Assert::ExpectException<CannotReferenceUnsafeMemberFromSafeContextException>([this, &tree, &table]()
+			{
+				tree->TypeCheck(table);
+			});
+		}
+
+		TEST_METHOD(UnsafeArrayCanBeReferencedInUnsafeFunction)
+		{
+			auto tree = ParseTree("class A { unsafe int _buffer[10]; unsafe fun B() { _buffer[0] = 1; } }");
+			auto table = std::make_shared<SymbolTable>();
+			tree->TypeCheck(table);
+		}
 	};
 }

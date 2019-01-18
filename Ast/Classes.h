@@ -18,6 +18,29 @@ namespace Ast
 		std::shared_ptr<Ast::SymbolTable::ClassBinding> _classBinding;
 	};
 
+	class StackArrayDeclaration : public Expression
+	{
+	public:
+		StackArrayDeclaration(std::shared_ptr<TypeInfo> typeInfo, const std::string& variableName, IntegerConstant* rank, FileLocation& location) :
+			Expression(location),
+			_elementTypeInfo(typeInfo),
+			_varName(variableName),
+			_rank(rank)
+		{
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
+
+		std::shared_ptr<TypeInfo> _elementTypeInfo;
+		const std::string _varName;
+		std::shared_ptr<IntegerConstant> _rank;
+		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _varBinding;
+		bool _unsafeModifier = false;
+
+	protected:
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
+	};
+
 	class ClassMemberDeclaration : public ClassStatement
 	{
 	public:
@@ -39,6 +62,22 @@ namespace Ast
 		std::shared_ptr<TypeInfo> _typeInfo; 
 		const std::string _name;
 		std::shared_ptr<ConstantExpression> _defaultValue;
+		std::shared_ptr<StackArrayDeclaration> _asArrayDecl;
+	};
+
+	class ClassMemberArrayDeclaration : public ClassMemberDeclaration
+	{
+	public:
+		ClassMemberArrayDeclaration(Visibility visibility, Modifier* modifiers, StackArrayDeclaration* arrayDecl, FileLocation& location)
+			: ClassMemberDeclaration(visibility, modifiers, arrayDecl->_typeInfo, arrayDecl->_varName, location), _arrayDecl(arrayDecl)
+		{
+			_arrayDecl->_unsafeModifier = modifiers->IsUnsafe();
+		}
+
+		virtual void TypeCheckInternal(std::shared_ptr<SymbolTable> symbolTable, TypeCheckPass pass) override;
+		virtual void CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module) override;
+
+		std::shared_ptr<StackArrayDeclaration> _arrayDecl;
 	};
 
 	class Argument : public Node
@@ -307,25 +346,4 @@ namespace Ast
 		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _varBinding;
 	};
 
-	class StackArrayDeclaration : public Expression
-	{
-	public:
-		StackArrayDeclaration(std::shared_ptr<TypeInfo> typeInfo, const std::string& variableName, IntegerConstant* rank, FileLocation& location) :
-			Expression(location),
-			_elementTypeInfo(typeInfo),
-			_varName(variableName),
-			_rank(rank)
-		{
-		}
-
-		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
-
-		std::shared_ptr<TypeInfo> _elementTypeInfo;
-		const std::string _varName;
-		std::shared_ptr<IntegerConstant> _rank;
-		std::shared_ptr<Ast::SymbolTable::SymbolBinding> _varBinding;
-
-	protected:
-		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint = nullptr) override;
-	};
 }

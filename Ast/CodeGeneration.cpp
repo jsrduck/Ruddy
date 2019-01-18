@@ -1205,14 +1205,16 @@ namespace Ast {
 		auto refVal = _refExpression->CodeGen(builder, context, module);
 		auto indexVal = _indexExpression->CodeGen(builder, context, module);
 
+		// GEP to get pointer to array index
 		std::vector<llvm::Value*> idxVec;
+		idxVec.push_back(builder->getInt32(0));
 		idxVec.push_back(indexVal);
-		auto val = builder->CreateGEP(refVal, idxVec);
+		auto pointerToIndex = builder->CreateGEP(refVal, idxVec);
 		auto asClassType = std::dynamic_pointer_cast<BaseClassTypeInfo>(_typeInfo);
 		if (_isWrite || asClassType)
-			return val;
+			return pointerToIndex;
 		else
-			return builder->CreateLoad(val);
+			return builder->CreateLoad(pointerToIndex);
 	}
 
 	llvm::Value* Expression::CodeGen(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
@@ -1297,7 +1299,7 @@ namespace Ast {
 	llvm::Value * UnsafeArrayTypeInfo::CreateAllocation(const std::string & name, llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
 	{
 		// Note that this does not "zero" the memory or call a default c'tor or anything for val types, which is allowed here since this is an unsafe context.
-		return builder->CreateAlloca(_elementTypeInfo->GetIRType(context), 0 /*addrspace*/, _rank->CodeGen(builder, context, module), name);
+		return builder->CreateAlloca(GetIRType(context), nullptr);
 	}
 
 	llvm::Type * UnsafeArrayTypeInfo::GetIRType(llvm::LLVMContext * context, bool asOutput)
@@ -1569,6 +1571,10 @@ namespace Ast {
 	}
 
 	void Ast::ClassMemberDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
+	{
+	}
+
+	void Ast::ClassMemberArrayDeclaration::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module)
 	{
 	}
 

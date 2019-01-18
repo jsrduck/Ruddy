@@ -55,6 +55,30 @@ class FooBar
 	private Foo _foo;
 }
 
+class HasUnsafeArray
+{
+	public unsafe int buffer[10];
+
+	public unsafe fun() MultiplyBy2()
+	{
+		int i = 0;
+		while (i < 10)
+		{
+			buffer[i] = buffer[i]*2;
+			i++;
+		}
+	}
+
+	public unsafe fun() PrintAll()
+	{
+		int i = 0;
+		while (i < 10)
+		{
+			print(buffer[i++]);
+		}
+	}
+}
+
 class Program 
 {
 	static fun(int ret) main()
@@ -161,6 +185,19 @@ class Program
 			print(foobar.GetFoo().i); // 3
 			foobar.GetFoo().i = 9;
 			print(foobar.GetFoo().i); // 9
+
+			// 0123456789
+			HasUnsafeArray& hua();
+			int i = 0;
+			while (i < 10)
+			{
+				hua.buffer[i++] = i;
+			}
+			hua.PrintAll();
+			hua.MultiplyBy2();
+			// 02481012141618
+			hua.PrintAll();
+
 		}
 
 		let baz = new Baz(1,2.5,'a');
