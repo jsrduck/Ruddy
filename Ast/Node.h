@@ -51,25 +51,6 @@ namespace Ast
 		Modifiers _mods;
 	};
 
-	class PeriodSeparatedId : public Node
-	{
-	public:
-		PeriodSeparatedId(const std::string& id) : _id(id)
-		{
-		}
-
-		PeriodSeparatedId(const std::string& lhs, const std::string& rhs) : _id(lhs + "." + rhs)
-		{
-		}
-
-		std::string Id()
-		{
-			return _id;
-		}
-	private:
-		const std::string _id;
-	};
-
 	enum TypeCheckPass
 	{
 		TYPE_CHECK_ALL = 0,

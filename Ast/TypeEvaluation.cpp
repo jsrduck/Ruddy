@@ -62,6 +62,17 @@ namespace Ast {
 		return _symbolBinding->GetTypeInfo();
 	}
 
+	std::shared_ptr<TypeInfo> Ast::PeriodSeparatedId::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
+	{
+		_symbolBinding = symbolTable->Lookup(_id, inInitializerList);
+		if (_symbolBinding == nullptr)
+		{
+			// This id isn't defined in the symbol table yet
+			throw SymbolNotDefinedException(_id);
+		}
+		return _symbolBinding->GetTypeInfo();
+	}
+
 	std::shared_ptr<TypeInfo> DereferencedExpression::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
 		_exprTypeInfo = _expr->Evaluate(symbolTable, inInitializerList);
@@ -134,12 +145,8 @@ namespace Ast {
 
 	std::shared_ptr<TypeInfo> NewExpression::EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList)
 	{
-		_symbolBinding = symbolTable->Lookup(_className, inInitializerList);
-		if (_symbolBinding == nullptr)
-		{
-			// This id isn't defined in the symbol table yet
-			throw SymbolNotDefinedException(_className);
-		}
+		auto idTypeInfo = _id->Evaluate(symbolTable, inInitializerList);
+		_symbolBinding = _id->SymbolBinding();
 		if (!_symbolBinding->IsClassBinding())
 		{
 			// This symbol exists, but it's not the name of a class

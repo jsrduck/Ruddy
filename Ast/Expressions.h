@@ -69,6 +69,31 @@ namespace Ast
 		const std::string _id;
 	};
 
+	class PeriodSeparatedId : public Expression
+	{
+	public:
+		PeriodSeparatedId(const std::string& id, FileLocation& location) : Expression(location), _id(id)
+		{
+		}
+
+		PeriodSeparatedId(const std::string& lhs, const std::string& rhs, FileLocation& location) : Expression(location), _id(lhs + "." + rhs)
+		{
+		}
+
+		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
+
+		std::string Id()
+		{
+			return _id;
+		}
+
+	protected:
+		virtual llvm::Value* CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext* context, llvm::Module * module, std::shared_ptr<TypeInfo> hint) override;
+
+	private:
+		const std::string _id;
+	};
+
 	class DereferencedExpression : public Expression
 	{
 	public:

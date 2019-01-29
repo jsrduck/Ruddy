@@ -22,8 +22,8 @@ int yylex(YYSTYPE *yylval, YYLTYPE * locType, quex::GeneratedLexer *qlex)
 		default:
 			break;
 	}
-	locType->first_line = qlex->line_number();
-	locType->first_column = qlex->column_number();
+	locType->first_line = token->line_number();
+	locType->first_column = token->column_number();
 	return (int)token->type_id();
 }
 

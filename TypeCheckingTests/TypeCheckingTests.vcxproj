@@ -170,6 +170,7 @@
   <ItemGroup>
     <ClCompile Include="ArrayTests.cpp" />
     <ClCompile Include="ClassTypesTest.cpp" />
+    <ClCompile Include="LineInformationTests.cpp" />
     <ClCompile Include="LoopTests.cpp" />
     <ClCompile Include="SerilializedSymbolTableTests.cpp" />
     <ClCompile Include="stdafx.cpp">

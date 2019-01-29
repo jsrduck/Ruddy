@@ -10,6 +10,11 @@ namespace Ast {
 		Exception();
 		std::string Message();
 
+		FileLocation Location()
+		{
+			return _location;
+		}
+
 	protected:
 		std::string _message;
 		FileLocation _location;

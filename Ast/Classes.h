@@ -266,15 +266,16 @@ namespace Ast
 	class NewExpression : public Expression
 	{
 	public:
-		NewExpression(const std::string& className, Expression* expression, FileLocation& location) :
+		NewExpression(PeriodSeparatedId* className, Expression* expression, FileLocation& location) :
 			Expression(location),
-			_className(className), _expression(expression)
+			_id(className), _expression(expression), _className(className->Id())
 		{
 		}
 
 		virtual std::shared_ptr<TypeInfo> EvaluateInternal(std::shared_ptr<SymbolTable> symbolTable, bool inInitializerList) override;
 
 		const std::string _className;
+		std::unique_ptr<PeriodSeparatedId> _id;
 		std::shared_ptr<Expression> _expression;
 
 	protected:

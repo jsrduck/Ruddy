@@ -625,6 +625,12 @@ namespace Ast {
 		}
 	}
 
+	llvm::Value * Ast::PeriodSeparatedId::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
+	{
+		// Do nothing for now.
+		return nullptr;
+	}
+
 	llvm::Value * Ast::DereferencedExpression::CodeGenInternal(llvm::IRBuilder<>* builder, llvm::LLVMContext * context, llvm::Module * module, std::shared_ptr<TypeInfo> hint)
 	{
 		auto classTypeInfo = std::dynamic_pointer_cast<BaseClassTypeInfo>(_exprTypeInfo);

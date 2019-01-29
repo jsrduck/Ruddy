@@ -300,14 +300,14 @@ namespace_declaration :
 single_identifier :
 	  TKN_IDENTIFIER
 	  {
-		$$ = new PeriodSeparatedId(*$<id>1);
+		$$ = new PeriodSeparatedId(*$<id>1, FileLocation(@1.first_line, @1.first_column));
 		delete $<id>1;
 	  };
 
 period_separated_id : 
 	  single_identifier TKN_PERIOD period_separated_id
 	  {
-		$$ = new PeriodSeparatedId($1->Id(), $3->Id());
+		$$ = new PeriodSeparatedId($1->Id(), $3->Id(), FileLocation(@1.first_line, @1.first_column));
 		delete $1;
 		delete $3;
 	  }
@@ -792,8 +792,7 @@ logical_expression:
 new_expression:
 	  TKN_NEW period_separated_id TKN_PAREN_OPEN argument_expression TKN_PAREN_CLOSE
 	  {
-		$$ = new NewExpression($2->Id(), $4, FileLocation(@1.first_line, @1.first_column));
-		delete $2;
+		$$ = new NewExpression($2, $4, FileLocation(@1.first_line, @1.first_column));
 	  };
 
 print_statement:
