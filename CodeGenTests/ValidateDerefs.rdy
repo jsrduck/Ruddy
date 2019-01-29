@@ -219,7 +219,6 @@ class Program
 		print(baz2._foo1.j);
 		print(baz2._foo2.i);
 		print(baz2._foo2.j);
-		print("\r\n");
 		// 10039.288b57593173
 		baz = new Baz(100, 39.288,'b');
 		baz._foo1.i = 57;
@@ -234,7 +233,6 @@ class Program
 		print(baz._foo1.j);
 		print(baz._foo2.i);
 		print(baz._foo2.j);
-		print("\r\n");
 		// 12.5a373737
 		print(baz2.i);
 		print(baz2.j);
@@ -246,7 +244,6 @@ class Program
 		baz._foo2 = new Foo();
 		print(baz._foo2.i);
 		print(baz._foo2.j);
-		print("\r\n");
 
 		// 1317.25c3737
 		Baz& baz3(13, 17.25, 'c');
@@ -258,7 +255,6 @@ class Program
 		print(baz3._foo1.j);
 		print(baz3._foo2.i);
 		print(baz3._foo2.j);
-		print("\r\n");
 
 		// 1317.25c3737
 		Baz& baz4 = baz3;
@@ -270,7 +266,6 @@ class Program
 		print(baz4._foo2.i);
 		print(baz4._foo2.j);
 
-		//print(MathClass.Factorial(5));
 		return 0;
 	}
 }

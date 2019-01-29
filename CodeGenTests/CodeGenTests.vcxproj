@@ -121,10 +121,11 @@
 ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt
 ValidateMixedPrimitives.exe &gt; $(TargetDir)ValidateMixedPrimitives.txt
 ValidateControlFlow.exe &gt; $(TargetDir)ValidateControlFlow.txt
-ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
+ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt
+ValidateDerefs.exe &gt; $(TargetDir)ValidateDerefs.txt</Command>
       <Message>Running test exes</Message>
-      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe;ValidateMixedPrimitives.rdy;ValidateMixedPrimitives.exe;ValidateControlFlow.rdy;ValidateControlFlow.exe;ValidateClasses.rdy;ValidateClasses.exe</Inputs>
-      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt;ValidateMixedPrimitives.txt;ValidateControlFlow.txt;ValidateClasses.txt</Outputs>
+      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe;ValidateMixedPrimitives.rdy;ValidateMixedPrimitives.exe;ValidateControlFlow.rdy;ValidateControlFlow.exe;ValidateClasses.rdy;ValidateClasses.exe;ValidateDerefs.rdy;ValidateDerefs.exe</Inputs>
+      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt;ValidateMixedPrimitives.txt;ValidateControlFlow.txt;ValidateClasses.txt;ValidateDerefs.txt</Outputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -147,10 +148,11 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
 ValidateFunctions.exe &gt; $(TargetDir)ValidateFunctions.txt
 ValidateMixedPrimitives.exe &gt; $(TargetDir)ValidateMixedPrimitives.txt
 ValidateControlFlow.exe &gt; $(TargetDir)ValidateControlFlow.txt
-ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
+ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt
+ValidateDerefs.exe &gt; $(TargetDir)ValidateDerefs.txt</Command>
       <Message>Running test exes</Message>
-      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe;ValidateMixedPrimitives.rdy;ValidateMixedPrimitives.exe;ValidateControlFlow.rdy;ValidateControlFlow.exe;ValidateClasses.rdy;ValidateClasses.exe</Inputs>
-      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt;ValidateMixedPrimitives.txt;ValidateControlFlow.txt;ValidateClasses.txt</Outputs>
+      <Inputs>ValidatePrimitives.rdy;ValidatePrimitives.exe;ValidateFunctions.rdy;ValidateFunctions.exe;ValidateMixedPrimitives.rdy;ValidateMixedPrimitives.exe;ValidateControlFlow.rdy;ValidateControlFlow.exe;ValidateClasses.rdy;ValidateClasses.exe;ValidateDerefs.rdy;ValidateDerefs.exe</Inputs>
+      <Outputs>ValidatePrimitives.txt;ValidateFunctions.txt;ValidateMixedPrimitives.txt;ValidateControlFlow.txt;ValidateClasses.txt;ValidateDerefs.txt</Outputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -275,6 +277,16 @@ ValidateClasses.exe &gt; $(TargetDir)ValidateClasses.txt</Command>
       <LinkObjects>false</LinkObjects>
       <Message>Compiling test file "ValidateClasses.rdy"</Message>
       <Command>Ruddy.exe ValidateClasses.rdy</Command>
+      <DeploymentContent>true</DeploymentContent>
+      <ExcludedFromBuild>false</ExcludedFromBuild>
+      <TreatOutputAsContent>true</TreatOutputAsContent>
+    </CustomBuild>
+    <CustomBuild Include="ValidateDerefs.rdy">
+      <FileType>Document</FileType>
+      <Outputs>ValidateDerefs.ll;ValidateDerefs.obj;ValidateDerefs.exe</Outputs>
+      <LinkObjects>false</LinkObjects>
+      <Message>Compiling test file "ValidateDerefs.rdy"</Message>
+      <Command>Ruddy.exe ValidateDerefs.rdy</Command>
       <DeploymentContent>true</DeploymentContent>
       <ExcludedFromBuild>false</ExcludedFromBuild>
       <TreatOutputAsContent>true</TreatOutputAsContent>

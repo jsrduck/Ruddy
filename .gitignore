@@ -236,3 +236,4 @@ packages/**
 CodeGenTests/ValidateClasses.exe
 *.exp
 *.lib
+CodeGenTests/ValidateDerefs.exe
